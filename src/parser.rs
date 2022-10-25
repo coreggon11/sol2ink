@@ -796,39 +796,28 @@ impl<'a> Parser<'a> {
     ///
     /// returns the event definition as `Event` struct
     fn parse_event(&mut self, comments: &[String]) -> Event {
-        let event_raw = read_until(self.chars, vec![SEMICOLON])
-            .trim()
-            .replace("( ", "(")
-            .replace(" )", ")");
+        let event_raw = read_until(self.chars, vec![SEMICOLON]);
+        let regex =
+            Regex::new(r#"(?P<name>^[A-Za-z0-9]+)\(\s*(?P<parameters>.*)\)"#)
+                .unwrap();
+        let name = capture_regex(&regex, event_raw.trim(), "name").unwrap();
+        let parameters_raw = capture_regex(&regex, event_raw.trim(), "parameters").unwrap();
+        let parameters: Vec<String> = parameters_raw.split(", ").map(|s| s.to_string()).collect();
 
-        let tokens = split(&event_raw, " ", None);
-        let mut args_reader = ArgsReader::ArgName;
-        let mut indexed = false;
-
-        let split_brace = split(&tokens[0], "(", None);
-
-        let name = split_brace[0].to_owned();
-        let mut field_type = self.convert_variable_type(split_brace[1].to_owned());
         let mut fields = Vec::<EventField>::new();
-
-        for item in tokens.iter().skip(1) {
-            let mut token = item.clone();
-            if token == "indexed" {
+        for parameter in parameters {
+            let mut indexed = false;
+            let item: Vec<String> = parameter.split_whitespace().map(|s| s.to_string()).collect();
+            let field_type = self.convert_variable_type(item[0].to_owned());
+            if item[1] == "indexed" {
                 indexed = true;
-                continue
-            } else if args_reader == ArgsReader::ArgType {
-                field_type = self.convert_variable_type(token);
-                args_reader = ArgsReader::ArgName;
-            } else {
-                token.remove_matches(&[',', ')'][..]);
-                fields.push(EventField {
-                    indexed,
-                    field_type: field_type.to_owned(),
-                    name: token.to_owned(),
-                });
-                indexed = false;
-                args_reader = ArgsReader::ArgType;
             }
+
+            fields.push( EventField {
+                indexed,
+                field_type,
+                name: item[item.len()-1].to_owned()
+            });
         }
 
         Event {
