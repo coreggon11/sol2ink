@@ -845,19 +845,16 @@ impl<'a> Parser<'a> {
     /// returns the enum as `Enum` struct
     fn parse_enum(&mut self, comments: &[String]) -> Enum {
         let enum_raw = read_until(self.chars, vec![CURLY_CLOSE]);
-        let tokens = split(&enum_raw, " ", None);
-        let name = tokens[0].to_owned();
-        let mut values = Vec::<String>::new();
 
-        for item in tokens.iter().skip(1) {
-            let mut token = item.clone();
-            if token == "{" {
-                continue
-            } else {
-                token.remove_matches(",");
-                values.push(token);
-            }
-        }
+        let regex =
+            Regex::new(r#"(?P<name>^[A-Za-z0-9]+)\s*\{\s*(?P<values>([A-Za-z0-9]+,?\s*)*)"#)
+                .unwrap();
+        let name = capture_regex(&regex, enum_raw.as_str(), "name").unwrap();
+        let mut values_raw = capture_regex(&regex, enum_raw.as_str(), "values").unwrap();
+
+        values_raw.remove_matches(",");
+        let values: Vec<String> = values_raw.split(" ").map(|s| s.to_string()).collect();
+
         Enum {
             name,
             values,
