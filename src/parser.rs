@@ -37,12 +37,6 @@ use std::{
 };
 use substring::Substring;
 
-#[derive(Debug, PartialEq, Eq)]
-enum ArgsReader {
-    ArgType,
-    ArgName,
-}
-
 macro_rules! selector {
     ($constructor:ident) => {
         if $constructor {
