@@ -317,10 +317,17 @@ fn assemble_structs(structs: Vec<Struct>) -> TokenStream {
 
         // assemble struct fields
         for struct_field in structure.fields.iter() {
+            let mut struct_field_comments = TokenStream::new();
+            for comment in struct_field.comments.iter() {
+                struct_field_comments.extend(quote! {
+                    #[doc = #comment]
+                })
+            }
             let struct_field_name = format_ident!("{}", struct_field.name.to_case(Snake));
             let struct_field_type = TokenStream::from_str(&struct_field.field_type).unwrap();
 
             struct_fields.extend(quote! {
+                #struct_field_comments
                 #struct_field_name: #struct_field_type,
             });
         }

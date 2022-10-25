@@ -97,6 +97,7 @@ pub struct Struct {
 pub struct StructField {
     pub name: String,
     pub field_type: String,
+    pub comments: Vec<String>,
 }
 
 #[derive(Default, Clone)]

@@ -852,28 +852,50 @@ impl<'a> Parser<'a> {
     ///
     /// returns the struct definition as `Struct` struct
     fn parse_struct(&mut self, comments: &[String]) -> Struct {
-        let mut struct_raw = read_until(self.chars, vec![CURLY_CLOSE]);
-        struct_raw = struct_raw.replace(" => ", "=>");
+        let struct_name = read_until(self.chars, vec![CURLY_OPEN]).trim().to_string();
+        let mut buffer = String::new();
+        for ch in self.chars.by_ref() {
+            if ch == CURLY_CLOSE {
+                break
+            }
+            buffer.push(ch);
+        }
+        let struct_raw = buffer.replace(" => ", "=>");
 
-        let regex_name = Regex::new(r#"^[A-Za-z0-9]+"#).unwrap();
-        let struct_name = regex_name
-            .find(struct_raw.as_str())
-            .map(|s| s.as_str())
-            .unwrap()
-            .to_string();
-        let regex_fields = Regex::new(r#"[A-Za-z0-9=>()]+\s+[A-Za-z0-9]+"#).unwrap();
-        let fields_raw: Vec<String> = regex_fields
+        let regex =
+            Regex::new(
+                r#"(?P<comment1>(\n\s*//.*)*|(\n\s*/\*(.*\n)*?.*\*/\s*))?(?P<field>\n\s*[A-Za-z0-9=>()]+\s+[A-Za-z0-9]+\s*;)(?P<comment2>(.*//.*)|(.*/\*(.*\n)*?.*\*/))?"#)
+                .unwrap();
+        let fields_with_comments: Vec<String> = regex
             .find_iter(struct_raw.as_str())
             .filter_map(|s| s.as_str().parse().ok())
             .collect();
 
         let mut struct_fields = Vec::<StructField>::new();
-        for field in fields_raw {
-            let items: Vec<String> = field.split(" ").map(|s| s.to_string()).collect();
+        for field_with_comments in fields_with_comments {
+            let mut field_comments = Vec::new();
+            let comment1_raw = capture_regex(&regex, field_with_comments.as_str(), "comment1")
+                .unwrap_or(String::new());
+            let comment1 = self.parse_struct_field_comment(comment1_raw);
+            if !comment1.is_empty() {
+                field_comments.push(comment1);
+            }
+
+            let comment2_raw = capture_regex(&regex, field_with_comments.as_str(), "comment2")
+                .unwrap_or(String::new());
+            let comment2 = self.parse_struct_field_comment(comment2_raw);
+            if !comment2.is_empty() {
+                field_comments.push(comment2);
+            }
+
+            let field = capture_regex(&regex, field_with_comments.as_str(), "field").unwrap();
+            let items: Vec<String> = field.trim().split(" ").map(|s| s.to_string()).collect();
             let field_type = self.convert_variable_type(items[0].to_owned());
+
             struct_fields.push(StructField {
-                name: items[1].to_owned(),
+                name: items[1].replace(";", "").to_owned(),
                 field_type,
+                comments: field_comments,
             });
         }
 
@@ -881,6 +903,28 @@ impl<'a> Parser<'a> {
             name: struct_name,
             fields: struct_fields,
             comments: comments.to_vec(),
+        }
+    }
+
+    /// Parses struct field comment
+    ///
+    /// `comment_raw` the Solidity definition of
+    /// the struct field multiline or one line comment
+    ///
+    /// returns the comment as String
+    fn parse_struct_field_comment(&mut self, mut comment_raw: String) -> String {
+        if comment_raw.is_empty() {
+            comment_raw
+        } else if comment_raw.contains("/*") {
+            comment_raw.remove_matches("/*");
+            comment_raw.remove_matches("*/");
+            let regex = Regex::new(r"(?m)^\s*\*").unwrap();
+            let comment = regex.replace_all(comment_raw.as_str(), "");
+
+            " ".to_owned() + &comment.trim().to_string()
+        } else {
+            let comment = comment_raw.replace("//", "");
+            " ".to_owned() + &comment.trim().to_string()
         }
     }
 
