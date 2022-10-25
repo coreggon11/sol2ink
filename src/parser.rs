@@ -485,49 +485,24 @@ impl<'a> Parser<'a> {
     fn parse_multiline_comment(&mut self) -> Vec<String> {
         let mut comments = Vec::<String>::new();
         let mut buffer = String::new();
-        let mut reading = false;
-        let mut new_line = false;
         let mut asterisk = false;
 
         for ch in self.chars.by_ref() {
             if ch == SLASH && asterisk {
                 if !buffer.trim().is_empty() {
-                    comments.push(format!(" {}", buffer.trim()));
+                    let regex = Regex::new(r"(?m)^\s*\*").unwrap();
+                    let comment = regex.replace_all(buffer.trim(), "");
+
+                    comments.push(format!("{}", comment));
                 }
                 break
+            } else if ch == ASTERISK {
+                asterisk = true;
             } else {
                 asterisk = false;
             }
-            match ch {
-                ASTERISK if !reading => {
-                    reading = true;
-                }
-                ASTERISK if new_line => {
-                    new_line = false;
-                }
-                NEW_LINE => {
-                    if !buffer.trim().is_empty() {
-                        comments.push(format!(" {}", buffer.trim()));
-                        buffer.clear();
-                    }
-                    new_line = true;
-                }
-                _ if !reading => {
-                    buffer.push(ch);
-                    reading = true;
-                }
-                SPACE if new_line => {}
-                _ if new_line => {
-                    buffer.push(ch);
-                    new_line = false;
-                }
-                _ => {
-                    buffer.push(ch);
-                }
-            }
-            if ch == ASTERISK {
-                asterisk = true;
-            }
+
+            buffer.push(ch);
         }
 
         comments
