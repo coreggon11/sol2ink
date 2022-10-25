@@ -797,9 +797,7 @@ impl<'a> Parser<'a> {
     /// returns the event definition as `Event` struct
     fn parse_event(&mut self, comments: &[String]) -> Event {
         let event_raw = read_until(self.chars, vec![SEMICOLON]);
-        let regex =
-            Regex::new(r#"(?P<name>^[A-Za-z0-9]+)\(\s*(?P<parameters>.*)\)"#)
-                .unwrap();
+        let regex = Regex::new(r#"(?P<name>^[A-Za-z0-9]+)\(\s*(?P<parameters>.*)\)"#).unwrap();
         let name = capture_regex(&regex, event_raw.trim(), "name").unwrap();
         let parameters_raw = capture_regex(&regex, event_raw.trim(), "parameters").unwrap();
         let parameters: Vec<String> = parameters_raw.split(", ").map(|s| s.to_string()).collect();
@@ -807,16 +805,19 @@ impl<'a> Parser<'a> {
         let mut fields = Vec::<EventField>::new();
         for parameter in parameters {
             let mut indexed = false;
-            let item: Vec<String> = parameter.split_whitespace().map(|s| s.to_string()).collect();
+            let item: Vec<String> = parameter
+                .split_whitespace()
+                .map(|s| s.to_string())
+                .collect();
             let field_type = self.convert_variable_type(item[0].to_owned());
             if item[1] == "indexed" {
                 indexed = true;
             }
 
-            fields.push( EventField {
+            fields.push(EventField {
                 indexed,
                 field_type,
-                name: item[item.len()-1].to_owned()
+                name: item[item.len() - 1].to_owned(),
             });
         }
 
@@ -996,23 +997,17 @@ impl<'a> Parser<'a> {
         let mut out = Vec::<FunctionParam>::new();
 
         if !parameters.is_empty() {
-            let tokens = split(&parameters, " ", Some(remove_commas()));
-
-            let mut mode = ArgsReader::ArgName;
-            let mut param_type = self.convert_variable_type(tokens[0].to_owned());
-
-            for item in tokens.iter().skip(1) {
-                if mode == ArgsReader::ArgType {
-                    param_type = self.convert_variable_type(item.to_owned());
-                    mode = ArgsReader::ArgName;
-                } else if mode == ArgsReader::ArgName {
-                    let name = item.to_owned();
-                    out.push(FunctionParam {
-                        name,
-                        param_type: param_type.to_owned(),
-                    });
-                    mode = ArgsReader::ArgType;
+            let tokens: Vec<String> = parameters.split(", ").map(|s| s.to_string()).collect();
+            for token in tokens {
+                let parameter: Vec<String> =
+                    token.split_whitespace().map(|s| s.to_string()).collect();
+                if parameter.len() < 2 {
+                    break
                 }
+                out.push(FunctionParam {
+                    name: parameter[1].to_owned(),
+                    param_type: self.convert_variable_type(parameter[0].to_owned()),
+                })
             }
         }
 
