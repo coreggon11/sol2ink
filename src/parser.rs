@@ -854,17 +854,27 @@ impl<'a> Parser<'a> {
     fn parse_struct(&mut self, comments: &[String]) -> Struct {
         let mut struct_raw = read_until(self.chars, vec![CURLY_CLOSE]);
         struct_raw = struct_raw.replace(" => ", "=>");
-        let split_brace = split(&struct_raw, "{", None);
-        let fields = split(split_brace[1].trim(), ";", None);
-        let struct_name = split_brace[0].to_owned();
+
+        let regex_name = Regex::new(r#"^[A-Za-z0-9]+"#).unwrap();
+        let struct_name = regex_name
+            .find(struct_raw.as_str())
+            .map(|s| s.as_str())
+            .unwrap()
+            .to_string();
+        let regex_fields = Regex::new(r#"[A-Za-z0-9=>()]+\s+[A-Za-z0-9]+"#).unwrap();
+        let fields_raw: Vec<String> = regex_fields
+            .find_iter(struct_raw.as_str())
+            .filter_map(|s| s.as_str().parse().ok())
+            .collect();
 
         let mut struct_fields = Vec::<StructField>::new();
-
-        for field in fields.iter() {
-            if field.is_empty() {
-                continue
-            }
-            struct_fields.push(self.parse_struct_field(field.trim().to_owned()));
+        for field in fields_raw {
+            let items: Vec<String> = field.split(" ").map(|s| s.to_string()).collect();
+            let field_type = self.convert_variable_type(items[0].to_owned());
+            struct_fields.push(StructField {
+                name: items[1].to_owned(),
+                field_type,
+            });
         }
 
         Struct {
@@ -872,19 +882,6 @@ impl<'a> Parser<'a> {
             fields: struct_fields,
             comments: comments.to_vec(),
         }
-    }
-
-    /// Parses struct fields
-    ///
-    /// `line` the Solidity definition of the struct field
-    ///
-    /// returns the struct field as `StructField` struct
-    fn parse_struct_field(&mut self, line: String) -> StructField {
-        let tokens = split(&line, " ", None);
-        let field_type = self.convert_variable_type(tokens[0].to_owned());
-        let mut name = tokens[1].to_owned();
-        name.remove_matches(";");
-        StructField { name, field_type }
     }
 
     /// Parses the Solidity function
