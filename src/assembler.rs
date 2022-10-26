@@ -399,6 +399,106 @@ fn assemble_constructor(constructor: Function, fields: &[ContractField]) -> Toke
     output
 }
 
+fn check_statements(statements: &Vec<Statement>) -> Vec<Statement> {
+    let mut comment = String::new();
+    let mut comment_indexes = Vec::new();
+    let mut test_statements = statements.clone();
+    let mut comments_to_remove = Vec::new();
+    let mut fixed_statements = Vec::new();
+
+    for (i, statement) in statements.iter().enumerate() {
+        match statement {
+            Statement::Catch(code) => {
+                check_statements(code);
+
+                if matches!(statements[i-1], Statement::Comment(_)) {
+                    let mut fixed_catch = code.clone();
+                    fixed_catch.insert(0, Statement::Comment(comment.to_string()));
+                    fixed_statements.insert(0, (i, Statement::Catch(fixed_catch)));
+                    comment_indexes.push(i+1);
+                    comments_to_remove.insert(0, comment_indexes);
+                }
+
+                comment = String::new();
+                comment_indexes = Vec::new();
+            }
+            Statement::Comment(current_comment) => {
+                if comment.is_empty() {
+                    comment = comment + current_comment.as_str();
+                } else {
+                    comment = comment + "\n" + current_comment.as_str();
+                }
+                comment_indexes.push(i);
+            }
+            Statement::Loop(_, _, _, code) => {
+                check_statements(code);
+                comment = String::new();
+                comment_indexes = Vec::new();
+            }
+            Statement::Else(code) => {
+                check_statements(&code);
+                if matches!(statements[i-1], Statement::Comment(_)) {
+                    let mut fixed_else = code.clone();
+                    fixed_else.insert(0, Statement::Comment(comment.to_string()));
+                    fixed_statements.insert(0, (i, Statement::Else(fixed_else)));
+                    comment_indexes.push(i+1);
+                    comments_to_remove.insert(0, comment_indexes);
+                }
+
+                comment = String::new();
+                comment_indexes = Vec::new();
+            }
+            Statement::ElseIf(_, code) => {
+                check_statements(code);
+                if matches!(statements[i-1], Statement::Comment(_)) {
+                    let mut fixed_else = code.clone();
+                    fixed_else.insert(0, Statement::Comment(comment.to_string()));
+                    fixed_statements.insert(0, (i, Statement::Else(fixed_else)));
+                    comment_indexes.push(i+1);
+                    comments_to_remove.insert(0, comment_indexes);
+                }
+
+                comment = String::new();
+                comment_indexes = Vec::new();
+            }
+            Statement::Group(code) => {
+                check_statements(code);
+                comment = String::new();
+                comment_indexes = Vec::new();
+            }
+            Statement::If(_, code) => {
+                check_statements(code);
+                comment = String::new();
+                comment_indexes = Vec::new();
+            }
+            Statement::Try(code) => {
+                check_statements(code);
+                comment = String::new();
+                comment_indexes = Vec::new();
+            }
+            Statement::While(_, _, _, code) => {
+                check_statements(code);
+                comment = String::new();
+                comment_indexes = Vec::new();
+            }
+            _ => {
+                comment = String::new();
+                comment_indexes = Vec::new();
+            }
+        }
+    }
+
+    for i in 0..fixed_statements.len() {
+        test_statements.insert(fixed_statements[i].0, fixed_statements[i].clone().1);
+        comments_to_remove[i].reverse();
+        for c in comments_to_remove[i].clone() {
+            test_statements.remove(c);
+        }
+    }
+
+    test_statements
+}
+
 /// Assembles ink! functions from the vec of parsed Function structs and return them as a vec of Strings
 fn assemble_functions(functions: Vec<Function>) -> TokenStream {
     let mut output = TokenStream::new();
@@ -412,7 +512,8 @@ fn assemble_functions(functions: Vec<Function>) -> TokenStream {
         let mut body = TokenStream::new();
         let mut comments = TokenStream::new();
         let mut function_modifiers = TokenStream::new();
-        let statements = &function.body;
+        let raw_statements = &function.body;
+        let statements = &check_statements(raw_statements);
 
         // assemble comments
         for comment in function.header.comments.iter() {
