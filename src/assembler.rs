@@ -797,6 +797,9 @@ impl ToTokens for Statement {
                     stream.extend(quote!(let #var_name : #var_type;));
                 }
             }
+            Statement::Delete(var, val) => {
+                stream.extend(quote!(#var.remove(#val);));
+            }
             Statement::Loop(assign, condition, modification, statements) => {
                 stream.extend(quote! {
                     #assign

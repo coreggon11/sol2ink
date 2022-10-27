@@ -329,6 +329,10 @@ lazy_static! {
         \s*(?P<if_false>.+?)\s*$"#,
     )
     .unwrap();
+    static ref REGEX_DELETE:Regex = Regex::new(
+        r#"^\s*delete\s*(?P<var>[A-Za-z0-9_]+)\[(?P<val>[A-Za-z0-9_]+)\]"#,
+    )
+    .unwrap();
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -1305,6 +1309,8 @@ impl<'a> Parser<'a> {
         } else if REGEX_FUNCTION_CALL.is_match(&line) {
             let expression = self.parse_function_call(&line, constructor, None);
             return Statement::FunctionCall(expression)
+        } else if REGEX_DELETE.is_match(&line) {
+            return self.parse_delete_call(&line, constructor, &REGEX_DELETE)
         }
 
         Statement::Comment(format!("Sol2Ink Not Implemented yet: {}", line.clone()))
@@ -2493,6 +2499,22 @@ impl<'a> Parser<'a> {
             selector,
             *self.functions.get(&function_name_raw).unwrap_or(&true),
         )
+    }
+
+    /// Parses a solidity delete function call
+    ///
+    /// `line` the solidity statement with delete function call
+    /// `constructor` if the statement is inside a constructor
+    /// `regex` the regex we use (delete var[val])
+    ///
+    /// Return the statement in form of `Statement::Delete`
+    fn parse_delete_call(&mut self, line: &str, constructor: bool, regex: &Regex) -> Statement {
+        let var_raw = capture_regex(&regex, line, "var").unwrap();
+        let val_raw = capture_regex(&regex, line, "val").unwrap();
+        let var = self.parse_expression(&var_raw, constructor, None);
+        let val = self.parse_expression(&val_raw, constructor, None);
+
+        Statement::Delete(var, val)
     }
 
     /// Converts solidity variable type to ink! variable type (eg. address -> AccountId, uint -> u128, ...)
