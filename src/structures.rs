@@ -28,6 +28,7 @@ pub enum ContractType {
     CONTRACT,
 }
 
+#[derive(Clone)]
 pub struct Contract {
     pub name: String,
     pub fields: Vec<ContractField>,
@@ -39,6 +40,17 @@ pub struct Contract {
     pub imports: HashSet<String>,
     pub contract_doc: Vec<String>,
     pub modifiers: Vec<Modifier>,
+}
+
+pub struct Library {
+    pub name: String,
+    pub fields: Vec<ContractField>,
+    pub events: Vec<Event>,
+    pub enums: Vec<Enum>,
+    pub structs: Vec<Struct>,
+    pub functions: Vec<Function>,
+    pub imports: HashSet<String>,
+    pub libraray_doc: Vec<String>,
 }
 
 pub struct Interface {
@@ -58,8 +70,10 @@ pub struct ContractField {
     pub comments: Vec<String>,
     pub initial_value: Option<Expression>,
     pub constant: bool,
+    pub public: bool,
 }
 
+#[derive(Clone)]
 pub struct Modifier {
     pub header: FunctionHeader,
     pub statements: Vec<Statement>,
@@ -80,6 +94,7 @@ pub struct EventField {
     pub name: String,
 }
 
+#[derive(Clone)]
 pub struct Enum {
     pub name: String,
     pub values: Vec<String>,
@@ -146,7 +161,7 @@ pub enum Statement {
     IfEnd,
     ModifierBody,
     Raw(String),
-    Require(Condition, String),
+    Require(Condition, Expression, bool),
     Return(Expression),
     Ternary(Condition, Box<Statement>, Box<Statement>),
     Try(Vec<Statement>),
@@ -223,12 +238,14 @@ impl Operation {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Expression {
+    AccountId(Option<String>),
     Arithmetic(Box<Expression>, Box<Expression>, Operation),
     Cast(bool, String, Box<Expression>),
     Condition(Box<Condition>),
     Constant(String),
     Enclosed(Box<Expression>),
     EnvCaller(Option<String>),
+    BlockTimestamp(Option<String>),
     FunctionCall(String, Vec<Expression>, Option<String>, bool),
     IsZero(Box<Expression>),
     Literal(String),

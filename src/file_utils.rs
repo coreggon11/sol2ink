@@ -56,10 +56,7 @@ pub fn read_file(path: &String) -> std::io::Result<String> {
 ///
 /// `lines` the transpiled file in the form of vec of strings
 /// each item in the vec represents a separate line in the output file
-pub fn write_file(
-    lines: TokenStream,
-    file_name: Option<String>,
-) -> std::io::Result<()> {
+pub fn write_file(lines: TokenStream, file_name: Option<String>) -> std::io::Result<()> {
     let path = file_name.unwrap_or_else(|| String::from("output"));
     create_dir_all(&path)?;
 
@@ -73,7 +70,58 @@ pub fn write_file(
     )?;
 
     let mut cargo_toml = File::create(format!("{path}/Cargo.toml"))?;
-    cargo_toml.write_all(toml_builder::generate_cargo_toml().as_bytes())?;
+    cargo_toml.write_all(toml_builder::generate_cargo_toml(None).as_bytes())?;
+
+    Ok(())
+}
+
+pub fn write_files(
+    contract: TokenStream,
+    implementation: TokenStream,
+    trait_definition: TokenStream,
+    lib_definition: TokenStream,
+    file_name: Option<String>,
+) -> std::io::Result<()> {
+    let config = Config::new_str().post_proc(PostProcess::ReplaceMarkersAndDocBlocks);
+    let rust_fmt = RustFmt::from_config(config);
+    // contract
+    let contract_path = format!(
+        "{}/contracts/contract",
+        file_name.clone().unwrap_or_else(|| String::from("output"))
+    );
+    create_dir_all(&contract_path)?;
+
+    let mut contract_file = File::create(format!("{contract_path}/lib.rs"))?;
+    contract_file.write_all(rust_fmt.format_tokens(contract).unwrap().as_bytes())?;
+
+    let mut cargo_toml = File::create(format!("{contract_path}/Cargo.toml"))?;
+    cargo_toml.write_all(
+        toml_builder::generate_cargo_toml(Some(
+            file_name.clone().unwrap_or_else(|| String::from("output")),
+        ))
+        .as_bytes(),
+    )?;
+
+    // impl
+    let base_path = file_name.clone().unwrap_or_else(|| String::from("output"));
+    create_dir_all(&base_path)?;
+
+    let mut impl_file = File::create(format!("{base_path}/impls.rs"))?;
+    impl_file.write_all(rust_fmt.format_tokens(implementation).unwrap().as_bytes())?;
+
+    // trait
+    let mut trait_file = File::create(format!("{base_path}/traits.rs"))?;
+    trait_file.write_all(rust_fmt.format_tokens(trait_definition).unwrap().as_bytes())?;
+
+    // lib
+    let lib_path = file_name.unwrap_or_else(|| String::from("output"));
+    create_dir_all(&lib_path)?;
+
+    let mut lib_file = File::create(format!("{lib_path}/lib.rs"))?;
+    lib_file.write_all(rust_fmt.format_tokens(lib_definition).unwrap().as_bytes())?;
+
+    let mut main_cargo_toml = File::create(format!("{lib_path}/Cargo.toml"))?;
+    main_cargo_toml.write_all(toml_builder::generate_cargo_toml(None).as_bytes())?;
 
     Ok(())
 }

@@ -23,7 +23,7 @@
 const INK_VERSION: &str = "~3.3.0";
 const OPENBRUSH_VERSION: &str = "2.2.0";
 
-pub fn generate_cargo_toml() -> String {
+pub fn generate_cargo_toml(mod_name: Option<String>) -> String {
     let mut out = String::new();
 
     out.push_str("[package]\n");
@@ -45,11 +45,19 @@ pub fn generate_cargo_toml() -> String {
     out.push_str("openbrush = { version = \"");
     out.push_str(OPENBRUSH_VERSION);
     out.push_str("\", default-features = false }\n");
+
+    if let Some(mod_name) = mod_name.clone() {
+        out.push_str(mod_name.as_str());
+        out.push_str(" = { path = \"../..\", default-features = false }\n");
+    }
+
     out.push('\n');
     out.push_str("[lib]\n");
     out.push_str("name = \"sol_2_ink_generated\"\n");
     out.push_str("path = \"lib.rs\"\n");
-    out.push_str("crate-type = [\"cdylib\"]\n");
+    if mod_name.is_some() {
+        out.push_str("crate-type = [\"cdylib\"]\n");
+    }
     out.push('\n');
     out.push_str("[features]\n");
     out.push_str("default = [\"std\"]\n");

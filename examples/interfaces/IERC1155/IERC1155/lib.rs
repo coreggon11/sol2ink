@@ -5,6 +5,7 @@ use ink_prelude::{
     string::String,
     vec::Vec,
 };
+use openbrush::traits::AccountId;
 /// @dev Emitted when `value` tokens of token type `id` are transferred from `from` to `to` by `operator`.
 #[ink(event)]
 pub struct TransferSingle {

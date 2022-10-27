@@ -39,6 +39,8 @@ use std::{
     env,
 };
 
+use parser::ParserOutput;
+
 use crate::parser::ParserError;
 
 fn main() {
@@ -80,21 +82,37 @@ fn run(path: &String) -> Result<(), parser::ParserError> {
     );
     let output = parser.parse_file()?;
     match output {
-        (None, None) | (Some(_), Some(_)) => Err(ParserError::FileCorrupted),
-        (Some(contract), None) => {
-            let ink_contract = assembler::assemble_contract(contract);
+        ParserOutput::Contract(contract) => {
+            let ink_contract = assembler::assemble_contract(contract.clone());
+            let implementation = assembler::assemble_impl(contract.clone());
+            let trait_definition = assembler::assemble_trait(contract);
+            let lib_definition = assembler::assemble_lib();
             let file_name = path.replace(".sol", "");
-            file_utils::write_file(ink_contract, Some(file_name))?;
+            file_utils::write_files(
+                ink_contract,
+                implementation,
+                trait_definition,
+                lib_definition,
+                Some(file_name),
+            )?;
             println!("File saved!");
             Ok(())
         }
-        (None, Some(interface)) => {
+        ParserOutput::Interface(interface) => {
             let ink_trait = assembler::assemble_interface(interface);
             let file_name = path.replace(".sol", "");
             file_utils::write_file(ink_trait, Some(file_name))?;
             println!("File saved!");
             Ok(())
         }
+        ParserOutput::Library(library) => {
+            let ink_trait = assembler::assemble_library(library);
+            let file_name = path.replace(".sol", "");
+            file_utils::write_file(ink_trait, Some(file_name))?;
+            println!("File saved!");
+            Ok(())
+        }
+        _ => Err(ParserError::FileCorrupted),
     }
 }
 
@@ -186,6 +204,14 @@ mod test {
     fn iaccess_control() {
         assert_eq!(
             run(&"examples/interfaces/IAccessControl/IAccessControl.sol".to_string()),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn safe_math() {
+        assert_eq!(
+            run(&"examples/libraries/SafeMath/SafeMath.sol".to_string()),
             Ok(())
         );
     }
