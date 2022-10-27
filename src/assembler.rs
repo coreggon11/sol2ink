@@ -399,23 +399,29 @@ fn assemble_constructor(constructor: Function, fields: &[ContractField]) -> Toke
     output
 }
 
+/// Iter by every statement in `statements` and find cases, when `Statement::Comment(_)`
+/// is between if/else, if/else if, try/catch or catch/catch blocks.
+///
+/// Moves this comment to next block start.
+///
+/// Returns fixed vector of statements.
 fn check_statements(statements: &Vec<Statement>) -> Vec<Statement> {
     let mut comment = String::new();
     let mut comment_indexes = Vec::new();
-    let mut test_statements = statements.clone();
+    let mut result = statements.clone();
     let mut comments_to_remove = Vec::new();
     let mut fixed_statements = Vec::new();
 
     for (i, statement) in statements.iter().enumerate() {
         match statement {
             Statement::Catch(code) => {
-                check_statements(code);
+                let fixed_code = check_statements(code);
 
-                if matches!(statements[i-1], Statement::Comment(_)) {
-                    let mut fixed_catch = code.clone();
+                if matches!(statements[i - 1], Statement::Comment(_)) {
+                    let mut fixed_catch = fixed_code;
                     fixed_catch.insert(0, Statement::Comment(comment.to_string()));
                     fixed_statements.insert(0, (i, Statement::Catch(fixed_catch)));
-                    comment_indexes.push(i+1);
+                    comment_indexes.push(i + 1);
                     comments_to_remove.insert(0, comment_indexes);
                 }
 
@@ -430,18 +436,20 @@ fn check_statements(statements: &Vec<Statement>) -> Vec<Statement> {
                 }
                 comment_indexes.push(i);
             }
-            Statement::Loop(_, _, _, code) => {
-                check_statements(code);
+            Statement::Loop(st1, expression, st2, code) => {
+                let fixed_code = check_statements(code);
+                result[i] =
+                    Statement::Loop(st1.clone(), expression.clone(), st2.clone(), fixed_code);
                 comment = String::new();
                 comment_indexes = Vec::new();
             }
             Statement::Else(code) => {
-                check_statements(&code);
-                if matches!(statements[i-1], Statement::Comment(_)) {
-                    let mut fixed_else = code.clone();
+                let fixed_code = check_statements(&code);
+                if matches!(statements[i - 1], Statement::Comment(_)) {
+                    let mut fixed_else = fixed_code.clone();
                     fixed_else.insert(0, Statement::Comment(comment.to_string()));
                     fixed_statements.insert(0, (i, Statement::Else(fixed_else)));
-                    comment_indexes.push(i+1);
+                    comment_indexes.push(i + 1);
                     comments_to_remove.insert(0, comment_indexes);
                 }
 
@@ -449,12 +457,12 @@ fn check_statements(statements: &Vec<Statement>) -> Vec<Statement> {
                 comment_indexes = Vec::new();
             }
             Statement::ElseIf(_, code) => {
-                check_statements(code);
-                if matches!(statements[i-1], Statement::Comment(_)) {
-                    let mut fixed_else = code.clone();
+                let fixed_code = check_statements(code);
+                if matches!(statements[i - 1], Statement::Comment(_)) {
+                    let mut fixed_else = fixed_code.clone();
                     fixed_else.insert(0, Statement::Comment(comment.to_string()));
                     fixed_statements.insert(0, (i, Statement::Else(fixed_else)));
-                    comment_indexes.push(i+1);
+                    comment_indexes.push(i + 1);
                     comments_to_remove.insert(0, comment_indexes);
                 }
 
@@ -462,22 +470,27 @@ fn check_statements(statements: &Vec<Statement>) -> Vec<Statement> {
                 comment_indexes = Vec::new();
             }
             Statement::Group(code) => {
-                check_statements(code);
+                let fixed_code = check_statements(code);
+                result[i] = Statement::Group(fixed_code);
                 comment = String::new();
                 comment_indexes = Vec::new();
             }
-            Statement::If(_, code) => {
-                check_statements(code);
+            Statement::If(condition, code) => {
+                let fixed_code = check_statements(code);
+                result[i] = Statement::If(condition.clone(), fixed_code);
                 comment = String::new();
                 comment_indexes = Vec::new();
             }
             Statement::Try(code) => {
-                check_statements(code);
+                let fixed_code = check_statements(code);
+                result[i] = Statement::Try(fixed_code);
                 comment = String::new();
                 comment_indexes = Vec::new();
             }
-            Statement::While(_, _, _, code) => {
-                check_statements(code);
+            Statement::While(st1, expression, st2, code) => {
+                let fixed_code = check_statements(code);
+                result[i] =
+                    Statement::While(st1.clone(), expression.clone(), st2.clone(), fixed_code);
                 comment = String::new();
                 comment_indexes = Vec::new();
             }
@@ -488,15 +501,16 @@ fn check_statements(statements: &Vec<Statement>) -> Vec<Statement> {
         }
     }
 
+    // insert fixed statement, then delete old statement and comments between it
     for i in 0..fixed_statements.len() {
-        test_statements.insert(fixed_statements[i].0, fixed_statements[i].clone().1);
+        result.insert(fixed_statements[i].0, fixed_statements[i].clone().1);
         comments_to_remove[i].reverse();
         for c in comments_to_remove[i].clone() {
-            test_statements.remove(c);
+            result.remove(c);
         }
     }
 
-    test_statements
+    result
 }
 
 /// Assembles ink! functions from the vec of parsed Function structs and return them as a vec of Strings
