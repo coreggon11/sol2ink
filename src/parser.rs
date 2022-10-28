@@ -1208,8 +1208,100 @@ impl<'a> Parser<'a> {
                 out.push(self.parse_statement(line_raw, constructor, &mut stack, &mut iterator));
             }
         }
+        self.check_statements(out.clone())
+    }
 
-        out
+    /// Iter by every statement in `statements` and find cases, when `Statement::Comment(_)`
+    /// is between if/else, if/else if, try/catch or catch/catch blocks.
+    ///
+    /// Moves this comment to next block start.
+    ///
+    /// Returns fixed vector of statements.
+    fn check_statements(&self, statements: Vec<Statement>) -> Vec<Statement> {
+        let mut result = statements.clone();
+        let mut comments_to_remove = Vec::new();
+        let mut statements_to_remove = Vec::new();
+        let mut fixed_statements = Vec::new();
+
+        for (index, statement) in statements.iter().enumerate() {
+            let mut comment_indexes = Vec::new();
+            let mut comments = String::new();
+
+            match statement {
+                Statement::Catch(code) => {
+                    for previous_index in (0..index).rev() {
+                        match statements[previous_index].clone() {
+                            Statement::Comment(s) => {
+                                comments = s + "\n" + &comments;
+                                comment_indexes.push(previous_index);
+                            }
+                            _ => { break; }
+                        }
+                    }
+                    if !comment_indexes.is_empty() {
+                        let mut fixed_catch = code.clone();
+                        fixed_catch.insert(0, Statement::Comment(comments.clone()));
+                        fixed_statements.insert(0, (index, Statement::Catch(fixed_catch)));
+
+                        // comments
+                        // [index] fixed statement
+                        // [index+1] old statement
+                        statements_to_remove.insert(0, index+1);
+                        comments_to_remove.insert(0, comment_indexes);
+                    }
+                }
+                Statement::Else(code) => {
+                    for previous_index in (0..index).rev() {
+                        match statements[previous_index].clone() {
+                            Statement::Comment(s) => {
+                                comments = s + "\n" + &comments;
+                                comment_indexes.push(previous_index);
+                            }
+                            _ => { break; }
+                        }
+                    }
+                    if !comment_indexes.is_empty() {
+                        let mut fixed_else = code.clone();
+                        fixed_else.insert(0, Statement::Comment(comments.clone()));
+                        fixed_statements.insert(0, (index, Statement::Else(fixed_else)));
+
+                        statements_to_remove.insert(0, comment_indexes[0]+2);
+                        comments_to_remove.insert(0, comment_indexes);
+                    }
+                }
+                Statement::ElseIf(condition,code) => {
+                    for previous_index in (0..index).rev() {
+                        match statements[previous_index].clone() {
+                            Statement::Comment(s) => {
+                                comments = s + "\n" + &comments;
+                                comment_indexes.push(previous_index);
+                            }
+                            _ => { break; }
+                        }
+                    }
+                    if !comment_indexes.is_empty() {
+                        let mut fixed_else = code.clone();
+                        fixed_else.insert(0, Statement::Comment(comments.clone()));
+                        fixed_statements.insert(0, (index, Statement::ElseIf(condition.clone(), fixed_else)));
+
+                        statements_to_remove.insert(0, comment_indexes[0]+2);
+                        comments_to_remove.insert(0, comment_indexes);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // insert fixed statement, then delete old statement and comments between it
+        for i in 0..fixed_statements.len() {
+            result.insert(fixed_statements[i].0, fixed_statements[i].clone().1);
+            result.remove(statements_to_remove[i]);
+            for c in comments_to_remove[i].clone() {
+                result.remove(c);
+            }
+        }
+
+        result
     }
 
     /// Parses a soldity statement and returns it in a form of `Statement`
@@ -1735,16 +1827,20 @@ impl<'a> Parser<'a> {
         statements: &mut Vec<Statement>,
         until: Statement,
     ) {
+        let mut out = Vec::new();
         while let Some(statement_raw) = iterator.next() {
             if let Statement::Raw(line_raw) = statement_raw {
                 let statement = self.parse_statement(line_raw, constructor, stack, iterator);
                 if statement == until {
                     break
                 } else {
-                    statements.push(statement)
+                    out.push(statement)
                 }
             }
         }
+
+        let mut result = self.check_statements(out.clone());
+        statements.append(&mut result);
     }
 
     /// Parses a solidity assembly statement and the statements inside the assembly block
