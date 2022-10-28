@@ -1235,7 +1235,9 @@ impl<'a> Parser<'a> {
                                 comments = s + "\n" + &comments;
                                 comment_indexes.push(previous_index);
                             }
-                            _ => { break; }
+                            _ => {
+                                break
+                            }
                         }
                     }
                     if !comment_indexes.is_empty() {
@@ -1246,7 +1248,7 @@ impl<'a> Parser<'a> {
                         // comments
                         // [index] fixed statement
                         // [index+1] old statement
-                        statements_to_remove.insert(0, index+1);
+                        statements_to_remove.insert(0, index + 1);
                         comments_to_remove.insert(0, comment_indexes);
                     }
                 }
@@ -1257,7 +1259,9 @@ impl<'a> Parser<'a> {
                                 comments = s + "\n" + &comments;
                                 comment_indexes.push(previous_index);
                             }
-                            _ => { break; }
+                            _ => {
+                                break
+                            }
                         }
                     }
                     if !comment_indexes.is_empty() {
@@ -1265,26 +1269,29 @@ impl<'a> Parser<'a> {
                         fixed_else.insert(0, Statement::Comment(comments.clone()));
                         fixed_statements.insert(0, (index, Statement::Else(fixed_else)));
 
-                        statements_to_remove.insert(0, comment_indexes[0]+2);
+                        statements_to_remove.insert(0, index + 1);
                         comments_to_remove.insert(0, comment_indexes);
                     }
                 }
-                Statement::ElseIf(condition,code) => {
+                Statement::ElseIf(condition, code) => {
                     for previous_index in (0..index).rev() {
                         match statements[previous_index].clone() {
                             Statement::Comment(s) => {
                                 comments = s + "\n" + &comments;
                                 comment_indexes.push(previous_index);
                             }
-                            _ => { break; }
+                            _ => {
+                                break
+                            }
                         }
                     }
                     if !comment_indexes.is_empty() {
                         let mut fixed_else = code.clone();
                         fixed_else.insert(0, Statement::Comment(comments.clone()));
-                        fixed_statements.insert(0, (index, Statement::ElseIf(condition.clone(), fixed_else)));
+                        fixed_statements
+                            .insert(0, (index, Statement::ElseIf(condition.clone(), fixed_else)));
 
-                        statements_to_remove.insert(0, comment_indexes[0]+2);
+                        statements_to_remove.insert(0, index + 1);
                         comments_to_remove.insert(0, comment_indexes);
                     }
                 }
@@ -1839,8 +1846,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let mut result = self.check_statements(out.clone());
-        statements.append(&mut result);
+        statements.append(&mut self.check_statements(out.clone()))
     }
 
     /// Parses a solidity assembly statement and the statements inside the assembly block
