@@ -189,7 +189,7 @@ fn assemble_events(events: Vec<Event>) -> TokenStream {
     let mut output = TokenStream::new();
 
     for event in events.iter() {
-        let event_name = TokenStream::from_str(&event.name).unwrap();
+        let event_name = format_ident!("{}", event.name.to_case(Pascal));
         let mut event_comments = TokenStream::new();
         let mut event_fields = TokenStream::new();
 

@@ -791,7 +791,7 @@ impl<'a> Parser<'a> {
     /// returns the event definition as `Event` struct
     fn parse_event(&mut self, comments: &[String]) -> Event {
         let event_raw = read_until(self.chars, vec![SEMICOLON]);
-        let regex = Regex::new(r#"(?P<name>^[A-Za-z0-9]+)\(\s*(?P<parameters>.*)\)"#).unwrap();
+        let regex = Regex::new(r#"(?P<name>^[A-Za-z0-9_]+)\(\s*(?P<parameters>.*)\)"#).unwrap();
         let name = capture_regex(&regex, event_raw.trim(), "name").unwrap();
         let parameters_raw = capture_regex(&regex, event_raw.trim(), "parameters").unwrap();
         let parameters: Vec<String> = parameters_raw.split(", ").map(|s| s.to_string()).collect();
@@ -831,7 +831,7 @@ impl<'a> Parser<'a> {
         let enum_raw = read_until(self.chars, vec![CURLY_CLOSE]);
 
         let regex =
-            Regex::new(r#"(?P<name>^[A-Za-z0-9]+)\s*\{\s*(?P<values>([A-Za-z0-9]+,?\s*)*)"#)
+            Regex::new(r#"(?P<name>^[A-Za-z0-9_]+)\s*\{\s*(?P<values>([A-Za-z0-9_]+,?\s*)*)"#)
                 .unwrap();
         let name = capture_regex(&regex, enum_raw.as_str(), "name").unwrap();
         let mut values_raw = capture_regex(&regex, enum_raw.as_str(), "values").unwrap();
@@ -862,10 +862,13 @@ impl<'a> Parser<'a> {
         }
         let struct_raw = buffer.replace(" => ", "=>");
 
-        let regex =
-            Regex::new(
-                r#"(?P<comment1>(\n\s*//.*)*|(\n\s*/\*(.*\n)*?.*\*/\s*))?(?P<field>\n\s*[A-Za-z0-9=>()]+\s+[A-Za-z0-9]+\s*;)(?P<comment2>(.*//.*)|(.*/\*(.*\n)*?.*\*/))?"#)
-                .unwrap();
+        let regex = Regex::new(
+            r#"(?x)
+                (?P<comment1>(\n\s*//.*)*|(\n\s*/\*(.*\n)*?.*\*/\s*))?
+                (?P<field>\n\s*[A-Za-z0-9=>()]+\s+[A-Za-z0-9]+\s*;)
+                (?P<comment2>(.*//.*)|(.*/\*(.*\n)*?.*\*/))?"#,
+        )
+        .unwrap();
         let fields_with_comments: Vec<String> = regex
             .find_iter(struct_raw.as_str())
             .filter_map(|s| s.as_str().parse().ok())
