@@ -82,7 +82,13 @@ pub struct EventField {
 
 pub struct Enum {
     pub name: String,
-    pub values: Vec<String>,
+    pub values: Vec<EnumField>,
+    pub comments: Vec<String>,
+}
+
+#[derive(Default, Clone)]
+pub struct EnumField {
+    pub name: String,
     pub comments: Vec<String>,
 }
 

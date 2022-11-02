@@ -165,9 +165,16 @@ fn assemble_enums(enums: Vec<Enum>) -> TokenStream {
 
         // assemble enum values
         for value in enumeration.values.iter() {
-            let value_name = TokenStream::from_str(&value.to_case(Pascal)).unwrap();
+            let value_name = TokenStream::from_str(&value.name.to_case(Pascal)).unwrap();
+            let mut value_comment = TokenStream::new();
+            for comment in value.comments.iter() {
+                value_comment.extend(quote! {
+                    #[doc = #comment]
+                })
+            }
 
             values.extend(quote! {
+                #value_comment
                 #value_name,
             });
         }
@@ -189,7 +196,7 @@ fn assemble_events(events: Vec<Event>) -> TokenStream {
     let mut output = TokenStream::new();
 
     for event in events.iter() {
-        let event_name = format_ident!("{}", event.name.to_case(Pascal));
+        let event_name = TokenStream::from_str(&event.name).unwrap();
         let mut event_comments = TokenStream::new();
         let mut event_fields = TokenStream::new();
 

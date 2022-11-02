@@ -828,20 +828,53 @@ impl<'a> Parser<'a> {
     ///
     /// returns the enum as `Enum` struct
     fn parse_enum(&mut self, comments: &[String]) -> Enum {
-        let enum_raw = read_until(self.chars, vec![CURLY_CLOSE]);
+        let name = read_until(self.chars, vec![CURLY_OPEN]).trim().to_string();
+        let mut enum_raw = String::new();
+        for ch in self.chars.by_ref() {
+            if ch == CURLY_CLOSE {
+                break
+            }
+            enum_raw.push(ch);
+        }
 
-        let regex =
-            Regex::new(r#"(?P<name>^[A-Za-z0-9_]+)\s*\{\s*(?P<values>([A-Za-z0-9_]+,?\s*)*)"#)
-                .unwrap();
-        let name = capture_regex(&regex, enum_raw.as_str(), "name").unwrap();
-        let mut values_raw = capture_regex(&regex, enum_raw.as_str(), "values").unwrap();
+        let regex = Regex::new(
+            r#"(?x)
+                (?P<comment1>(\n\s*//.*)*|(\n\s*/\*(.*\n)*?.*\*/\s*))?
+                (?P<field>\n?\s*[A-Za-z0-9]+\s*,?)
+                (?P<comment2>(.*//.*)|(.*/\*(.*\n)*?.*\*/))?"#,
+        )
+        .unwrap();
+        let fields_with_comments: Vec<String> = regex
+            .find_iter(enum_raw.as_str())
+            .filter_map(|s| s.as_str().parse().ok())
+            .collect();
 
-        values_raw.remove_matches(",");
-        let values: Vec<String> = values_raw.split(" ").map(|s| s.to_string()).collect();
+        let mut enum_fields = Vec::<EnumField>::new();
+        for field_with_comments in fields_with_comments {
+            let mut field_comments = Vec::new();
+            self.add_field_comment(
+                &mut field_comments,
+                field_with_comments.as_str(),
+                &regex,
+                "comment1",
+            );
+            self.add_field_comment(
+                &mut field_comments,
+                field_with_comments.as_str(),
+                &regex,
+                "comment2",
+            );
+            let field = capture_regex(&regex, field_with_comments.as_str(), "field").unwrap();
+
+            enum_fields.push(EnumField {
+                name: field.trim().replace(",", ""),
+                comments: field_comments,
+            });
+        }
 
         Enum {
             name,
-            values,
+            values: enum_fields,
             comments: comments.to_vec(),
         }
     }
@@ -877,19 +910,18 @@ impl<'a> Parser<'a> {
         let mut struct_fields = Vec::<StructField>::new();
         for field_with_comments in fields_with_comments {
             let mut field_comments = Vec::new();
-            let comment1_raw = capture_regex(&regex, field_with_comments.as_str(), "comment1")
-                .unwrap_or(String::new());
-            let comment1 = self.parse_struct_field_comment(comment1_raw);
-            if !comment1.is_empty() {
-                field_comments.push(comment1);
-            }
-
-            let comment2_raw = capture_regex(&regex, field_with_comments.as_str(), "comment2")
-                .unwrap_or(String::new());
-            let comment2 = self.parse_struct_field_comment(comment2_raw);
-            if !comment2.is_empty() {
-                field_comments.push(comment2);
-            }
+            self.add_field_comment(
+                &mut field_comments,
+                field_with_comments.as_str(),
+                &regex,
+                "comment1",
+            );
+            self.add_field_comment(
+                &mut field_comments,
+                field_with_comments.as_str(),
+                &regex,
+                "comment2",
+            );
 
             let field = capture_regex(&regex, field_with_comments.as_str(), "field").unwrap();
             let items: Vec<String> = field.trim().split(" ").map(|s| s.to_string()).collect();
@@ -906,6 +938,26 @@ impl<'a> Parser<'a> {
             name: struct_name,
             fields: struct_fields,
             comments: comments.to_vec(),
+        }
+    }
+
+    /// Add field comment to struct or enum
+    ///
+    /// `field_comments` the vector with comments
+    /// `line` the string on which we will use the regex
+    /// `regex` the regex to use
+    /// `capture_name` the name of the group to capture
+    fn add_field_comment(
+        &mut self,
+        field_comments: &mut Vec<String>,
+        line: &str,
+        regex: &Regex,
+        capture_name: &str,
+    ) {
+        let comment_raw = capture_regex(&regex, line, capture_name).unwrap_or(String::new());
+        let comment = self.parse_struct_field_comment(comment_raw);
+        if !comment.is_empty() {
+            field_comments.push(comment);
         }
     }
 
