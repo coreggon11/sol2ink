@@ -799,7 +799,7 @@ impl ToTokens for Statement {
             }
             Statement::Delete(var, val) => {
                 if val.clone().len() == 1 {
-                    stream.extend(quote!(#var.remove(#(#val)*);));
+                    stream.extend(quote!(#var.remove(#(&#val)*);));
                 } else {
                     stream.extend(quote!(#var.remove(&(#(#val,)*));));
                 }
