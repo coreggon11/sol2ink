@@ -798,7 +798,11 @@ impl ToTokens for Statement {
                 }
             }
             Statement::Delete(var, val) => {
-                stream.extend(quote!(#var.remove(#val);));
+                if val.clone().len() == 1 {
+                    stream.extend(quote!(#var.remove(#(#val)*);));
+                } else {
+                    stream.extend(quote!(#var.remove(&(#(#val,)*));));
+                }
             }
             Statement::Loop(assign, condition, modification, statements) => {
                 stream.extend(quote! {

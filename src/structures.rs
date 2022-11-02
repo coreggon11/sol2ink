@@ -131,7 +131,7 @@ pub enum Statement {
     CatchEnd,
     Comment(String),
     Declaration(String, String, Option<Expression>),
-    Delete(Expression, Expression),
+    Delete(Expression, Vec<Expression>),
     Loop(
         Option<Box<Statement>>,
         Expression,

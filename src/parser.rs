@@ -330,7 +330,7 @@ lazy_static! {
     )
     .unwrap();
     static ref REGEX_DELETE:Regex = Regex::new(
-        r#"^\s*delete\s*(?P<var>[A-Za-z0-9_]+)\[(?P<val>[A-Za-z0-9_]+)\]"#,
+        r#"^\s*delete\s+(?P<var>[A-Za-z0-9_.]+)(?P<val>.+);"#,
     )
     .unwrap();
 }
@@ -2511,8 +2511,18 @@ impl<'a> Parser<'a> {
     fn parse_delete_call(&mut self, line: &str, constructor: bool, regex: &Regex) -> Statement {
         let var_raw = capture_regex(&regex, line, "var").unwrap();
         let val_raw = capture_regex(&regex, line, "val").unwrap();
+
+        let values_regex = Regex::new(r#"[^\[\]]+"#).unwrap();
+        let values: Vec<String> = values_regex
+            .find_iter(val_raw.as_str())
+            .filter_map(|s| s.as_str().parse().ok())
+            .collect();
+
         let var = self.parse_expression(&var_raw, constructor, None);
-        let val = self.parse_expression(&val_raw, constructor, None);
+        let mut val= Vec::new();
+        for value in values {
+            val.push(self.parse_expression(&value, constructor, None));
+        }
 
         Statement::Delete(var, val)
     }
