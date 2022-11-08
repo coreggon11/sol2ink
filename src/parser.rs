@@ -333,6 +333,9 @@ lazy_static! {
         r#"^\s*delete\s+(?P<var>[A-Za-z0-9_.]+)(?P<val>.+);"#,
     )
     .unwrap();
+    static ref REGEX_BREAK:Regex = Regex::new(
+        r#"^\s*break\s*;"#,
+    ).unwrap();
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -1311,6 +1314,8 @@ impl<'a> Parser<'a> {
             return Statement::FunctionCall(expression)
         } else if REGEX_DELETE.is_match(&line) {
             return self.parse_delete_call(&line, constructor, &REGEX_DELETE)
+        } else if REGEX_BREAK.is_match(&line) {
+            return Statement::Break
         }
 
         Statement::Comment(format!("Sol2Ink Not Implemented yet: {}", line.clone()))
