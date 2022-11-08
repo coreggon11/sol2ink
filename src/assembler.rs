@@ -774,7 +774,7 @@ impl ToTokens for Statement {
                     #left #operation #right;
                 })
             }
-            Statement::Break => stream.extend(quote! {break;}),
+            Statement::Break => stream.extend(quote! {break}),
             Statement::Catch(statements) => {
                 stream.extend(quote! {
                     else if false {
