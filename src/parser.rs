@@ -1225,23 +1225,17 @@ impl<'a> Parser<'a> {
 
         for (index, statement) in statements.iter().enumerate() {
             let mut comment_indexes = Vec::new();
-            let mut comments = String::new();
 
             match statement {
                 Statement::Catch(code) => {
-                    for previous_index in (0..index).rev() {
-                        match statements[previous_index].clone() {
-                            Statement::Comment(s) => {
-                                comments = s + "\n" + &comments;
-                                comment_indexes.push(previous_index);
-                            }
-                            _ => break,
-                        }
-                    }
+                    let mut comments = self.find_previous_comments(
+                        statements.clone(),
+                        index,
+                        &mut comment_indexes,
+                    );
                     if !comment_indexes.is_empty() {
-                        let mut fixed_catch = code.clone();
-                        fixed_catch.insert(0, Statement::Comment(comments.clone()));
-                        fixed_statements.insert(0, (index, Statement::Catch(fixed_catch)));
+                        comments.append(&mut code.clone());
+                        fixed_statements.insert(0, (index, Statement::Catch(comments)));
 
                         // comments
                         // [index] fixed statement
@@ -1251,40 +1245,28 @@ impl<'a> Parser<'a> {
                     }
                 }
                 Statement::Else(code) => {
-                    for previous_index in (0..index).rev() {
-                        match statements[previous_index].clone() {
-                            Statement::Comment(s) => {
-                                comments = s + "\n" + &comments;
-                                comment_indexes.push(previous_index);
-                            }
-                            _ => break,
-                        }
-                    }
+                    let mut comments = self.find_previous_comments(
+                        statements.clone(),
+                        index,
+                        &mut comment_indexes,
+                    );
                     if !comment_indexes.is_empty() {
-                        let mut fixed_else = code.clone();
-                        fixed_else.insert(0, Statement::Comment(comments.clone()));
-                        fixed_statements.insert(0, (index, Statement::Else(fixed_else)));
-
+                        comments.append(&mut code.clone());
+                        fixed_statements.insert(0, (index, Statement::Else(comments)));
                         statements_to_remove.insert(0, index + 1);
                         comments_to_remove.insert(0, comment_indexes);
                     }
                 }
                 Statement::ElseIf(condition, code) => {
-                    for previous_index in (0..index).rev() {
-                        match statements[previous_index].clone() {
-                            Statement::Comment(s) => {
-                                comments = s + "\n" + &comments;
-                                comment_indexes.push(previous_index);
-                            }
-                            _ => break,
-                        }
-                    }
+                    let mut comments = self.find_previous_comments(
+                        statements.clone(),
+                        index,
+                        &mut comment_indexes,
+                    );
                     if !comment_indexes.is_empty() {
-                        let mut fixed_else = code.clone();
-                        fixed_else.insert(0, Statement::Comment(comments.clone()));
+                        comments.append(&mut code.clone());
                         fixed_statements
-                            .insert(0, (index, Statement::ElseIf(condition.clone(), fixed_else)));
-
+                            .insert(0, (index, Statement::ElseIf(condition.clone(), comments)));
                         statements_to_remove.insert(0, index + 1);
                         comments_to_remove.insert(0, comment_indexes);
                     }
@@ -1303,6 +1285,25 @@ impl<'a> Parser<'a> {
         }
 
         result
+    }
+
+    fn find_previous_comments(
+        &self,
+        statements: Vec<Statement>,
+        last_index: usize,
+        indexes_to_remove: &mut Vec<usize>,
+    ) -> Vec<Statement> {
+        let mut comments = Vec::new();
+        for previous_index in (0..last_index).rev() {
+            match statements[previous_index].clone() {
+                Statement::Comment(s) => {
+                    comments.push(Statement::Comment(s.clone()));
+                    indexes_to_remove.push(previous_index);
+                }
+                _ => break,
+            }
+        }
+        comments
     }
 
     /// Parses a soldity statement and returns it in a form of `Statement`
@@ -1886,7 +1887,7 @@ impl<'a> Parser<'a> {
         statement: Statement,
         code: Vec<Statement>,
     ) -> Option<Vec<Statement>> {
-        let mut comments = self.find_previous_comments(statements);
+        let mut comments = self.find_previous_comments_for_block(statements);
         if comments.is_empty() {
             statements.push(statement);
             None
@@ -1896,7 +1897,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn find_previous_comments(&self, statements: &mut Vec<Statement>) -> Vec<Statement> {
+    fn find_previous_comments_for_block(&self, statements: &mut Vec<Statement>) -> Vec<Statement> {
         let mut comments = Vec::new();
         while let Some(Statement::Comment(s)) = statements.iter().last() {
             comments.push(Statement::Comment(s.clone()));
