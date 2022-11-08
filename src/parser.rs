@@ -1836,33 +1836,39 @@ impl<'a> Parser<'a> {
                 } else {
                     match statement.clone() {
                         Statement::Catch(code) => {
-                            let comments = self.check_block_statements(statements);
-                            if comments.is_empty() {
-                                statements.push(statement);
-                            } else {
-                                let mut fixed_catch = code.clone();
-                                fixed_catch.insert(0, Statement::Comment(comments.clone()));
-                                statements.push(Statement::Catch(fixed_catch));
+                            match self.push_statement_or_return_comments(
+                                statements,
+                                statement,
+                                code.clone(),
+                            ) {
+                                Some(comments) => {
+                                    statements.push(Statement::Catch(comments));
+                                }
+                                None => {}
                             }
                         }
                         Statement::Else(code) => {
-                            let comments = self.check_block_statements(statements);
-                            if comments.is_empty() {
-                                statements.push(statement);
-                            } else {
-                                let mut fixed_else = code.clone();
-                                fixed_else.insert(0, Statement::Comment(comments.clone()));
-                                statements.push(Statement::Else(fixed_else));
+                            match self.push_statement_or_return_comments(
+                                statements,
+                                statement,
+                                code.clone(),
+                            ) {
+                                Some(comments) => {
+                                    statements.push(Statement::Else(comments));
+                                }
+                                None => {}
                             }
                         }
                         Statement::ElseIf(condition, code) => {
-                            let comments = self.check_block_statements(statements);
-                            if comments.is_empty() {
-                                statements.push(statement);
-                            } else {
-                                let mut fixed_else = code.clone();
-                                fixed_else.insert(0, Statement::Comment(comments.clone()));
-                                statements.push(Statement::ElseIf(condition, fixed_else));
+                            match self.push_statement_or_return_comments(
+                                statements,
+                                statement,
+                                code.clone(),
+                            ) {
+                                Some(comments) => {
+                                    statements.push(Statement::ElseIf(condition, comments));
+                                }
+                                None => {}
                             }
                         }
                         _ => {
@@ -1874,16 +1880,27 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn check_block_statements(&self, statements: &mut Vec<Statement>) -> String {
-        let mut comments = String::new();
-        loop {
-            match statements[statements.len() - 1].clone() {
-                Statement::Comment(s) => {
-                    comments = s + "\n" + &comments;
-                    statements.pop();
-                }
-                _ => break,
-            }
+    fn push_statement_or_return_comments(
+        &self,
+        statements: &mut Vec<Statement>,
+        statement: Statement,
+        code: Vec<Statement>,
+    ) -> Option<Vec<Statement>> {
+        let mut comments = self.find_previous_comments(statements);
+        if comments.is_empty() {
+            statements.push(statement);
+            None
+        } else {
+            comments.append(&mut code.clone());
+            Some(comments)
+        }
+    }
+
+    fn find_previous_comments(&self, statements: &mut Vec<Statement>) -> Vec<Statement> {
+        let mut comments = Vec::new();
+        while let Some(Statement::Comment(s)) = statements.iter().last() {
+            comments.push(Statement::Comment(s.clone()));
+            statements.pop();
         }
         comments
     }
