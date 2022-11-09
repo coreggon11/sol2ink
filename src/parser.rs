@@ -1214,8 +1214,8 @@ impl<'a> Parser<'a> {
                             parsed_statement.clone(),
                             code.clone(),
                         ) {
-                            Some(comments) => {
-                                out.push(Statement::Catch(comments));
+                            Some(fixed_code) => {
+                                out.push(Statement::Catch(fixed_code));
                             }
                             None => {}
                         }
@@ -1226,8 +1226,8 @@ impl<'a> Parser<'a> {
                             parsed_statement.clone(),
                             code.clone(),
                         ) {
-                            Some(comments) => {
-                                out.push(Statement::Else(comments));
+                            Some(fixed_code) => {
+                                out.push(Statement::Else(fixed_code));
                             }
                             None => {}
                         }
@@ -1238,8 +1238,8 @@ impl<'a> Parser<'a> {
                             parsed_statement.clone(),
                             code.clone(),
                         ) {
-                            Some(comments) => {
-                                out.push(Statement::ElseIf(condition, comments));
+                            Some(fixed_code) => {
+                                out.push(Statement::ElseIf(condition, fixed_code));
                             }
                             None => {}
                         }
@@ -1790,8 +1790,8 @@ impl<'a> Parser<'a> {
                                 statement,
                                 code.clone(),
                             ) {
-                                Some(comments) => {
-                                    statements.push(Statement::Catch(comments));
+                                Some(fixed_code) => {
+                                    statements.push(Statement::Catch(fixed_code));
                                 }
                                 None => {}
                             }
@@ -1802,8 +1802,8 @@ impl<'a> Parser<'a> {
                                 statement,
                                 code.clone(),
                             ) {
-                                Some(comments) => {
-                                    statements.push(Statement::Else(comments));
+                                Some(fixed_code) => {
+                                    statements.push(Statement::Else(fixed_code));
                                 }
                                 None => {}
                             }
@@ -1814,8 +1814,8 @@ impl<'a> Parser<'a> {
                                 statement,
                                 code.clone(),
                             ) {
-                                Some(comments) => {
-                                    statements.push(Statement::ElseIf(condition, comments));
+                                Some(fixed_code) => {
+                                    statements.push(Statement::ElseIf(condition, fixed_code));
                                 }
                                 None => {}
                             }
