@@ -2518,7 +2518,7 @@ impl<'a> Parser<'a> {
         let value = self.parse_expression(&value_raw, constructor, None);
         return match value {
             Expression::Mapping(name, indices, _) => Statement::Delete(name, indices),
-            _ => Statement::Comment(value_raw),
+            _ => Statement::Comment(format!("Failed to parse delete {value_raw}")),
         }
     }
 
