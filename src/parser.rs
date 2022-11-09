@@ -329,6 +329,10 @@ lazy_static! {
         \s*(?P<if_false>.+?)\s*$"#,
     )
     .unwrap();
+    static ref REGEX_DELETE:Regex = Regex::new(
+        r#"^\s*delete\s+(?P<value>.+)\s*;"#,
+    )
+    .unwrap();
     static ref REGEX_BREAK:Regex = Regex::new(
         r#"^\s*break\s*;"#,
     ).unwrap();
@@ -1308,6 +1312,8 @@ impl<'a> Parser<'a> {
         } else if REGEX_FUNCTION_CALL.is_match(&line) {
             let expression = self.parse_function_call(&line, constructor, None);
             return Statement::FunctionCall(expression)
+        } else if REGEX_DELETE.is_match(&line) {
+            return self.parse_delete(&line, constructor, &REGEX_DELETE)
         } else if REGEX_BREAK.is_match(&line) {
             return Statement::Break
         }
@@ -2170,7 +2176,7 @@ impl<'a> Parser<'a> {
         let regex_mapping = Regex::new(
             r#"(?x)
             ^\s*(?P<mapping_name>.+?)\s*
-            (?P<index>(\[\s*.+\s*\]))+?
+            (?P<index>(\[\s*.+\s*]))+?
             \s*$"#,
         )
         .unwrap();
@@ -2441,14 +2447,14 @@ impl<'a> Parser<'a> {
 
         if TYPES.contains_key(&function_name_raw.as_str()) {
             let the_type = TYPES.get(&function_name_raw.as_str()).unwrap();
-            if let Some(unique_cast) = the_type.1 {
-                return Expression::Cast(
+            return if let Some(unique_cast) = the_type.1 {
+                Expression::Cast(
                     true,
                     unique_cast.to_string(),
                     bx!(self.parse_expression(&args_raw, constructor, enclosed_expressions)),
                 )
             } else {
-                return Expression::Cast(
+                Expression::Cast(
                     false,
                     the_type.0.to_string(),
                     bx!(self.parse_expression(&args_raw, constructor, enclosed_expressions)),
@@ -2498,6 +2504,22 @@ impl<'a> Parser<'a> {
             selector,
             *self.functions.get(&function_name_raw).unwrap_or(&true),
         )
+    }
+
+    /// Parses a solidity delete function call
+    ///
+    /// `line` the solidity statement with delete function call
+    /// `constructor` if the statement is inside a constructor
+    /// `regex` the regex we use (delete var[val])
+    ///
+    /// Return the statement in form of `Statement::Delete`
+    fn parse_delete(&mut self, line: &str, constructor: bool, regex: &Regex) -> Statement {
+        let value_raw = capture_regex(&regex, line, "value").unwrap();
+        let value = self.parse_expression(&value_raw, constructor, None);
+        return match value {
+            Expression::Mapping(name, indices, _) => Statement::Delete(name, indices),
+            _ => Statement::Comment(format!("Failed to parse delete {value_raw}")),
+        }
     }
 
     /// Converts solidity variable type to ink! variable type (eg. address -> AccountId, uint -> u128, ...)

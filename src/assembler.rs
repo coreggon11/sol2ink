@@ -798,6 +798,13 @@ impl ToTokens for Statement {
                     stream.extend(quote!(let #var_name : #var_type;));
                 }
             }
+            Statement::Delete(mapping, index) => {
+                if index.clone().len() == 1 {
+                    stream.extend(quote!(#mapping.remove(#(&#index)*);));
+                } else {
+                    stream.extend(quote!(#mapping.remove(&(#(#index,)*));));
+                }
+            }
             Statement::Loop(assign, condition, modification, statements) => {
                 stream.extend(quote! {
                     #assign
