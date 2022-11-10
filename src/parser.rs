@@ -839,9 +839,9 @@ impl<'a> Parser<'a> {
 
         let regex = Regex::new(
             r#"(?x)
-                (?P<comment1>(\n\s*//.*)*|(\n\s*/\*(.*\n)*?.*\*/\s*))?
+                (?P<comment1>(\n\s*//.*)*|(\n?\s*/\*(.*\n?)*?.*?\*/\s*))?
                 (?P<field>\n?\s*[A-Za-z0-9]+\s*,?)
-                (?P<comment2>(.*//.*)|(.*/\*(.*\n)*?.*\*/))?"#,
+                (?P<comment2>(.*//.*)|(.*?/\*(.*\n?)*?.*\*/))?"#,
         )
         .unwrap();
         let fields_with_comments: Vec<String> = regex
