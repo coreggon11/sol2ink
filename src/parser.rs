@@ -1848,9 +1848,8 @@ impl<'a> Parser<'a> {
 
     fn find_previous_comments(&self, statements: &mut Vec<Statement>) -> Vec<Statement> {
         let mut comments = Vec::new();
-        while let Some(Statement::Comment(s)) = statements.iter().last() {
-            comments.push(Statement::Comment(s.clone()));
-            statements.pop();
+        while let Some(Statement::Comment(_)) = statements.iter().last() {
+            comments.push(statements.pop().unwrap())
         }
         comments
     }
