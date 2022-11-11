@@ -78,6 +78,7 @@ pub struct EventField {
     pub indexed: bool,
     pub field_type: String,
     pub name: String,
+    pub comments: Vec<String>,
 }
 
 pub struct Enum {

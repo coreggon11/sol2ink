@@ -790,34 +790,58 @@ impl<'a> Parser<'a> {
     ///
     /// returns the event definition as `Event` struct
     fn parse_event(&mut self, comments: &[String]) -> Event {
-        let event_raw = read_until(self.chars, vec![SEMICOLON]);
-        let regex = Regex::new(r#"(?P<name>^[A-Za-z0-9_]+)\(\s*(?P<parameters>.*)\)"#).unwrap();
-        let name = capture_regex(&regex, event_raw.trim(), "name").unwrap();
-        let parameters_raw = capture_regex(&regex, event_raw.trim(), "parameters").unwrap();
-        let parameters: Vec<String> = parameters_raw.split(", ").map(|s| s.to_string()).collect();
+        let name = read_until(self.chars, vec![PARENTHESIS_OPEN])
+            .trim()
+            .to_string();
+        let event_raw = self.read_struct_fields(SEMICOLON);
 
-        let mut fields = Vec::<EventField>::new();
-        for parameter in parameters {
-            let mut indexed = false;
-            let item: Vec<String> = parameter
-                .split_whitespace()
-                .map(|s| s.to_string())
-                .collect();
+        let regex = Regex::new(
+            r#"(?x)
+                (?P<comment1>(\n\s*//.*)*|(\n?\s*/\*(.*\n?)*?.*?\*/\s*))?
+                (?P<field>\n?\s*[A-Za-z0-9_]+\s*(indexed)?\s*[A-Za-z0-9_]+\s*),?
+                (?P<comment2>(\s*//.*)|(.*?/\*(.*\n?)*?.*\*/))?"#,
+        )
+        .unwrap();
+        let fields_with_comments: Vec<String> = regex
+            .find_iter(event_raw.as_str())
+            .filter_map(|s| s.as_str().parse().ok())
+            .collect();
+
+        let mut event_fields = Vec::<EventField>::new();
+        for field_with_comments in fields_with_comments {
+            let mut field_comments = Vec::new();
+            self.add_field_comment(
+                &mut field_comments,
+                field_with_comments.as_str(),
+                &regex,
+                "comment1",
+            );
+            self.add_field_comment(
+                &mut field_comments,
+                field_with_comments.as_str(),
+                &regex,
+                "comment2",
+            );
+
+            let field = capture_regex(&regex, field_with_comments.as_str(), "field").unwrap();
+            let item: Vec<String> = field.split_whitespace().map(|s| s.to_string()).collect();
             let field_type = self.convert_variable_type(item[0].to_owned());
+            let mut indexed = false;
             if item[1] == "indexed" {
                 indexed = true;
             }
 
-            fields.push(EventField {
+            event_fields.push(EventField {
                 indexed,
                 field_type,
                 name: item[item.len() - 1].to_owned(),
+                comments: field_comments,
             });
         }
 
         Event {
             name,
-            fields,
+            fields: event_fields,
             comments: comments.to_vec(),
         }
     }
@@ -829,19 +853,13 @@ impl<'a> Parser<'a> {
     /// returns the enum as `Enum` struct
     fn parse_enum(&mut self, comments: &[String]) -> Enum {
         let name = read_until(self.chars, vec![CURLY_OPEN]).trim().to_string();
-        let mut enum_raw = String::new();
-        for ch in self.chars.by_ref() {
-            if ch == CURLY_CLOSE {
-                break
-            }
-            enum_raw.push(ch);
-        }
+        let enum_raw = self.read_struct_fields(CURLY_CLOSE);
 
         let regex = Regex::new(
             r#"(?x)
                 (?P<comment1>(\n\s*//.*)*|(\n?\s*/\*(.*\n?)*?.*?\*/\s*))?
-                (?P<field>\n?\s*[A-Za-z0-9]+\s*,?)
-                (?P<comment2>(.*//.*)|(.*?/\*(.*\n?)*?.*\*/))?"#,
+                (?P<field>\n?\s*[A-Za-z0-9_]+\s*,?)
+                (?P<comment2>(\s*//.*)|(.*?/\*(.*\n?)*?.*\*/))?"#,
         )
         .unwrap();
         let fields_with_comments: Vec<String> = regex
@@ -886,19 +904,13 @@ impl<'a> Parser<'a> {
     /// returns the struct definition as `Struct` struct
     fn parse_struct(&mut self, comments: &[String]) -> Struct {
         let struct_name = read_until(self.chars, vec![CURLY_OPEN]).trim().to_string();
-        let mut buffer = String::new();
-        for ch in self.chars.by_ref() {
-            if ch == CURLY_CLOSE {
-                break
-            }
-            buffer.push(ch);
-        }
+        let buffer = self.read_struct_fields(CURLY_CLOSE);
         let struct_raw = buffer.replace(" => ", "=>");
 
         let regex = Regex::new(
             r#"(?x)
                 (?P<comment1>(\n\s*//.*)*|(\n\s*/\*(.*\n)*?.*\*/\s*))?
-                (?P<field>\n\s*[A-Za-z0-9=>()]+\s+[A-Za-z0-9]+\s*;)
+                (?P<field>\n\s*[A-Za-z0-9=>()_]+\s+[A-Za-z0-9_]+\s*;)
                 (?P<comment2>(.*//.*)|(.*/\*(.*\n)*?.*\*/))?"#,
         )
         .unwrap();
@@ -939,6 +951,17 @@ impl<'a> Parser<'a> {
             fields: struct_fields,
             comments: comments.to_vec(),
         }
+    }
+
+    fn read_struct_fields(&mut self, end_point: char) -> String {
+        let mut buffer = String::new();
+        for ch in self.chars.by_ref() {
+            if ch == end_point {
+                break
+            }
+            buffer.push(ch);
+        }
+        buffer
     }
 
     /// Add field comment to struct or enum

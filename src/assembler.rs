@@ -209,6 +209,16 @@ fn assemble_events(events: Vec<Event>) -> TokenStream {
 
         // assemble event fields
         for event_field in event.fields.iter() {
+            let mut event_field_comments = TokenStream::new();
+            for comment in event_field.comments.iter() {
+                event_field_comments.extend(quote! {
+                    #[doc = #comment]
+                })
+            }
+            event_fields.extend(quote! {
+                    #event_field_comments
+            });
+
             if event_field.indexed {
                 event_fields.extend(quote! {
                     #[ink(topic)]
