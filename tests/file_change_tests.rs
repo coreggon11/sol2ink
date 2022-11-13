@@ -5,7 +5,7 @@ use std::{
 
 #[test]
 fn erc20_is_not_changed() {
-    let file = fs::read_to_string("examples/contracts/ERC20/ERC20/lib.rs").unwrap();
+    let file = fs::read_to_string("tests/contracts/erc20.rs").unwrap();
 
     Command::new("cargo")
         .args(["+nightly", "run", "examples/contracts/ERC20/ERC20.sol"])
@@ -20,7 +20,7 @@ fn erc20_is_not_changed() {
 
 #[test]
 fn erc721_is_not_changed() {
-    let file = fs::read_to_string("examples/contracts/ERC721/ERC721/lib.rs").unwrap();
+    let file = fs::read_to_string("tests/contracts/erc721.rs").unwrap();
 
     Command::new("cargo")
         .args(["+nightly", "run", "examples/contracts/ERC721/ERC721.sol"])
@@ -35,7 +35,7 @@ fn erc721_is_not_changed() {
 
 #[test]
 fn erc1155_is_not_changed() {
-    let file = fs::read_to_string("examples/contracts/ERC1155/ERC1155/lib.rs").unwrap();
+    let file = fs::read_to_string("tests/contracts/erc1155.rs").unwrap();
 
     Command::new("cargo")
         .args(["+nightly", "run", "examples/contracts/ERC1155/ERC1155.sol"])
@@ -50,7 +50,7 @@ fn erc1155_is_not_changed() {
 
 #[test]
 fn access_control_is_not_changed() {
-    let file = fs::read_to_string("examples/contracts/AccessControl/AccessControl/lib.rs").unwrap();
+    let file = fs::read_to_string("tests/contracts/access_control.rs").unwrap();
 
     Command::new("cargo")
         .args([
@@ -69,7 +69,7 @@ fn access_control_is_not_changed() {
 
 #[test]
 fn solang_example_is_not_changed() {
-    let file = fs::read_to_string("examples/contracts/SolangExample/example/lib.rs").unwrap();
+    let file = fs::read_to_string("tests/contracts/solang_example.rs").unwrap();
 
     Command::new("cargo")
         .args([
@@ -88,7 +88,7 @@ fn solang_example_is_not_changed() {
 
 #[test]
 fn flipper_is_not_changed() {
-    let file = fs::read_to_string("examples/contracts/Flipper/flipper/lib.rs").unwrap();
+    let file = fs::read_to_string("tests/contracts/flipper.rs").unwrap();
 
     Command::new("cargo")
         .args(["+nightly", "run", "examples/contracts/Flipper/flipper.sol"])
@@ -103,7 +103,7 @@ fn flipper_is_not_changed() {
 
 #[test]
 fn primitives_is_not_changed() {
-    let file = fs::read_to_string("examples/contracts/Primitives/Primitives/lib.rs").unwrap();
+    let file = fs::read_to_string("tests/contracts/primitives.rs").unwrap();
 
     Command::new("cargo")
         .args([
@@ -122,7 +122,7 @@ fn primitives_is_not_changed() {
 
 #[test]
 fn ierc20_is_not_changed() {
-    let file = fs::read_to_string("examples/interfaces/IERC20/IERC20/lib.rs").unwrap();
+    let file = fs::read_to_string("tests/interfaces/erc20.rs").unwrap();
 
     Command::new("cargo")
         .args(["+nightly", "run", "examples/interfaces/IERC20/IERC20.sol"])
@@ -137,7 +137,7 @@ fn ierc20_is_not_changed() {
 
 #[test]
 fn ierc721_is_not_changed() {
-    let file = fs::read_to_string("examples/interfaces/IERC721/IERC721/lib.rs").unwrap();
+    let file = fs::read_to_string("tests/interfaces/erc721.rs").unwrap();
 
     Command::new("cargo")
         .args(["+nightly", "run", "examples/interfaces/IERC721/IERC721.sol"])
@@ -152,7 +152,7 @@ fn ierc721_is_not_changed() {
 
 #[test]
 fn ierc1155_is_not_changed() {
-    let file = fs::read_to_string("examples/interfaces/IERC1155/IERC1155/lib.rs").unwrap();
+    let file = fs::read_to_string("tests/interfaces/erc1155.rs").unwrap();
 
     Command::new("cargo")
         .args([
@@ -171,8 +171,7 @@ fn ierc1155_is_not_changed() {
 
 #[test]
 fn iaccess_control_is_not_changed() {
-    let file =
-        fs::read_to_string("examples/interfaces/IAccessControl/IAccessControl/lib.rs").unwrap();
+    let file = fs::read_to_string("tests/interfaces/access_control.rs").unwrap();
 
     Command::new("cargo")
         .args([
