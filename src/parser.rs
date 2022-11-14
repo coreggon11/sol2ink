@@ -1207,47 +1207,7 @@ impl<'a> Parser<'a> {
             if let Statement::Raw(line_raw) = statement {
                 let parsed_statement =
                     self.parse_statement(line_raw, constructor, &mut stack, &mut iterator);
-                match parsed_statement.clone() {
-                    Statement::Catch(code) => {
-                        match self.push_statement_or_return_fixed_code(
-                            &mut out,
-                            parsed_statement.clone(),
-                            code.clone(),
-                        ) {
-                            Some(fixed_code) => {
-                                out.push(Statement::Catch(fixed_code));
-                            }
-                            None => {}
-                        }
-                    }
-                    Statement::Else(code) => {
-                        match self.push_statement_or_return_fixed_code(
-                            &mut out,
-                            parsed_statement.clone(),
-                            code.clone(),
-                        ) {
-                            Some(fixed_code) => {
-                                out.push(Statement::Else(fixed_code));
-                            }
-                            None => {}
-                        }
-                    }
-                    Statement::ElseIf(condition, code) => {
-                        match self.push_statement_or_return_fixed_code(
-                            &mut out,
-                            parsed_statement.clone(),
-                            code.clone(),
-                        ) {
-                            Some(fixed_code) => {
-                                out.push(Statement::ElseIf(condition, fixed_code));
-                            }
-                            None => {}
-                        }
-                    }
-                    _ => {
-                        out.push(parsed_statement.clone());
-                    }
-                }
+                self.match_statement(parsed_statement, &mut out);
             }
         }
 
@@ -1783,48 +1743,43 @@ impl<'a> Parser<'a> {
                 if statement == until {
                     break
                 } else {
-                    match statement.clone() {
-                        Statement::Catch(code) => {
-                            match self.push_statement_or_return_fixed_code(
-                                statements,
-                                statement,
-                                code.clone(),
-                            ) {
-                                Some(fixed_code) => {
-                                    statements.push(Statement::Catch(fixed_code));
-                                }
-                                None => {}
-                            }
-                        }
-                        Statement::Else(code) => {
-                            match self.push_statement_or_return_fixed_code(
-                                statements,
-                                statement,
-                                code.clone(),
-                            ) {
-                                Some(fixed_code) => {
-                                    statements.push(Statement::Else(fixed_code));
-                                }
-                                None => {}
-                            }
-                        }
-                        Statement::ElseIf(condition, code) => {
-                            match self.push_statement_or_return_fixed_code(
-                                statements,
-                                statement,
-                                code.clone(),
-                            ) {
-                                Some(fixed_code) => {
-                                    statements.push(Statement::ElseIf(condition, fixed_code));
-                                }
-                                None => {}
-                            }
-                        }
-                        _ => {
-                            statements.push(statement);
-                        }
-                    }
+                    self.match_statement(statement, statements);
                 }
+            }
+        }
+    }
+
+    fn match_statement(&self, statement: Statement, statements: &mut Vec<Statement>) {
+        match statement.clone() {
+            Statement::Catch(code) => {
+                match self.push_statement_or_return_fixed_code(statements, statement, code.clone())
+                {
+                    Some(fixed_code) => {
+                        statements.push(Statement::Catch(fixed_code));
+                    }
+                    None => {}
+                }
+            }
+            Statement::Else(code) => {
+                match self.push_statement_or_return_fixed_code(statements, statement, code.clone())
+                {
+                    Some(fixed_code) => {
+                        statements.push(Statement::Else(fixed_code));
+                    }
+                    None => {}
+                }
+            }
+            Statement::ElseIf(condition, code) => {
+                match self.push_statement_or_return_fixed_code(statements, statement, code.clone())
+                {
+                    Some(fixed_code) => {
+                        statements.push(Statement::ElseIf(condition, fixed_code));
+                    }
+                    None => {}
+                }
+            }
+            _ => {
+                statements.push(statement);
             }
         }
     }
@@ -1835,7 +1790,10 @@ impl<'a> Parser<'a> {
         statement: Statement,
         code: Vec<Statement>,
     ) -> Option<Vec<Statement>> {
-        let mut comments = self.find_previous_comments(statements);
+        let mut comments = Vec::new();
+        while let Some(Statement::Comment(_)) = statements.iter().last() {
+            comments.push(statements.pop().unwrap())
+        }
         if comments.is_empty() {
             statements.push(statement);
             None
@@ -1844,14 +1802,6 @@ impl<'a> Parser<'a> {
             comments.append(&mut code.clone());
             Some(comments)
         }
-    }
-
-    fn find_previous_comments(&self, statements: &mut Vec<Statement>) -> Vec<Statement> {
-        let mut comments = Vec::new();
-        while let Some(Statement::Comment(_)) = statements.iter().last() {
-            comments.push(statements.pop().unwrap())
-        }
-        comments
     }
 
     /// Parses a solidity assembly statement and the statements inside the assembly block
