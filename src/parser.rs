@@ -390,6 +390,7 @@ pub struct Parser<'a> {
     events: &'a mut HashMap<String, Event>,
     modifiers: &'a mut HashMap<String, ()>,
     structs: &'a mut HashMap<String, Struct>,
+    array_variables: &'a mut HashMap<String, ArrayType>,
 }
 
 impl<'a> Parser<'a> {
@@ -402,6 +403,7 @@ impl<'a> Parser<'a> {
         events: &'a mut HashMap<String, Event>,
         modifiers: &'a mut HashMap<String, ()>,
         structs: &'a mut HashMap<String, Struct>,
+        array_variables: &'a mut HashMap<String, ArrayType>,
     ) -> Self {
         Parser {
             chars,
@@ -411,6 +413,7 @@ impl<'a> Parser<'a> {
             events,
             modifiers,
             structs,
+            array_variables,
         }
     }
 
@@ -791,6 +794,7 @@ impl<'a> Parser<'a> {
             .unwrap()
             .replace_all(&line, ")")
             .to_string();
+        remove_memory_keywords(&mut line);
 
         let regex: Regex = Regex::new(
             r#"(?x)^\s*
@@ -812,6 +816,9 @@ impl<'a> Parser<'a> {
             .unwrap_or_else(|| String::from(""))
             .contains("constant");
         let field_type = self.convert_variable_type(trim(&field_type_raw));
+        if let Some(array_type) = self.check_array_type(field_type.to_owned()) {
+            self.array_variables.insert(field_name.clone(), array_type);
+        }
 
         ContractField {
             field_type,
@@ -820,6 +827,21 @@ impl<'a> Parser<'a> {
             initial_value,
             constant,
         }
+    }
+
+    /// Insert variable name in `array_variables` if it has array type
+    ///
+    /// `var_type` converted variable type
+    /// `var_name` name of variable
+    fn check_array_type(&mut self, var_type: String) -> Option<ArrayType>{
+        if var_type.contains("Mapping") {
+            return Some(ArrayType::Mapping);
+        } else if var_type.contains("Vec") {
+            return Some(ArrayType::DynamicArray);
+        } else if var_type.contains("[") {
+            return Some(ArrayType::FixedSizeArray);
+        }
+        None
     }
 
     /// Parses Solidity event
@@ -957,9 +979,7 @@ impl<'a> Parser<'a> {
     /// returns the representation of the function header as `FunctionHeader` struct
     fn parse_function_header(&mut self, comments: &[String]) -> FunctionHeader {
         let mut function_header_raw = read_until(self.chars, vec![SEMICOLON, CURLY_OPEN]);
-        function_header_raw.remove_matches(" memory");
-        function_header_raw.remove_matches(" storage");
-        function_header_raw.remove_matches(" calldata");
+        remove_memory_keywords(&mut function_header_raw);
 
         let regex_return_function = Regex::new(
             r#"(?x)
@@ -2014,7 +2034,7 @@ impl<'a> Parser<'a> {
             args_string = args_string.replace(": ", ":");
             args_string = args_string.replace(", ", ",");
 
-            if args_string.contains(':') {
+            return if args_string.contains(':') {
                 // named params
                 let args_raw = split(&args_string, ",", None);
                 let regex_named_param = Regex::new(
@@ -2022,7 +2042,7 @@ impl<'a> Parser<'a> {
                     (?P<param_name>.+)\s*:\s*
                     (?P<value>.+)\s*$"#,
                 )
-                .unwrap();
+                    .unwrap();
                 let args = args_raw
                     .iter()
                     .map(|raw| {
@@ -2037,7 +2057,7 @@ impl<'a> Parser<'a> {
                         Expression::StructArg(param_name, bx!(value))
                     })
                     .collect::<Vec<Expression>>();
-                return Expression::StructInit(struct_name_raw, args)
+                Expression::StructInit(struct_name_raw, args)
             } else {
                 let args_raw = split(&args_string, ",", None);
                 let mut args = Vec::default();
@@ -2054,7 +2074,7 @@ impl<'a> Parser<'a> {
 
                     args.push(Expression::StructArg(param_name, bx!(value)));
                 }
-                return Expression::StructInit(struct_name_raw, args)
+                Expression::StructInit(struct_name_raw, args)
             }
         }
 
@@ -2215,7 +2235,21 @@ impl<'a> Parser<'a> {
                 }
             }
 
-            return Expression::Mapping(bx!(mapping), indices, None)
+            return if let Some(array_type) = self.array_variables.get(&mapping_raw) {
+                match array_type {
+                    ArrayType::DynamicArray => {
+                        Expression::DynamicArray(bx!(mapping), indices)
+                    }
+                    ArrayType::FixedSizeArray => {
+                        Expression::FixedSizeArray(bx!(mapping), indices)
+                    }
+                    _ => {
+                        Expression::Mapping(bx!(mapping), indices, None)
+                    }
+                }
+            } else {
+                Expression::Mapping(bx!(mapping), indices, None)
+            }
         }
 
         if REGEX_BINARY_SUFFIX.is_match(raw) {
@@ -2729,4 +2763,10 @@ fn read_until(chars: &mut Chars, until: Vec<char>) -> String {
         }
     }
     trim(&buffer)
+}
+
+fn remove_memory_keywords(line: &mut String) {
+    line.remove_matches(" memory");
+    line.remove_matches(" storage");
+    line.remove_matches(" calldata");
 }

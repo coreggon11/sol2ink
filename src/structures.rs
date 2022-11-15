@@ -22,10 +22,11 @@
 
 use std::collections::HashSet;
 
-#[derive(Debug, Eq, PartialEq)]
-pub enum ContractType {
-    INTERFACE,
-    CONTRACT,
+#[derive(Clone, Debug)]
+pub enum ArrayType {
+    DynamicArray,
+    FixedSizeArray,
+    Mapping,
 }
 
 pub struct Contract {
@@ -226,6 +227,8 @@ impl Operation {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Expression {
     Arithmetic(Box<Expression>, Box<Expression>, Operation),
+    DynamicArray(Box<Expression>, Vec<Expression>),
+    FixedSizeArray(Box<Expression>, Vec<Expression>),
     Cast(bool, String, Box<Expression>),
     Condition(Box<Condition>),
     Constant(String),
