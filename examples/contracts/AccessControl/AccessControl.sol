@@ -89,7 +89,7 @@ abstract contract AccessControl {
      *
      * The format of the revert reason is given by the following regular expression:
      *
-     *  /^AccessControl: account (0x[0-9a-f]{40}) is missing role (0x[0-9a-f]{64})$/
+     * /^AccessControl: account (0x[0-9a-f]{40}) is missing role (0x[0-9a-f]{64})$/
      *
      * _Available since v4.1._
      */

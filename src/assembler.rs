@@ -165,9 +165,16 @@ fn assemble_enums(enums: Vec<Enum>) -> TokenStream {
 
         // assemble enum values
         for value in enumeration.values.iter() {
-            let value_name = TokenStream::from_str(&value.to_case(Pascal)).unwrap();
+            let value_name = TokenStream::from_str(&value.name.to_case(Pascal)).unwrap();
+            let mut value_comment = TokenStream::new();
+            for comment in value.comments.iter() {
+                value_comment.extend(quote! {
+                    #[doc = #comment]
+                })
+            }
 
             values.extend(quote! {
+                #value_comment
                 #value_name,
             });
         }
@@ -202,6 +209,16 @@ fn assemble_events(events: Vec<Event>) -> TokenStream {
 
         // assemble event fields
         for event_field in event.fields.iter() {
+            let mut event_field_comments = TokenStream::new();
+            for comment in event_field.comments.iter() {
+                event_field_comments.extend(quote! {
+                    #[doc = #comment]
+                })
+            }
+            event_fields.extend(quote! {
+                    #event_field_comments
+            });
+
             if event_field.indexed {
                 event_fields.extend(quote! {
                     #[ink(topic)]
@@ -317,10 +334,17 @@ fn assemble_structs(structs: Vec<Struct>) -> TokenStream {
 
         // assemble struct fields
         for struct_field in structure.fields.iter() {
+            let mut struct_field_comments = TokenStream::new();
+            for comment in struct_field.comments.iter() {
+                struct_field_comments.extend(quote! {
+                    #[doc = #comment]
+                })
+            }
             let struct_field_name = format_ident!("{}", struct_field.name.to_case(Snake));
             let struct_field_type = TokenStream::from_str(&struct_field.field_type).unwrap();
 
             struct_fields.extend(quote! {
+                #struct_field_comments
                 #struct_field_name: #struct_field_type,
             });
         }
