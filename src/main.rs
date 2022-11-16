@@ -99,7 +99,7 @@ fn run(path: &String) -> Result<(), parser::ParserError> {
 }
 
 #[cfg(test)]
-mod test {
+mod creating_test {
     use crate::run;
 
     #[test]
