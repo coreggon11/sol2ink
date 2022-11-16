@@ -41,4 +41,4 @@ If you are using Sol2Ink from release pages, you will need to run `./sol_to_ink 
 ### Examples
 
 Examples are stored in the example folder, where we have the input Solidity file and the output Rust and Ink! file.
-By running `cargo test`, we will transpile all of the examples stored in this folder. We have several example contracts from OpenZeppelin and two example contracts from Solang. These original contracts were not modified (except the OpenZeppelin contracts, where we added missing enums, events, structs, etc. from the respective interface file), and the outputs of Sol2Ink are not modified either.
+By running `cargo test creating`, we will transpile all of the examples stored in this folder. We have several example contracts from OpenZeppelin and two example contracts from Solang. These original contracts were not modified (except the OpenZeppelin contracts, where we added missing enums, events, structs, etc. from the respective interface file), and the outputs of Sol2Ink are not modified either.
