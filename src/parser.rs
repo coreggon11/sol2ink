@@ -892,7 +892,7 @@ impl<'a> Parser<'a> {
             let field = capture_regex(&regex, field_with_comments.as_str(), "field").unwrap();
 
             enum_fields.push(EnumField {
-                name: field.trim().replace(",", ""),
+                name: field.trim().replace(',', ""),
                 comments: field_comments,
             });
         }
@@ -943,11 +943,11 @@ impl<'a> Parser<'a> {
             );
 
             let field = capture_regex(&regex, field_with_comments.as_str(), "field").unwrap();
-            let items: Vec<String> = field.trim().split(" ").map(|s| s.to_string()).collect();
+            let items: Vec<String> = field.trim().split(' ').map(|s| s.to_string()).collect();
             let field_type = self.convert_variable_type(items[0].to_owned());
 
             struct_fields.push(StructField {
-                name: items[1].replace(";", "").to_owned(),
+                name: items[1].replace(';', "").to_owned(),
                 field_type,
                 comments: field_comments,
             });
@@ -984,7 +984,7 @@ impl<'a> Parser<'a> {
         regex: &Regex,
         capture_name: &str,
     ) {
-        let comment_raw = capture_regex(&regex, line, capture_name).unwrap_or(String::new());
+        let comment_raw = capture_regex(regex, line, capture_name).unwrap_or_default();
         let comment = self.parse_struct_field_comment(comment_raw);
         if !comment.is_empty() {
             field_comments.push(comment);
@@ -1006,10 +1006,10 @@ impl<'a> Parser<'a> {
             let regex = Regex::new(r"(?m)^\s*\*").unwrap();
             let comment = regex.replace_all(comment_raw.as_str(), "");
 
-            " ".to_owned() + &comment.trim().to_string()
+            " ".to_owned() + comment.trim()
         } else {
             let comment = comment_raw.replace("//", "");
-            " ".to_owned() + &comment.trim().to_string()
+            " ".to_owned() + comment.trim()
         }
     }
 
@@ -2625,9 +2625,9 @@ impl<'a> Parser<'a> {
     ///
     /// Return the statement in form of `Statement::Delete`
     fn parse_delete(&mut self, line: &str, constructor: bool, regex: &Regex) -> Statement {
-        let value_raw = capture_regex(&regex, line, "value").unwrap();
+        let value_raw = capture_regex(regex, line, "value").unwrap();
         let value = self.parse_expression(&value_raw, constructor, None);
-        return match value {
+        match value {
             Expression::Mapping(name, indices, _) => Statement::Delete(name, indices),
             _ => Statement::Comment(format!("Failed to parse delete {value_raw}")),
         }
