@@ -37,12 +37,6 @@ use std::{
 };
 use substring::Substring;
 
-#[derive(Debug, PartialEq, Eq)]
-enum ArgsReader {
-    ArgType,
-    ArgName,
-}
-
 macro_rules! selector {
     ($constructor:ident) => {
         if $constructor {
@@ -329,6 +323,13 @@ lazy_static! {
         \s*(?P<if_false>.+?)\s*$"#,
     )
     .unwrap();
+    static ref REGEX_DELETE:Regex = Regex::new(
+        r#"^\s*delete\s+(?P<value>.+)\s*;"#,
+    )
+    .unwrap();
+    static ref REGEX_BREAK:Regex = Regex::new(
+        r#"^\s*break\s*;"#,
+    ).unwrap();
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -485,49 +486,24 @@ impl<'a> Parser<'a> {
     fn parse_multiline_comment(&mut self) -> Vec<String> {
         let mut comments = Vec::<String>::new();
         let mut buffer = String::new();
-        let mut reading = false;
-        let mut new_line = false;
         let mut asterisk = false;
 
         for ch in self.chars.by_ref() {
             if ch == SLASH && asterisk {
                 if !buffer.trim().is_empty() {
-                    comments.push(format!(" {}", buffer.trim()));
+                    let regex = Regex::new(r"(?m)^\s*\*").unwrap();
+                    let comment = regex.replace_all(buffer.trim(), "");
+
+                    comments.push(format!("{}", comment));
                 }
                 break
+            } else if ch == ASTERISK {
+                asterisk = true;
             } else {
                 asterisk = false;
             }
-            match ch {
-                ASTERISK if !reading => {
-                    reading = true;
-                }
-                ASTERISK if new_line => {
-                    new_line = false;
-                }
-                NEW_LINE => {
-                    if !buffer.trim().is_empty() {
-                        comments.push(format!(" {}", buffer.trim()));
-                        buffer.clear();
-                    }
-                    new_line = true;
-                }
-                _ if !reading => {
-                    buffer.push(ch);
-                    reading = true;
-                }
-                SPACE if new_line => {}
-                _ if new_line => {
-                    buffer.push(ch);
-                    new_line = false;
-                }
-                _ => {
-                    buffer.push(ch);
-                }
-            }
-            if ch == ASTERISK {
-                asterisk = true;
-            }
+
+            buffer.push(ch);
         }
 
         comments
@@ -821,44 +797,58 @@ impl<'a> Parser<'a> {
     ///
     /// returns the event definition as `Event` struct
     fn parse_event(&mut self, comments: &[String]) -> Event {
-        let event_raw = read_until(self.chars, vec![SEMICOLON])
+        let name = read_until(self.chars, vec![PARENTHESIS_OPEN])
             .trim()
-            .replace("( ", "(")
-            .replace(" )", ")");
+            .to_string();
+        let event_raw = self.read_struct_fields(SEMICOLON);
 
-        let tokens = split(&event_raw, " ", None);
-        let mut args_reader = ArgsReader::ArgName;
-        let mut indexed = false;
+        let regex = Regex::new(
+            r#"(?x)
+                (?P<comment1>(\n\s*//.*)*|(\n?\s*/\*(.*\n?)*?.*?\*/\s*))?
+                (?P<field>\n?\s*[A-Za-z0-9_]+\s*(indexed)?\s*[A-Za-z0-9_]+\s*),?
+                (?P<comment2>(\s*//.*)|(.*?/\*(.*\n?)*?.*\*/))?"#,
+        )
+        .unwrap();
+        let fields_with_comments: Vec<String> = regex
+            .find_iter(event_raw.as_str())
+            .filter_map(|s| s.as_str().parse().ok())
+            .collect();
 
-        let split_brace = split(&tokens[0], "(", None);
+        let mut event_fields = Vec::<EventField>::new();
+        for field_with_comments in fields_with_comments {
+            let mut field_comments = Vec::new();
+            self.add_field_comment(
+                &mut field_comments,
+                field_with_comments.as_str(),
+                &regex,
+                "comment1",
+            );
+            self.add_field_comment(
+                &mut field_comments,
+                field_with_comments.as_str(),
+                &regex,
+                "comment2",
+            );
 
-        let name = split_brace[0].to_owned();
-        let mut field_type = self.convert_variable_type(split_brace[1].to_owned());
-        let mut fields = Vec::<EventField>::new();
-
-        for item in tokens.iter().skip(1) {
-            let mut token = item.clone();
-            if token == "indexed" {
+            let field = capture_regex(&regex, field_with_comments.as_str(), "field").unwrap();
+            let item: Vec<String> = field.split_whitespace().map(|s| s.to_string()).collect();
+            let field_type = self.convert_variable_type(item[0].to_owned());
+            let mut indexed = false;
+            if item[1] == "indexed" {
                 indexed = true;
-                continue
-            } else if args_reader == ArgsReader::ArgType {
-                field_type = self.convert_variable_type(token);
-                args_reader = ArgsReader::ArgName;
-            } else {
-                token.remove_matches(&[',', ')'][..]);
-                fields.push(EventField {
-                    indexed,
-                    field_type: field_type.to_owned(),
-                    name: token.to_owned(),
-                });
-                indexed = false;
-                args_reader = ArgsReader::ArgType;
             }
+
+            event_fields.push(EventField {
+                indexed,
+                field_type,
+                name: item[item.len() - 1].to_owned(),
+                comments: field_comments,
+            });
         }
 
         Event {
             name,
-            fields,
+            fields: event_fields,
             comments: comments.to_vec(),
         }
     }
@@ -869,23 +859,47 @@ impl<'a> Parser<'a> {
     ///
     /// returns the enum as `Enum` struct
     fn parse_enum(&mut self, comments: &[String]) -> Enum {
-        let enum_raw = read_until(self.chars, vec![CURLY_CLOSE]);
-        let tokens = split(&enum_raw, " ", None);
-        let name = tokens[0].to_owned();
-        let mut values = Vec::<String>::new();
+        let name = read_until(self.chars, vec![CURLY_OPEN]).trim().to_string();
+        let enum_raw = self.read_struct_fields(CURLY_CLOSE);
 
-        for item in tokens.iter().skip(1) {
-            let mut token = item.clone();
-            if token == "{" {
-                continue
-            } else {
-                token.remove_matches(",");
-                values.push(token);
-            }
+        let regex = Regex::new(
+            r#"(?x)
+                (?P<comment1>(\n\s*//.*)*|(\n?\s*/\*(.*\n?)*?.*?\*/\s*))?
+                (?P<field>\n?\s*[A-Za-z0-9_]+\s*,?)
+                (?P<comment2>(\s*//.*)|(.*?/\*(.*\n?)*?.*\*/))?"#,
+        )
+        .unwrap();
+        let fields_with_comments: Vec<String> = regex
+            .find_iter(enum_raw.as_str())
+            .filter_map(|s| s.as_str().parse().ok())
+            .collect();
+
+        let mut enum_fields = Vec::<EnumField>::new();
+        for field_with_comments in fields_with_comments {
+            let mut field_comments = Vec::new();
+            self.add_field_comment(
+                &mut field_comments,
+                field_with_comments.as_str(),
+                &regex,
+                "comment1",
+            );
+            self.add_field_comment(
+                &mut field_comments,
+                field_with_comments.as_str(),
+                &regex,
+                "comment2",
+            );
+            let field = capture_regex(&regex, field_with_comments.as_str(), "field").unwrap();
+
+            enum_fields.push(EnumField {
+                name: field.trim().replace(",", ""),
+                comments: field_comments,
+            });
         }
+
         Enum {
             name,
-            values,
+            values: enum_fields,
             comments: comments.to_vec(),
         }
     }
@@ -896,19 +910,47 @@ impl<'a> Parser<'a> {
     ///
     /// returns the struct definition as `Struct` struct
     fn parse_struct(&mut self, comments: &[String]) -> Struct {
-        let mut struct_raw = read_until(self.chars, vec![CURLY_CLOSE]);
-        struct_raw = struct_raw.replace(" => ", "=>");
-        let split_brace = split(&struct_raw, "{", None);
-        let fields = split(split_brace[1].trim(), ";", None);
-        let struct_name = split_brace[0].to_owned();
+        let struct_name = read_until(self.chars, vec![CURLY_OPEN]).trim().to_string();
+        let buffer = self.read_struct_fields(CURLY_CLOSE);
+        let struct_raw = buffer.replace(" => ", "=>");
+
+        let regex = Regex::new(
+            r#"(?x)
+                (?P<comment1>(\n\s*//.*)*|(\n\s*/\*(.*\n)*?.*\*/\s*))?
+                (?P<field>\n\s*[A-Za-z0-9=>()_]+\s+[A-Za-z0-9_]+\s*;)
+                (?P<comment2>(.*//.*)|(.*/\*(.*\n)*?.*\*/))?"#,
+        )
+        .unwrap();
+        let fields_with_comments: Vec<String> = regex
+            .find_iter(struct_raw.as_str())
+            .filter_map(|s| s.as_str().parse().ok())
+            .collect();
 
         let mut struct_fields = Vec::<StructField>::new();
+        for field_with_comments in fields_with_comments {
+            let mut field_comments = Vec::new();
+            self.add_field_comment(
+                &mut field_comments,
+                field_with_comments.as_str(),
+                &regex,
+                "comment1",
+            );
+            self.add_field_comment(
+                &mut field_comments,
+                field_with_comments.as_str(),
+                &regex,
+                "comment2",
+            );
 
-        for field in fields.iter() {
-            if field.is_empty() {
-                continue
-            }
-            struct_fields.push(self.parse_struct_field(field.trim().to_owned()));
+            let field = capture_regex(&regex, field_with_comments.as_str(), "field").unwrap();
+            let items: Vec<String> = field.trim().split(" ").map(|s| s.to_string()).collect();
+            let field_type = self.convert_variable_type(items[0].to_owned());
+
+            struct_fields.push(StructField {
+                name: items[1].replace(";", "").to_owned(),
+                field_type,
+                comments: field_comments,
+            });
         }
 
         Struct {
@@ -918,17 +960,57 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Parses struct fields
+    fn read_struct_fields(&mut self, end_point: char) -> String {
+        let mut buffer = String::new();
+        for ch in self.chars.by_ref() {
+            if ch == end_point {
+                break
+            }
+            buffer.push(ch);
+        }
+        buffer
+    }
+
+    /// Add field comment to struct or enum
     ///
-    /// `line` the Solidity definition of the struct field
+    /// `field_comments` the vector with comments
+    /// `line` the string on which we will use the regex
+    /// `regex` the regex to use
+    /// `capture_name` the name of the group to capture
+    fn add_field_comment(
+        &mut self,
+        field_comments: &mut Vec<String>,
+        line: &str,
+        regex: &Regex,
+        capture_name: &str,
+    ) {
+        let comment_raw = capture_regex(&regex, line, capture_name).unwrap_or(String::new());
+        let comment = self.parse_struct_field_comment(comment_raw);
+        if !comment.is_empty() {
+            field_comments.push(comment);
+        }
+    }
+
+    /// Parses struct field comment
     ///
-    /// returns the struct field as `StructField` struct
-    fn parse_struct_field(&mut self, line: String) -> StructField {
-        let tokens = split(&line, " ", None);
-        let field_type = self.convert_variable_type(tokens[0].to_owned());
-        let mut name = tokens[1].to_owned();
-        name.remove_matches(";");
-        StructField { name, field_type }
+    /// `comment_raw` the Solidity definition of
+    /// the struct field multiline or one line comment
+    ///
+    /// returns the comment as String
+    fn parse_struct_field_comment(&mut self, mut comment_raw: String) -> String {
+        if comment_raw.is_empty() {
+            comment_raw
+        } else if comment_raw.contains("/*") {
+            comment_raw.remove_matches("/*");
+            comment_raw.remove_matches("*/");
+            let regex = Regex::new(r"(?m)^\s*\*").unwrap();
+            let comment = regex.replace_all(comment_raw.as_str(), "");
+
+            " ".to_owned() + &comment.trim().to_string()
+        } else {
+            let comment = comment_raw.replace("//", "");
+            " ".to_owned() + &comment.trim().to_string()
+        }
     }
 
     /// Parses the Solidity function
@@ -1035,23 +1117,17 @@ impl<'a> Parser<'a> {
         let mut out = Vec::<FunctionParam>::new();
 
         if !parameters.is_empty() {
-            let tokens = split(&parameters, " ", Some(remove_commas()));
-
-            let mut mode = ArgsReader::ArgName;
-            let mut param_type = self.convert_variable_type(tokens[0].to_owned());
-
-            for item in tokens.iter().skip(1) {
-                if mode == ArgsReader::ArgType {
-                    param_type = self.convert_variable_type(item.to_owned());
-                    mode = ArgsReader::ArgName;
-                } else if mode == ArgsReader::ArgName {
-                    let name = item.to_owned();
-                    out.push(FunctionParam {
-                        name,
-                        param_type: param_type.to_owned(),
-                    });
-                    mode = ArgsReader::ArgType;
+            let tokens: Vec<String> = parameters.split(", ").map(|s| s.to_string()).collect();
+            for token in tokens {
+                let parameter: Vec<String> =
+                    token.split_whitespace().map(|s| s.to_string()).collect();
+                if parameter.len() < 2 {
+                    break
                 }
+                out.push(FunctionParam {
+                    name: parameter[1].to_owned(),
+                    param_type: self.convert_variable_type(parameter[0].to_owned()),
+                })
             }
         }
 
@@ -1307,6 +1383,10 @@ impl<'a> Parser<'a> {
         } else if REGEX_FUNCTION_CALL.is_match(&line) {
             let expression = self.parse_function_call(&line, constructor, None);
             return Statement::FunctionCall(expression)
+        } else if REGEX_DELETE.is_match(&line) {
+            return self.parse_delete(&line, constructor, &REGEX_DELETE)
+        } else if REGEX_BREAK.is_match(&line) {
+            return Statement::Break
         }
 
         Statement::Comment(format!("Sol2Ink Not Implemented yet: {}", line.clone()))
@@ -2207,7 +2287,7 @@ impl<'a> Parser<'a> {
         let regex_mapping = Regex::new(
             r#"(?x)
             ^\s*(?P<mapping_name>.+?)\s*
-            (?P<index>(\[\s*.+\s*\]))+?
+            (?P<index>(\[\s*.+\s*]))+?
             \s*$"#,
         )
         .unwrap();
@@ -2478,14 +2558,14 @@ impl<'a> Parser<'a> {
 
         if TYPES.contains_key(&function_name_raw.as_str()) {
             let the_type = TYPES.get(&function_name_raw.as_str()).unwrap();
-            if let Some(unique_cast) = the_type.1 {
-                return Expression::Cast(
+            return if let Some(unique_cast) = the_type.1 {
+                Expression::Cast(
                     true,
                     unique_cast.to_string(),
                     bx!(self.parse_expression(&args_raw, constructor, enclosed_expressions)),
                 )
             } else {
-                return Expression::Cast(
+                Expression::Cast(
                     false,
                     the_type.0.to_string(),
                     bx!(self.parse_expression(&args_raw, constructor, enclosed_expressions)),
@@ -2535,6 +2615,22 @@ impl<'a> Parser<'a> {
             selector,
             *self.functions.get(&function_name_raw).unwrap_or(&true),
         )
+    }
+
+    /// Parses a solidity delete function call
+    ///
+    /// `line` the solidity statement with delete function call
+    /// `constructor` if the statement is inside a constructor
+    /// `regex` the regex we use (delete var[val])
+    ///
+    /// Return the statement in form of `Statement::Delete`
+    fn parse_delete(&mut self, line: &str, constructor: bool, regex: &Regex) -> Statement {
+        let value_raw = capture_regex(&regex, line, "value").unwrap();
+        let value = self.parse_expression(&value_raw, constructor, None);
+        return match value {
+            Expression::Mapping(name, indices, _) => Statement::Delete(name, indices),
+            _ => Statement::Comment(format!("Failed to parse delete {value_raw}")),
+        }
     }
 
     /// Converts solidity variable type to ink! variable type (eg. address -> AccountId, uint -> u128, ...)

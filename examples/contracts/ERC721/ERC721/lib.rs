@@ -377,12 +377,12 @@ pub mod erc_721 {
             let owner: AccountId = erc_721.owner_of(token_id)?;
             self._before_token_transfer(owner, ZERO_ADDRESS.into(), token_id)?;
             // Clear approvals
-            // Sol2Ink Not Implemented yet: delete _tokenApprovals[tokenId];
+            self.data.token_approvals.remove(&token_id);
             self.data.balances.insert(
                 &owner,
                 &(self.data.balances.get(&owner).unwrap_or_default() - 1),
             );
-            // Sol2Ink Not Implemented yet: delete _owners[tokenId];
+            self.data.owners.remove(&token_id);
             self.env().emit_event(Transfer {
                 from: owner,
                 to: ZERO_ADDRESS.into(),
@@ -416,7 +416,7 @@ pub mod erc_721 {
             }
             self._before_token_transfer(from, to, token_id)?;
             // Clear approvals from the previous owner
-            // Sol2Ink Not Implemented yet: delete _tokenApprovals[tokenId];
+            self.data.token_approvals.remove(&token_id);
             self.data.balances.insert(
                 &from,
                 &(self.data.balances.get(&from).unwrap_or_default() - 1),

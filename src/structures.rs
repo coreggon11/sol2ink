@@ -78,11 +78,18 @@ pub struct EventField {
     pub indexed: bool,
     pub field_type: String,
     pub name: String,
+    pub comments: Vec<String>,
 }
 
 pub struct Enum {
     pub name: String,
-    pub values: Vec<String>,
+    pub values: Vec<EnumField>,
+    pub comments: Vec<String>,
+}
+
+#[derive(Default, Clone)]
+pub struct EnumField {
+    pub name: String,
     pub comments: Vec<String>,
 }
 
@@ -97,6 +104,7 @@ pub struct Struct {
 pub struct StructField {
     pub name: String,
     pub field_type: String,
+    pub comments: Vec<String>,
 }
 
 #[derive(Default, Clone)]
@@ -127,10 +135,12 @@ pub struct FunctionParam {
 pub enum Statement {
     AssemblyEnd,
     Assign(Expression, Expression, Operation),
+    Break,
     Catch(Vec<Statement>),
     CatchEnd,
     Comment(String),
     Declaration(String, String, Option<Expression>),
+    Delete(Box<Expression>, Vec<Expression>),
     Loop(
         Option<Box<Statement>>,
         Expression,
