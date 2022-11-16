@@ -1207,7 +1207,7 @@ impl<'a> Parser<'a> {
             if let Statement::Raw(line_raw) = statement {
                 let parsed_statement =
                     self.parse_statement(line_raw, constructor, &mut stack, &mut iterator);
-                self.match_statement(parsed_statement, &mut out);
+                self.add_statement(&parsed_statement, &mut out);
             }
         }
 
@@ -1743,65 +1743,50 @@ impl<'a> Parser<'a> {
                 if statement == until {
                     break
                 } else {
-                    self.match_statement(statement, statements);
+                    self.add_statement(&statement, statements);
                 }
             }
         }
     }
 
-    fn match_statement(&self, statement: Statement, statements: &mut Vec<Statement>) {
-        match statement.clone() {
+    // adds `statement` to vec `statements`
+    // fixes the statements if cargo format should fail on the final code
+    //
+    // `statement` the statement to be added
+    // `statements` the vec of statements where we want to add the fixed statement
+    fn add_statement(&self, statement: &Statement, statements: &mut Vec<Statement>) {
+        match statement {
             Statement::Catch(code) => {
-                match self.push_statement_or_return_fixed_code(statements, statement, code.clone())
-                {
-                    Some(fixed_code) => {
-                        statements.push(Statement::Catch(fixed_code));
-                    }
-                    None => {}
-                }
+                let mut comments = self.pop_comments(statements);
+                comments.append(&mut code.clone());
+                statements.push(Statement::Catch(comments));
             }
             Statement::Else(code) => {
-                match self.push_statement_or_return_fixed_code(statements, statement, code.clone())
-                {
-                    Some(fixed_code) => {
-                        statements.push(Statement::Else(fixed_code));
-                    }
-                    None => {}
-                }
+                let mut comments = self.pop_comments(statements);
+                comments.append(&mut code.clone());
+                statements.push(Statement::Else(comments));
             }
             Statement::ElseIf(condition, code) => {
-                match self.push_statement_or_return_fixed_code(statements, statement, code.clone())
-                {
-                    Some(fixed_code) => {
-                        statements.push(Statement::ElseIf(condition, fixed_code));
-                    }
-                    None => {}
-                }
+                let mut comments = self.pop_comments(statements);
+                comments.append(&mut code.clone());
+                statements.push(Statement::ElseIf(condition.clone(), comments));
             }
             _ => {
-                statements.push(statement);
+                statements.push(statement.clone());
             }
         }
     }
 
-    fn push_statement_or_return_fixed_code(
-        &self,
-        statements: &mut Vec<Statement>,
-        statement: Statement,
-        code: Vec<Statement>,
-    ) -> Option<Vec<Statement>> {
+    // pops all comments from the end of `statements` and returns them in a Vec
+    fn pop_comments(&self, statements: &mut Vec<Statement>) -> Vec<Statement> {
         let mut comments = Vec::new();
         while let Some(Statement::Comment(_)) = statements.iter().last() {
             comments.push(statements.pop().unwrap())
         }
-        if comments.is_empty() {
-            statements.push(statement);
-            None
-        } else {
+        if !comments.is_empty() {
             comments.reverse();
-            comments.append(&mut code.clone());
-            Some(comments)
         }
+        comments
     }
 
     /// Parses a solidity assembly statement and the statements inside the assembly block
@@ -2607,7 +2592,7 @@ impl<'a> Parser<'a> {
             }
             _ => no_array_arg_type.to_owned(),
         };
-        return if is_vec {
+        if is_vec {
             self.imports
                 .insert(String::from("use ink_prelude::vec::Vec;\n"));
             format!("Vec<{}>", output_type)
