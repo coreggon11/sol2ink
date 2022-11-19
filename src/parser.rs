@@ -794,7 +794,6 @@ impl<'a> Parser<'a> {
             .unwrap()
             .replace_all(&line, ")")
             .to_string();
-        remove_memory_keywords(&mut line);
 
         let regex: Regex = Regex::new(
             r#"(?x)^\s*
@@ -808,7 +807,8 @@ impl<'a> Parser<'a> {
 
         let field_type_raw = capture_regex(&regex, &line, "field_type").unwrap();
         let attributes_raw = capture_regex(&regex, &line, "attributes");
-        let field_name = capture_regex(&regex, &line, "field_name").unwrap();
+        let mut field_name = capture_regex(&regex, &line, "field_name").unwrap();
+        remove_memory_keywords(&mut field_name);
         let initial_value_maybe = capture_regex(&regex, &line, "initial_value");
         let initial_value =
             initial_value_maybe.map(|initial_raw| self.parse_expression(&initial_raw, false, None));
