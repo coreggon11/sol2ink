@@ -78,7 +78,7 @@ fn run(path: &String) -> Result<(), parser::ParserError> {
         &mut events,
         &mut modifiers,
         &mut structs,
-        &mut array_variables
+        &mut array_variables,
     );
     let output = parser.parse_file()?;
     match output {

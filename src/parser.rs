@@ -833,13 +833,13 @@ impl<'a> Parser<'a> {
     ///
     /// `var_type` converted variable type
     /// `var_name` name of variable
-    fn check_array_type(&mut self, var_type: String) -> Option<ArrayType>{
+    fn check_array_type(&mut self, var_type: String) -> Option<ArrayType> {
         if var_type.contains("Mapping") {
-            return Some(ArrayType::Mapping);
+            return Some(ArrayType::Mapping)
         } else if var_type.contains("Vec") {
-            return Some(ArrayType::DynamicArray);
+            return Some(ArrayType::DynamicArray)
         } else if var_type.contains("[") {
-            return Some(ArrayType::FixedSizeArray);
+            return Some(ArrayType::FixedSizeArray)
         }
         None
     }
@@ -1055,31 +1055,27 @@ impl<'a> Parser<'a> {
 
     /// Parses parameters of a function
     ///
-    /// `parameters` the raw representation of the paramters of the function
+    /// `parameters` the raw representation of the parameters of the function
     ///
     /// returns the vec of function parameters of this function as `FunctionParam` struct
-    fn parse_function_parameters(&mut self, parameters: String) -> Vec<FunctionParam> {
+    fn parse_function_parameters(&mut self, parameters_raw: String) -> Vec<FunctionParam> {
         let mut out = Vec::<FunctionParam>::new();
+        if parameters_raw.is_empty() {
+            return out
+        }
 
-        if !parameters.is_empty() {
-            let tokens = split(&parameters, " ", Some(remove_commas()));
-
-            let mut mode = ArgsReader::ArgName;
-            let mut param_type = self.convert_variable_type(tokens[0].to_owned());
-
-            for item in tokens.iter().skip(1) {
-                if mode == ArgsReader::ArgType {
-                    param_type = self.convert_variable_type(item.to_owned());
-                    mode = ArgsReader::ArgName;
-                } else if mode == ArgsReader::ArgName {
-                    let name = item.to_owned();
-                    out.push(FunctionParam {
-                        name,
-                        param_type: param_type.to_owned(),
-                    });
-                    mode = ArgsReader::ArgType;
-                }
+        let parameters = split(parameters_raw.as_str(), ",", None);
+        for parameter in parameters {
+            let items = split(parameter.trim(), " ", None);
+            let param_type = self.convert_variable_type(items[0].to_owned());
+            if let Some(array_type) = self.check_array_type(param_type.to_owned()) {
+                self.array_variables.insert(items[1].to_owned(), array_type);
             }
+
+            out.push(FunctionParam {
+                name: items[1].to_owned(),
+                param_type,
+            });
         }
 
         out
@@ -1363,6 +1359,9 @@ impl<'a> Parser<'a> {
         let field_name = capture_regex(&REGEX_DECLARE, line, "field_name").unwrap();
         let value_raw = capture_regex(&REGEX_DECLARE, line, "value");
         let field_type = self.convert_variable_type(field_type_raw);
+        if let Some(array_type) = self.check_array_type(field_type.to_owned()) {
+            self.array_variables.insert(field_name.clone(), array_type);
+        }
 
         if let Some(value) = value_raw {
             let expression = self.parse_expression(&value, constructor, None);
@@ -2042,7 +2041,7 @@ impl<'a> Parser<'a> {
                     (?P<param_name>.+)\s*:\s*
                     (?P<value>.+)\s*$"#,
                 )
-                    .unwrap();
+                .unwrap();
                 let args = args_raw
                     .iter()
                     .map(|raw| {
@@ -2237,15 +2236,9 @@ impl<'a> Parser<'a> {
 
             return if let Some(array_type) = self.array_variables.get(&mapping_raw) {
                 match array_type {
-                    ArrayType::DynamicArray => {
-                        Expression::DynamicArray(bx!(mapping), indices)
-                    }
-                    ArrayType::FixedSizeArray => {
-                        Expression::FixedSizeArray(bx!(mapping), indices)
-                    }
-                    _ => {
-                        Expression::Mapping(bx!(mapping), indices, None)
-                    }
+                    ArrayType::DynamicArray => Expression::DynamicArray(bx!(mapping), indices),
+                    ArrayType::FixedSizeArray => Expression::FixedSizeArray(bx!(mapping), indices),
+                    _ => Expression::Mapping(bx!(mapping), indices, None),
                 }
             } else {
                 Expression::Mapping(bx!(mapping), indices, None)
