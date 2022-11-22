@@ -34,11 +34,11 @@ To run the application you will need to have installed Rust and run the nightly 
 You can run the application with `cargo +nightly run contract.sol`, assuming you have a solidity file called contract.sol in the working directory.
 The result will be stored in `contract/lib.rs` and the Cargo.toml file in `contract/Cargo.toml`.
 
-You can transpile the example contracts from examples folder by running `cargo +nightly test`.
+You can transpile the example contracts from examples folder by running `cargo +nightly test creating`.
 
 If you are using Sol2Ink from release pages, you will need to run `./sol_to_ink contract.sol`, substituting contract.sol with your Solidity contract's name.
 
 ### Examples
 
 Examples are stored in the example folder, where we have the input Solidity file and the output Rust and Ink! file.
-By running `cargo test`, we will transpile all of the examples stored in this folder. We have several example contracts from OpenZeppelin and two example contracts from Solang. These original contracts were not modified (except the OpenZeppelin contracts, where we added missing enums, events, structs, etc. from the respective interface file), and the outputs of Sol2Ink are not modified either.
+By running `cargo test creating`, we will transpile all of the examples stored in this folder. We have several example contracts from OpenZeppelin and two example contracts from Solang. These original contracts were not modified (except the OpenZeppelin contracts, where we added missing enums, events, structs, etc. from the respective interface file), and the outputs of Sol2Ink are not modified either.
