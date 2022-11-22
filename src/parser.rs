@@ -805,7 +805,7 @@ impl<'a> Parser<'a> {
         let regex = Regex::new(
             r#"(?x)
                 (?P<comment1>(\n\s*//.*)*|(\n?\s*/\*(.*\n?)*?.*?\*/\s*))?
-                (?P<field>\n?\s*[A-Za-z0-9_]+\s*(indexed)?\s*[A-Za-z0-9_]+\s*),?
+                (?P<field>\n?\s*[A-Za-z0-9\[\]_]+\s*(indexed)?\s*[A-Za-z0-9_]+\s*),?
                 (?P<comment2>(\s*//.*)|(.*?/\*(.*\n?)*?.*\*/))?"#,
         )
         .unwrap();
