@@ -978,12 +978,10 @@ impl ToTokens for Expression {
                 }
             }
             Expression::DynamicArray(expression, indices_raw) => {
-                let indices = assembly_array_indices(indices_raw);
-                quote!(#expression[#indices])
+                quote! {#expression #([#indices_raw])* }
             }
             Expression::FixedSizeArray(expression, indices_raw) => {
-                let indices = assembly_array_indices(indices_raw);
-                quote!(#expression[#indices])
+                quote! {#expression #([#indices_raw])* }
             }
             Expression::Cast(unique_cast, cast_type_raw, expression) => {
                 let cast_type = TokenStream::from_str(cast_type_raw).unwrap();
@@ -1064,7 +1062,20 @@ impl ToTokens for Expression {
                 }
             }
             Expression::Mapping(expression, indices_raw, insert_maybe) => {
-                let indices = assembly_array_indices(indices_raw);
+                let indices = if indices_raw.len() > 1 {
+                    let mut inner = TokenStream::new();
+                    for i in 0..indices_raw.len() {
+                        let expression = indices_raw.get(i).unwrap();
+                        if i > 0 {
+                            inner.extend(quote!(,));
+                        }
+                        inner.extend(quote!(#expression));
+                    }
+                    quote!((#inner))
+                } else {
+                    let expression = indices_raw.get(0).unwrap();
+                    quote!(#expression)
+                };
                 if let Some(insert) = insert_maybe {
                     quote!(#expression.insert(&#indices, &(#insert)))
                 } else {
@@ -1126,22 +1137,5 @@ impl ToTokens for Expression {
             }
             Expression::ZeroAddressInto => quote!(ZERO_ADDRESS.into()),
         })
-    }
-}
-
-fn assembly_array_indices(indices_raw: &Vec<Expression>) -> TokenStream {
-    if indices_raw.len() > 1 {
-        let mut inner = TokenStream::new();
-        for i in 0..indices_raw.len() {
-            let expression = indices_raw.get(i).unwrap();
-            if i > 0 {
-                inner.extend(quote!(,));
-            }
-            inner.extend(quote!(#expression));
-        }
-        quote!((#inner))
-    } else {
-        let expression = indices_raw.get(0).unwrap();
-        quote!(#expression)
     }
 }
