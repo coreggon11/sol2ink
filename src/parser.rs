@@ -807,7 +807,7 @@ impl<'a> Parser<'a> {
             return Some(ArrayType::Mapping)
         } else if var_type.contains("Vec") {
             return Some(ArrayType::DynamicArray)
-        } else if var_type.contains("[") {
+        } else if var_type.contains('[') {
             return Some(ArrayType::FixedSizeArray)
         }
         None
@@ -1133,24 +1133,27 @@ impl<'a> Parser<'a> {
     /// `parameters` the raw representation of the parameters of the function
     ///
     /// returns the vec of function parameters of this function as `FunctionParam` struct
-    fn parse_function_parameters(&mut self, parameters_raw: String) -> Vec<FunctionParam> {
+    fn parse_function_parameters(&mut self, parameters: String) -> Vec<FunctionParam> {
         let mut out = Vec::<FunctionParam>::new();
-        if parameters_raw.is_empty() {
-            return out
-        }
 
-        let parameters = split(parameters_raw.as_str(), ",", None);
-        for parameter in parameters {
-            let items = split(parameter.trim(), " ", None);
-            let param_type = self.convert_variable_type(items[0].to_owned());
-            if let Some(array_type) = self.check_array_type(param_type.to_owned()) {
-                self.array_variables.insert(items[1].to_owned(), array_type);
+        if !parameters.is_empty() {
+            let tokens: Vec<String> = parameters.split(", ").map(|s| s.to_string()).collect();
+            for token in tokens {
+                let parameter: Vec<String> =
+                    token.split_whitespace().map(|s| s.to_string()).collect();
+                if parameter.len() < 2 {
+                    break
+                }
+                let param_type = self.convert_variable_type(parameter[0].to_owned());
+                if let Some(array_type) = self.check_array_type(param_type.to_owned()) {
+                    self.array_variables
+                        .insert(parameter[1].to_owned(), array_type);
+                }
+                out.push(FunctionParam {
+                    name: parameter[1].to_owned(),
+                    param_type,
+                })
             }
-
-            out.push(FunctionParam {
-                name: items[1].to_owned(),
-                param_type,
-            });
         }
 
         out
