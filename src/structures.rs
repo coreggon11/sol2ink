@@ -21,7 +21,7 @@
 // SOFTWARE.
 
 use std::collections::HashSet;
-
+#[derive(Clone)]
 pub struct Contract {
     pub name: String,
     pub fields: Vec<ContractField>,
