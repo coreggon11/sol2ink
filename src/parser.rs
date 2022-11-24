@@ -785,9 +785,7 @@ impl<'a> Parser<'a> {
             .unwrap_or_else(|| String::from(""))
             .contains("constant");
         let field_type = self.convert_variable_type(trim(&field_type_raw));
-        if let Some(array_type) = self.check_array_type(field_type.to_owned()) {
-            self.array_variables.insert(field_name.clone(), array_type);
-        }
+        self.insert_array_variable(field_name.to_owned(), field_type.to_owned());
 
         ContractField {
             field_type,
@@ -800,9 +798,18 @@ impl<'a> Parser<'a> {
 
     /// Insert variable name in `array_variables` if it has array type
     ///
-    /// `var_type` converted variable type
     /// `var_name` name of variable
-    fn check_array_type(&mut self, var_type: String) -> Option<ArrayType> {
+    /// `var_type` converted variable type
+    fn insert_array_variable(&mut self, var_name: String, var_type: String) {
+        if let Some(array_type) = self.return_array_type(var_type) {
+            self.array_variables.insert(var_name, array_type);
+        }
+    }
+
+    /// Check if `var_type` has array type
+    ///
+    /// Returns `Some(ArrayType)` if yes
+    fn return_array_type(&mut self, var_type: String) -> Option<ArrayType> {
         if var_type.contains("Mapping") {
             return Some(ArrayType::Mapping)
         } else if var_type.contains("Vec") {
@@ -1145,10 +1152,8 @@ impl<'a> Parser<'a> {
                     break
                 }
                 let param_type = self.convert_variable_type(parameter[0].to_owned());
-                if let Some(array_type) = self.check_array_type(param_type.to_owned()) {
-                    self.array_variables
-                        .insert(parameter[1].to_owned(), array_type);
-                }
+                self.insert_array_variable(parameter[1].to_owned(), param_type.to_owned());
+
                 out.push(FunctionParam {
                     name: parameter[1].to_owned(),
                     param_type,
@@ -1439,9 +1444,7 @@ impl<'a> Parser<'a> {
         let field_name = capture_regex(&REGEX_DECLARE, line, "field_name").unwrap();
         let value_raw = capture_regex(&REGEX_DECLARE, line, "value");
         let field_type = self.convert_variable_type(field_type_raw);
-        if let Some(array_type) = self.check_array_type(field_type.to_owned()) {
-            self.array_variables.insert(field_name.clone(), array_type);
-        }
+        self.insert_array_variable(field_name.clone(), field_type.to_owned());
 
         if let Some(value) = value_raw {
             let expression = self.parse_expression(&value, constructor, None);
