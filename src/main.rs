@@ -211,7 +211,7 @@ mod creating_test {
     #[test]
     fn safe_math() {
         assert_eq!(
-            run(&"examples/libraries/SafeMath/SafeMath.sol".to_string()),
+            run(&"examples/libraries/SafeMath.sol".to_string()),
             Ok(())
         );
     }
