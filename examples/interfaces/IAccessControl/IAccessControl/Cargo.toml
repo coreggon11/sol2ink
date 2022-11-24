@@ -5,16 +5,16 @@ edition = "2021"
 authors = ["Sol2Ink"]
 
 [dependencies]
-ink_primitives = { version = "~3.3.0", default-features = false }
-ink_metadata = { version = "~3.3.0", default-features = false, features = ["derive"], optional = true }
-ink_env = { version = "~3.3.0", default-features = false }
-ink_storage = { version = "~3.3.0", default-features = false }
-ink_lang = { version = "~3.3.0", default-features = false }
-ink_prelude = { version = "~3.3.0", default-features = false }
-ink_engine = { version = "~3.3.0", default-features = false, optional = true }
+ink_primitives = { version = "~3.4.0", default-features = false }
+ink_metadata = { version = "~3.4.0", default-features = false, features = ["derive"], optional = true }
+ink_env = { version = "~3.4.0", default-features = false }
+ink_storage = { version = "~3.4.0", default-features = false }
+ink_lang = { version = "~3.4.0", default-features = false }
+ink_prelude = { version = "~3.4.0", default-features = false }
+ink_engine = { version = "~3.4.0", default-features = false, optional = true }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
-openbrush = { version = "2.2.0", default-features = false }
+openbrush = { git = "https://github.com/Supercolony-net/openbrush-contracts", tag = "v2.3.0", default-features = false, features = [] }
 
 [lib]
 name = "sol_2_ink_generated"

@@ -1,6 +1,6 @@
 // MIT License
 
-// Copyright (c) 2022 Supercolony
+// Copyright (c) 2022 727.ventures
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -20,6 +20,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+use convert_case::{
+    Case::Snake,
+    Casing,
+};
 use proc_macro2::TokenStream;
 use std::{
     fs::{
@@ -81,12 +85,14 @@ pub fn write_files(
     trait_definition: TokenStream,
     lib_definition: TokenStream,
     file_name: Option<String>,
+    contract_name_raw: &String,
 ) -> std::io::Result<()> {
+    let contract_name = contract_name_raw.to_case(Snake);
     let config = Config::new_str().post_proc(PostProcess::ReplaceMarkersAndDocBlocks);
     let rust_fmt = RustFmt::from_config(config);
     // contract
     let contract_path = format!(
-        "{}/contracts/contract",
+        "{}/contract",
         file_name.clone().unwrap_or_else(|| String::from("output"))
     );
     create_dir_all(&contract_path)?;
@@ -95,15 +101,14 @@ pub fn write_files(
     contract_file.write_all(rust_fmt.format_tokens(contract).unwrap().as_bytes())?;
 
     let mut cargo_toml = File::create(format!("{contract_path}/Cargo.toml"))?;
-    cargo_toml.write_all(
-        toml_builder::generate_cargo_toml(Some(
-            file_name.clone().unwrap_or_else(|| String::from("output")),
-        ))
-        .as_bytes(),
-    )?;
+    cargo_toml
+        .write_all(toml_builder::generate_cargo_toml(Some(contract_name.clone())).as_bytes())?;
 
     // impl
-    let base_path = file_name.clone().unwrap_or_else(|| String::from("output"));
+    let base_path = format!(
+        "{}/{contract_name}",
+        file_name.clone().unwrap_or_else(|| String::from("output"))
+    );
     create_dir_all(&base_path)?;
 
     let mut impl_file = File::create(format!("{base_path}/impls.rs"))?;
@@ -113,14 +118,10 @@ pub fn write_files(
     let mut trait_file = File::create(format!("{base_path}/traits.rs"))?;
     trait_file.write_all(rust_fmt.format_tokens(trait_definition).unwrap().as_bytes())?;
 
-    // lib
-    let lib_path = file_name.unwrap_or_else(|| String::from("output"));
-    create_dir_all(&lib_path)?;
-
-    let mut lib_file = File::create(format!("{lib_path}/lib.rs"))?;
+    let mut lib_file = File::create(format!("{base_path}/lib.rs"))?;
     lib_file.write_all(rust_fmt.format_tokens(lib_definition).unwrap().as_bytes())?;
 
-    let mut main_cargo_toml = File::create(format!("{lib_path}/Cargo.toml"))?;
+    let mut main_cargo_toml = File::create(format!("{base_path}/Cargo.toml"))?;
     main_cargo_toml.write_all(toml_builder::generate_cargo_toml(None).as_bytes())?;
 
     Ok(())

@@ -1,6 +1,6 @@
 // MIT License
 
-// Copyright (c) 2022 Supercolony
+// Copyright (c) 2022 727.ventures
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -47,10 +47,11 @@ pub fn generate_cargo_toml(mod_name: Option<String>) -> String {
     // out.push_str(OPENBRUSH_VERSION);
     // out.push_str("\", default-features = false }\n");
     out.push_str(r#"openbrush = { git = "https://github.com/Supercolony-net/openbrush-contracts", tag = "v2.3.0", default-features = false, features = [] }"#);
+    out.push('\n');
 
     if let Some(mod_name) = mod_name.clone() {
         out.push_str(mod_name.as_str());
-        out.push_str(" = { path = \"../..\", default-features = false }\n");
+        out.push_str(" = { path = \"..\", default-features = false }\n");
     }
 
     out.push('\n');

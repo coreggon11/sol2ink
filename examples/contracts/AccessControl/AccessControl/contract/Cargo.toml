@@ -15,10 +15,12 @@ ink_engine = { version = "~3.4.0", default-features = false, optional = true }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
 openbrush = { git = "https://github.com/Supercolony-net/openbrush-contracts", tag = "v2.3.0", default-features = false, features = [] }
+access_control = { path = "..", default-features = false }
 
 [lib]
 name = "sol_2_ink_generated"
 path = "lib.rs"
+crate-type = ["cdylib"]
 
 [features]
 default = ["std"]

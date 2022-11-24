@@ -1,6 +1,6 @@
 // MIT License
 
-// Copyright (c) 2022 Supercolony
+// Copyright (c) 2022 727.ventures
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -31,6 +31,8 @@ pub mod parser;
 pub mod structures;
 pub mod toml_builder;
 
+use crate::parser::ParserError;
+use parser::ParserOutput;
 use std::{
     collections::{
         HashMap,
@@ -38,10 +40,6 @@ use std::{
     },
     env,
 };
-
-use parser::ParserOutput;
-
-use crate::parser::ParserError;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -83,9 +81,9 @@ fn run(path: &String) -> Result<(), parser::ParserError> {
     let output = parser.parse_file()?;
     match output {
         ParserOutput::Contract(contract) => {
-            let ink_contract = assembler::assemble_contract(contract.clone());
-            let implementation = assembler::assemble_impl(contract.clone());
-            let trait_definition = assembler::assemble_trait(contract);
+            let ink_contract = assembler::assemble_contract(&contract);
+            let implementation = assembler::assemble_impl(&contract);
+            let trait_definition = assembler::assemble_trait(&contract);
             let lib_definition = assembler::assemble_lib();
             let file_name = path.replace(".sol", "");
             file_utils::write_files(
@@ -94,6 +92,7 @@ fn run(path: &String) -> Result<(), parser::ParserError> {
                 trait_definition,
                 lib_definition,
                 Some(file_name),
+                &contract.name,
             )?;
             println!("File saved!");
             Ok(())
@@ -210,9 +209,6 @@ mod creating_test {
 
     #[test]
     fn safe_math() {
-        assert_eq!(
-            run(&"examples/libraries/SafeMath.sol".to_string()),
-            Ok(())
-        );
+        assert_eq!(run(&"examples/libraries/SafeMath.sol".to_string()), Ok(()));
     }
 }

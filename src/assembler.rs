@@ -1,6 +1,6 @@
 // MIT License
 
-// Copyright (c) 2022 Supercolony
+// Copyright (c) 2022 727.ventures
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -20,14 +20,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::{
-    collections::{
-        HashSet,
-        VecDeque,
-    },
-    str::FromStr,
-};
-
 use crate::structures::*;
 use convert_case::{
     Case::{
@@ -42,6 +34,13 @@ use proc_macro2::{
     TokenStream,
 };
 use quote::*;
+use std::{
+    collections::{
+        HashSet,
+        VecDeque,
+    },
+    str::FromStr,
+};
 
 // constant vector of rust keywords which are not keywords in solidity
 const RUST_KEYWORDS: [&str; 27] = [
@@ -51,18 +50,18 @@ const RUST_KEYWORDS: [&str; 27] = [
 ];
 
 /// Assembles ink! contract from the parsed contract struct and return it as a vec of Strings
-pub fn assemble_contract(contract: Contract) -> TokenStream {
+pub fn assemble_contract(contract: &Contract) -> TokenStream {
     let mod_name = format_ident!("{}", contract.name.to_case(Snake));
     let contract_name = format_ident!("{}Contract", contract.name);
     let trait_name = format_ident!("{}", contract.name);
     let signature = signature();
-    let imports = assemble_imports(contract.imports);
-    let events = assemble_events(contract.events.clone());
+    let imports = assemble_imports(&contract.imports);
+    let events = assemble_events(&contract.events);
     let storage = assemble_storage(&contract.name);
-    let constructor = assemble_constructor(contract.constructor, &contract.fields);
-    let constants = assemble_constants(contract.fields);
-    let comments = assemble_contract_doc(contract.contract_doc);
-    let emit_functions = assemble_contract_emit_functions(contract.events);
+    let constructor = assemble_constructor(&contract.constructor, &contract.fields);
+    let constants = assemble_constants(&contract.fields);
+    let comments = assemble_contract_doc(&contract.contract_doc);
+    let emit_functions = assemble_contract_emit_functions(&contract.events);
 
     let contract = quote! {
         #![cfg_attr(not(feature = "std"), no_std)]
@@ -101,14 +100,14 @@ pub fn assemble_contract(contract: Contract) -> TokenStream {
 }
 
 /// Assembles the implementation of the contract's trait
-pub fn assemble_impl(contract: Contract) -> TokenStream {
+pub fn assemble_impl(contract: &Contract) -> TokenStream {
     let trait_name = format_ident!("{}", contract.name);
     let signature = signature();
-    let imports = assemble_imports(contract.imports);
+    let imports = assemble_imports(&contract.imports);
     let data = assemble_data_struct(&contract.fields);
     let getters = assemble_getters(&contract.fields);
     let functions = assemble_functions(
-        contract
+        &contract
             .functions
             .iter()
             .filter(|f| f.header.external)
@@ -116,7 +115,7 @@ pub fn assemble_impl(contract: Contract) -> TokenStream {
             .collect(),
     );
     let internal_trait = assemble_function_headers(
-        contract
+        &contract
             .functions
             .iter()
             .filter(|f| !f.header.external)
@@ -124,15 +123,15 @@ pub fn assemble_impl(contract: Contract) -> TokenStream {
             .collect(),
     );
     let internal_functions = assemble_functions(
-        contract
+        &contract
             .functions
             .iter()
             .filter(|f| !f.header.external)
             .cloned()
             .collect(),
     );
-    let (emit_function_headers, impl_emit_functions) = assemble_emit_functions(contract.events);
-    let modifiers = assemble_modifiers(contract.modifiers, &trait_name);
+    let (emit_function_headers, impl_emit_functions) = assemble_emit_functions(&contract.events);
+    let modifiers = assemble_modifiers(&contract.modifiers, &trait_name);
 
     let contract = quote! {
         #signature
@@ -167,17 +166,18 @@ pub fn assemble_impl(contract: Contract) -> TokenStream {
 }
 
 /// Assembles ink! trait of the provided contract
-pub fn assemble_trait(contract: Contract) -> TokenStream {
+pub fn assemble_trait(contract: &Contract) -> TokenStream {
     let trait_name = TokenStream::from_str(&contract.name).unwrap();
     let ref_name = TokenStream::from_str(&format!("{}Ref", contract.name)).unwrap();
     let signature = signature();
-    let imports = assemble_imports(contract.imports);
-    let enums = assemble_enums(contract.enums);
-    let structs = assemble_structs(contract.structs);
+    let imports = assemble_imports(&contract.imports);
+    let enums = assemble_enums(&contract.enums);
+    let structs = assemble_structs(&contract.structs);
     let getters_trait = assemble_getters_trait(&contract.fields);
     let function_headers = assemble_function_headers(
-        contract
+        &contract
             .functions
+            .clone()
             .iter()
             .filter(|f| f.header.external)
             .map(|f| f.header.clone())
@@ -232,11 +232,11 @@ pub fn assemble_interface(interface: Interface) -> TokenStream {
     let interface_name = TokenStream::from_str(&interface.name).unwrap();
     let interface_name_ref = TokenStream::from_str(&format!("{}Ref", interface.name)).unwrap();
     let signature = signature();
-    let imports = assemble_imports(interface.imports);
-    let events = assemble_events(interface.events);
-    let enums = assemble_enums(interface.enums);
-    let structs = assemble_structs(interface.structs);
-    let function_headers = assemble_function_headers(interface.function_headers);
+    let imports = assemble_imports(&interface.imports);
+    let events = assemble_events(&interface.events);
+    let enums = assemble_enums(&interface.enums);
+    let structs = assemble_structs(&interface.structs);
+    let function_headers = assemble_function_headers(&interface.function_headers);
 
     let interface = quote! {
         #signature
@@ -263,13 +263,13 @@ pub fn assemble_library(library: Library) -> TokenStream {
         check_expression_for_keywords(&library.name).to_case(Snake)
     );
     let signature = signature();
-    let imports = assemble_imports(library.imports);
-    let events = assemble_events(library.events);
-    let enums = assemble_enums(library.enums);
-    let structs = assemble_structs(library.structs);
-    let constants = assemble_constants(library.fields);
-    let functions = assemble_functions(library.functions);
-    let comments = assemble_contract_doc(library.libraray_doc);
+    let imports = assemble_imports(&library.imports);
+    let events = assemble_events(&library.events);
+    let enums = assemble_enums(&library.enums);
+    let structs = assemble_structs(&library.structs);
+    let constants = assemble_constants(&library.fields);
+    let functions = assemble_functions(&library.functions);
+    let comments = assemble_contract_doc(&library.libraray_doc);
 
     let library = quote! {
         #![cfg_attr(not(feature = "std"), no_std)]
@@ -295,7 +295,7 @@ pub fn assemble_library(library: Library) -> TokenStream {
     library
 }
 
-fn assemble_contract_doc(comments: Vec<String>) -> TokenStream {
+fn assemble_contract_doc(comments: &Vec<String>) -> TokenStream {
     let mut output = TokenStream::new();
 
     // assemble comments
@@ -309,7 +309,7 @@ fn assemble_contract_doc(comments: Vec<String>) -> TokenStream {
 }
 
 /// Sorts the imports inside the HashSet and return it as a Vec of Strings
-fn assemble_imports(imports: HashSet<String>) -> TokenStream {
+fn assemble_imports(imports: &HashSet<String>) -> TokenStream {
     let mut output = TokenStream::new();
     let output_vec = Vec::from_iter(imports);
 
@@ -321,7 +321,7 @@ fn assemble_imports(imports: HashSet<String>) -> TokenStream {
 }
 
 /// Assembles ink! enums from the vec of parsed Enum structs and return them as a vec of Strings
-fn assemble_enums(enums: Vec<Enum>) -> TokenStream {
+fn assemble_enums(enums: &Vec<Enum>) -> TokenStream {
     let mut output = TokenStream::new();
 
     for enumeration in enums.iter() {
@@ -368,7 +368,7 @@ fn assemble_enums(enums: Vec<Enum>) -> TokenStream {
 }
 
 /// Assembles ink! events from the vec of parsed Event structs and return them as a vec of Strings
-fn assemble_events(events: Vec<Event>) -> TokenStream {
+fn assemble_events(events: &Vec<Event>) -> TokenStream {
     let mut output = TokenStream::new();
 
     for event in events.iter() {
@@ -520,7 +520,7 @@ fn assemble_storage(contract_name: &String) -> TokenStream {
 }
 
 /// Assembles constant fields of the contract
-fn assemble_constants(fields: Vec<ContractField>) -> TokenStream {
+fn assemble_constants(fields: &Vec<ContractField>) -> TokenStream {
     let mut output = TokenStream::new();
 
     // assemble storage fields
@@ -550,7 +550,7 @@ fn assemble_constants(fields: Vec<ContractField>) -> TokenStream {
 }
 
 /// Assembles ink! structs from the vec of parsed Struct structs and return them as a vec of Strings
-fn assemble_structs(structs: Vec<Struct>) -> TokenStream {
+fn assemble_structs(structs: &Vec<Struct>) -> TokenStream {
     let mut output = TokenStream::new();
 
     for structure in structs.iter() {
@@ -605,11 +605,11 @@ fn assemble_structs(structs: Vec<Struct>) -> TokenStream {
 }
 
 /// Assembles ink! cosntructor from the parsed Function struct and return it as a vec of Strings
-fn assemble_constructor(constructor: Function, fields: &[ContractField]) -> TokenStream {
+fn assemble_constructor(constructor: &Function, fields: &[ContractField]) -> TokenStream {
     let mut output = TokenStream::new();
     let mut params = TokenStream::new();
     let mut comments = TokenStream::new();
-    let constructor_functions = constructor.body;
+    let constructor_functions = &constructor.body;
 
     // assemble comments
     for comment in constructor.header.comments.iter() {
@@ -662,7 +662,7 @@ fn assemble_constructor(constructor: Function, fields: &[ContractField]) -> Toke
 }
 
 /// Assembles ink! functions from the vec of parsed Function structs and return them as a vec of Strings
-fn assemble_functions(functions: Vec<Function>) -> TokenStream {
+fn assemble_functions(functions: &Vec<Function>) -> TokenStream {
     let mut output = TokenStream::new();
 
     for function in functions.iter() {
@@ -850,7 +850,7 @@ fn assemble_functions(functions: Vec<Function>) -> TokenStream {
     output
 }
 
-fn assemble_emit_functions(events: Vec<Event>) -> (TokenStream, TokenStream) {
+fn assemble_emit_functions(events: &Vec<Event>) -> (TokenStream, TokenStream) {
     let mut default_output = TokenStream::new();
     let mut impl_output = TokenStream::new();
 
@@ -890,7 +890,7 @@ fn assemble_emit_functions(events: Vec<Event>) -> (TokenStream, TokenStream) {
     (default_output, impl_output)
 }
 
-fn assemble_contract_emit_functions(events: Vec<Event>) -> TokenStream {
+fn assemble_contract_emit_functions(events: &Vec<Event>) -> TokenStream {
     let mut output = TokenStream::new();
 
     for event in events.iter() {
@@ -928,7 +928,7 @@ fn assemble_contract_emit_functions(events: Vec<Event>) -> TokenStream {
 }
 
 /// Assembles ink! functions from the vec of parsed Function structs and return them as a vec of Strings
-fn assemble_modifiers(modifiers: Vec<Modifier>, contract_name: &Ident) -> TokenStream {
+fn assemble_modifiers(modifiers: &Vec<Modifier>, contract_name: &Ident) -> TokenStream {
     let mut output = TokenStream::new();
 
     for modifier in modifiers.iter() {
@@ -984,7 +984,7 @@ fn assemble_modifiers(modifiers: Vec<Modifier>, contract_name: &Ident) -> TokenS
 }
 
 /// Assembles ink! trait function headers from the vec of parsed FunctionHeader structs and return them as a vec of Strings
-fn assemble_function_headers(function_headers: Vec<FunctionHeader>) -> TokenStream {
+fn assemble_function_headers(function_headers: &Vec<FunctionHeader>) -> TokenStream {
     let mut output = TokenStream::new();
 
     for header in function_headers.iter() {
