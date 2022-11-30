@@ -154,7 +154,7 @@ mod creating_test {
     #[test]
     fn solang_example() {
         assert_eq!(
-            run(&"examples/contracts/SolangExample/example.sol".to_string()),
+            run(&"examples/contracts/example/example.sol".to_string()),
             Ok(())
         );
     }

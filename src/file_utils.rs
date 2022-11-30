@@ -20,11 +20,18 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+use crate::toml_builder;
 use convert_case::{
     Case::Snake,
     Casing,
 };
 use proc_macro2::TokenStream;
+use rust_format::{
+    Config,
+    Formatter,
+    PostProcess,
+    RustFmt,
+};
 use std::{
     fs::{
         create_dir_all,
@@ -35,15 +42,6 @@ use std::{
         BufReader,
     },
 };
-
-use rust_format::{
-    Config,
-    Formatter,
-    PostProcess,
-    RustFmt,
-};
-
-use crate::toml_builder;
 
 /// Reads the file to be transpiled and returns it as string
 ///
