@@ -60,9 +60,8 @@ pub fn read_file(path: &String) -> std::io::Result<String> {
 /// each item in the vec represents a separate line in the output file
 pub fn write_file(lines: TokenStream, file_name: Option<String>) -> std::io::Result<()> {
     let path = file_name.unwrap_or_else(|| String::from("output"));
-    create_dir_all(&path)?;
 
-    let mut file = File::create(format!("{path}/lib.rs"))?;
+    let mut file = File::create(path)?;
     let config = Config::new_str().post_proc(PostProcess::ReplaceMarkersAndDocBlocks);
     file.write_all(
         RustFmt::from_config(config)
@@ -70,9 +69,6 @@ pub fn write_file(lines: TokenStream, file_name: Option<String>) -> std::io::Res
             .unwrap()
             .as_bytes(),
     )?;
-
-    let mut cargo_toml = File::create(format!("{path}/Cargo.toml"))?;
-    cargo_toml.write_all(toml_builder::generate_cargo_toml(None).as_bytes())?;
 
     Ok(())
 }

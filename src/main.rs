@@ -99,14 +99,14 @@ fn run(path: &String) -> Result<(), parser::ParserError> {
         }
         ParserOutput::Interface(interface) => {
             let ink_trait = assembler::assemble_interface(interface);
-            let file_name = path.replace(".sol", "");
+            let file_name = path.replace(".sol", ".rs");
             file_utils::write_file(ink_trait, Some(file_name))?;
             println!("File saved!");
             Ok(())
         }
         ParserOutput::Library(library) => {
             let ink_trait = assembler::assemble_library(library);
-            let file_name = path.replace(".sol", "");
+            let file_name = path.replace(".sol", ".rs");
             file_utils::write_file(ink_trait, Some(file_name))?;
             println!("File saved!");
             Ok(())
@@ -209,6 +209,9 @@ mod creating_test {
 
     #[test]
     fn safe_math() {
-        assert_eq!(run(&"examples/libraries/SafeMath.sol".to_string()), Ok(()));
+        assert_eq!(
+            run(&"examples/libraries/SafeMath/SafeMath.sol".to_string()),
+            Ok(())
+        );
     }
 }

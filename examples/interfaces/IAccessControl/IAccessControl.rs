@@ -1,6 +1,7 @@
-// Generated with Sol2Ink v1.0.0
+// Generated with Sol2Ink v1.1.0
 // https://github.com/Supercolony-net/sol2ink
 
+use openbrush::traits::AccountId;
 /// @dev Emitted when `newAdminRole` is set as ``role``'s admin role, replacing `previousAdminRole`
 /// `DEFAULT_ADMIN_ROLE` is the starting admin for all roles, despite
 /// {RoleAdminChanged} not being emitted signaling this.
@@ -30,8 +31,8 @@ pub struct RoleGranted {
 
 /// @dev Emitted when `account` is revoked `role`.
 /// `sender` is the account that originated the contract call:
-/// - if using `revokeRole`, it is the admin role bearer
-/// - if using `renounceRole`, it is the role bearer (i.e. `account`)
+///   - if using `revokeRole`, it is the admin role bearer
+///   - if using `renounceRole`, it is the role bearer (i.e. `account`)
 #[ink(event)]
 pub struct RoleRevoked {
     #[ink(topic)]

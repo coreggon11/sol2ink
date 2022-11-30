@@ -1,7 +1,8 @@
-// Generated with Sol2Ink v1.0.0
+// Generated with Sol2Ink v1.1.0
 // https://github.com/Supercolony-net/sol2ink
 
 use ink_prelude::vec::Vec;
+use openbrush::traits::AccountId;
 /// @dev Emitted when `tokenId` token is transferred from `from` to `to`.
 #[ink(event)]
 pub struct Transfer {
