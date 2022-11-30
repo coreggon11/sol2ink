@@ -2,6 +2,7 @@
 // https://github.com/Supercolony-net/sol2ink
 
 use openbrush::traits::AccountId;
+
 /// @dev Emitted when `newAdminRole` is set as ``role``'s admin role, replacing `previousAdminRole`
 /// `DEFAULT_ADMIN_ROLE` is the starting admin for all roles, despite
 /// {RoleAdminChanged} not being emitted signaling this.

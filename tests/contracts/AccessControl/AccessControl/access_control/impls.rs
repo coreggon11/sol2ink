@@ -5,7 +5,6 @@ pub use crate::{
     impls,
     traits::*,
 };
-use ink_prelude::string::String;
 use openbrush::{
     modifier_definition,
     modifiers,
@@ -13,6 +12,7 @@ use openbrush::{
     traits::{
         AccountId,
         Storage,
+        String,
     },
 };
 

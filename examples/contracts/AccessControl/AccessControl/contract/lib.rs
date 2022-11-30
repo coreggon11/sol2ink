@@ -42,7 +42,6 @@ pub mod access_control {
         EmitEvent,
         Env,
     };
-    use ink_prelude::string::String;
     use ink_storage::traits::SpreadAllocate;
     use openbrush::{
         modifier_definition,
@@ -51,6 +50,7 @@ pub mod access_control {
         traits::{
             AccountId,
             Storage,
+            String,
         },
     };
     use scale::{

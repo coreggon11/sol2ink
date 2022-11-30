@@ -31,7 +31,6 @@ pub mod erc_20 {
         EmitEvent,
         Env,
     };
-    use ink_prelude::string::String;
     use ink_storage::traits::SpreadAllocate;
     use openbrush::{
         storage::Mapping,
@@ -39,6 +38,7 @@ pub mod erc_20 {
             AccountId,
             AccountIdExt,
             Storage,
+            String,
             ZERO_ADDRESS,
         },
     };

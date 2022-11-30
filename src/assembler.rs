@@ -113,6 +113,7 @@ pub fn assemble_impl(contract: &Contract) -> TokenStream {
             .filter(|f| f.header.external)
             .cloned()
             .collect(),
+        false,
     );
     let internal_trait = assemble_function_headers(
         &contract
@@ -129,6 +130,7 @@ pub fn assemble_impl(contract: &Contract) -> TokenStream {
             .filter(|f| !f.header.external)
             .cloned()
             .collect(),
+        false,
     );
     let (emit_function_headers, impl_emit_functions) = assemble_emit_functions(&contract.events);
     let modifiers = assemble_modifiers(&contract.modifiers, &trait_name);
@@ -241,6 +243,7 @@ pub fn assemble_interface(interface: Interface) -> TokenStream {
     let interface = quote! {
         #signature
         #imports
+        _blank_!();
         #events
         #enums
         #structs
@@ -258,17 +261,13 @@ pub fn assemble_interface(interface: Interface) -> TokenStream {
 
 /// Assembles a solidity library as a plain Rust file from the parsed library struct and return it as a TokenStream
 pub fn assemble_library(library: Library) -> TokenStream {
-    let mod_name = format_ident!(
-        "{}",
-        check_expression_for_keywords(&library.name).to_case(Snake)
-    );
     let signature = signature();
     let imports = assemble_imports(&library.imports);
     let events = assemble_events(&library.events);
     let enums = assemble_enums(&library.enums);
     let structs = assemble_structs(&library.structs);
     let constants = assemble_constants(&library.fields);
-    let functions = assemble_functions(&library.functions);
+    let functions = assemble_functions(&library.functions, true);
     let comments = assemble_contract_doc(&library.libraray_doc);
 
     let library = quote! {
@@ -277,19 +276,18 @@ pub fn assemble_library(library: Library) -> TokenStream {
         _blank_!();
         #signature
         #comments
-        pub mod #mod_name {
-            #imports
-            pub enum Error {
-                Custom(String),
-            }
-            _blank_!();
-
-            #constants
-            #events
-            #enums
-            #structs
-            #functions
+        #imports
+        _blank_!();
+        pub enum Error {
+            Custom(String),
         }
+        _blank_!();
+
+        #constants
+        #events
+        #enums
+        #structs
+        #functions
     };
 
     library
@@ -662,7 +660,7 @@ fn assemble_constructor(constructor: &Function, fields: &[ContractField]) -> Tok
 }
 
 /// Assembles ink! functions from the vec of parsed Function structs and return them as a vec of Strings
-fn assemble_functions(functions: &Vec<Function>) -> TokenStream {
+fn assemble_functions(functions: &Vec<Function>, is_library: bool) -> TokenStream {
     let mut output = TokenStream::new();
 
     for function in functions.iter() {
@@ -694,6 +692,8 @@ fn assemble_functions(functions: &Vec<Function>) -> TokenStream {
                 "{}fn {}{}",
                 if !function.header.external {
                     String::from("default ")
+                } else if is_library {
+                    String::from("pub ")
                 } else {
                     String::new()
                 },

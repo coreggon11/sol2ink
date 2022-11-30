@@ -2,6 +2,7 @@
 // https://github.com/Supercolony-net/sol2ink
 
 use openbrush::traits::AccountId;
+
 /// @dev Emitted when `value` tokens are moved from one account (`from`) to
 /// another (`to`).
 /// Note that `value` may be zero.

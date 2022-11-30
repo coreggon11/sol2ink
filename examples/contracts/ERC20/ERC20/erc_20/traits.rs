@@ -1,12 +1,12 @@
 // Generated with Sol2Ink v1.1.0
 // https://github.com/Supercolony-net/sol2ink
 
-use ink_prelude::string::String;
 use openbrush::{
     storage::Mapping,
     traits::{
         AccountId,
         AccountIdExt,
+        String,
         ZERO_ADDRESS,
     },
 };

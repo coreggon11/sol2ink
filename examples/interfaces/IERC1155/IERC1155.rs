@@ -1,11 +1,12 @@
 // Generated with Sol2Ink v1.1.0
 // https://github.com/Supercolony-net/sol2ink
 
-use ink_prelude::{
-    string::String,
-    vec::Vec,
+use ink_prelude::vec::Vec;
+use openbrush::traits::{
+    AccountId,
+    String,
 };
-use openbrush::traits::AccountId;
+
 /// @dev Emitted when `value` tokens of token type `id` are transferred from `from` to `to` by `operator`.
 #[ink(event)]
 pub struct TransferSingle {

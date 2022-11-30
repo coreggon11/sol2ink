@@ -17,10 +17,7 @@ pub mod erc_1155 {
         EmitEvent,
         Env,
     };
-    use ink_prelude::{
-        string::String,
-        vec::Vec,
-    };
+    use ink_prelude::vec::Vec;
     use ink_storage::traits::SpreadAllocate;
     use openbrush::{
         storage::Mapping,
@@ -28,6 +25,7 @@ pub mod erc_1155 {
             AccountId,
             AccountIdExt,
             Storage,
+            String,
             ZERO_ADDRESS,
         },
     };

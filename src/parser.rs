@@ -148,7 +148,7 @@ lazy_static! {
         map.insert("mapping", ("Mapping", None, None));
         map.insert(
             "string",
-            ("String", None, Some("ink_prelude::string::String")),
+            ("String", None, Some("openbrush::traits::String")),
         );
         map.insert("uint8", ("u8", None, None));
         map.insert("uint16", ("u16", None, None));
@@ -1605,7 +1605,7 @@ impl<'a> Parser<'a> {
     /// returns the statements in form of `Statement::Require`
     fn parse_require(&mut self, line: &str, constructor: bool, regex: &Regex) -> Statement {
         self.imports
-            .insert(String::from("use ink_prelude::string::String;"));
+            .insert(String::from("use openbrush::traits::String;"));
 
         let condition = capture_regex(regex, line, "condition");
         let error_maybe = capture_regex(regex, line, "error");
