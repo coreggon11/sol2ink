@@ -238,6 +238,7 @@ pub enum Expression {
     DynamicArray(Box<Expression>, Vec<Expression>),
     FixedSizeArray(Box<Expression>, Vec<Expression>),
     Cast(bool, String, Box<Expression>),
+    ComplexMapping(Vec<Expression>),
     Condition(Box<Condition>),
     Constant(String),
     Enclosed(Box<Expression>),

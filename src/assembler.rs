@@ -991,6 +991,17 @@ impl ToTokens for Expression {
                     quote!((#expression as #cast_type))
                 }
             }
+            Expression::ComplexMapping(mappings) => {
+                let mut expression = TokenStream::new();
+                for (i, mapping) in mappings.iter().enumerate() {
+                    if i > 0 {
+                        expression.extend(quote!(.#mapping));
+                    } else {
+                        expression.extend(quote!(#mapping));
+                    }
+                }
+                quote! { #expression }
+            }
             Expression::Condition(condition_raw) => {
                 let left = &condition_raw.left;
                 let operation = condition_raw.operation;
