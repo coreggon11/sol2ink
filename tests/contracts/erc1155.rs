@@ -164,13 +164,7 @@ pub mod erc_1155 {
             let batch_balances: Vec<u128> = vec![u128::default(); accounts.length];
             let i: u128 = 0;
             while i < accounts.length {
-                batch_balances.insert(
-                    &i,
-                    &(self.balance_of(
-                        accounts.get(&i).unwrap_or_default(),
-                        ids.get(&i).unwrap_or_default(),
-                    )?),
-                );
+                batch_balances[i] = self.balance_of(accounts[i], ids[i])?;
                 i += 1;
             }
             return Ok(batch_balances)
@@ -317,8 +311,8 @@ pub mod erc_1155 {
             self._before_token_transfer(operator, from, to, ids, amounts, data)?;
             let i: u128 = 0;
             while i < ids.length {
-                let id: u128 = ids.get(&i).unwrap_or_default();
-                let amount: u128 = amounts.get(&i).unwrap_or_default();
+                let id: u128 = ids[i];
+                let amount: u128 = amounts[i];
                 let from_balance: u128 = self.data.balances.get(&(id, from)).unwrap_or_default();
                 if from_balance < amount {
                     return Err(Error::Custom(String::from(
@@ -439,13 +433,8 @@ pub mod erc_1155 {
             let i: u128 = 0;
             while i < ids.length {
                 self.data.balances.insert(
-                    &(ids.get(&i).unwrap_or_default(), to),
-                    &(self
-                        .data
-                        .balances
-                        .get(&(ids.get(&i).unwrap_or_default(), to))
-                        .unwrap_or_default()
-                        + amounts.get(&i).unwrap_or_default()),
+                    &(ids[i], to),
+                    &(self.data.balances.get(&(ids[i], to)).unwrap_or_default() + amounts[i]),
                 );
                 i += 1;
             }
@@ -529,8 +518,8 @@ pub mod erc_1155 {
             self._before_token_transfer(operator, from, ZERO_ADDRESS.into(), ids, amounts, "")?;
             let i: u128 = 0;
             while i < ids.length {
-                let id: u128 = ids.get(&i).unwrap_or_default();
-                let amount: u128 = amounts.get(&i).unwrap_or_default();
+                let id: u128 = ids[i];
+                let amount: u128 = amounts[i];
                 let from_balance: u128 = self.data.balances.get(&(id, from)).unwrap_or_default();
                 if from_balance < amount {
                     return Err(Error::Custom(String::from(
@@ -691,7 +680,7 @@ pub mod erc_1155 {
 
         fn _as_singleton_array(&self, element: u128) -> Result<Vec<u128>, Error> {
             let array: Vec<u128> = vec![u128::default(); 1];
-            array.insert(&0, &(element));
+            array[0] = element;
             return Ok(array)
         }
 
