@@ -266,7 +266,7 @@ lazy_static! {
     .unwrap();
     static ref REGEX_ASSIGN: Regex = Regex::new(
         r#"(?x)
-        ^\s*(?P<left>[0-9a-zA-Z_\[\].]+?)\s*
+        ^\s*(?P<left>[0-9a-zA-Z_\[\].+\-*/]+?)\s*
         (?P<operation>[+\-*/&|]*=)\s*
         (?P<right>[^=][^;]*)+?;*\s*$"#
     )
@@ -824,7 +824,8 @@ impl<'a> Parser<'a> {
     }
 
     /// Get type of `var_type` elements and
-    /// insert its name in `array_variables` if it's needed
+    /// insert its name in `array_variables` if it's
+    /// struct with array fields
     ///
     /// `var_name` name of variable
     /// `var_type` converted variable type
