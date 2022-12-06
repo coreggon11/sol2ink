@@ -2395,7 +2395,7 @@ impl<'a> Parser<'a> {
                 raw.as_str(),
                 constructor,
                 enclosed_expressions,
-            );push
+            );
 
             return self.return_array_expression(mapping_raw, mapping, indices)
         }
