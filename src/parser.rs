@@ -330,6 +330,12 @@ lazy_static! {
     static ref REGEX_BREAK:Regex = Regex::new(
         r#"^\s*break\s*;"#,
     ).unwrap();
+    static ref REGEX_ARRAY_METHOD:Regex = Regex::new(
+        r#"(?x)
+        ^\s*(?P<variable>.+?).
+        (?P<method>(push|pop))\(\s*
+        (?P<element>.+?)\);\s*$"#,
+    ).unwrap();
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -805,21 +811,12 @@ impl<'a> Parser<'a> {
     ///
     /// `var_name` name of variable
     /// `var_type` converted variable type
-    fn insert_array_variable(
-        &mut self,
-        var_name: String,
-        var_type: String,
-    ) {
+    fn insert_array_variable(&mut self, var_name: String, var_type: String) {
         if let Some(array_type) = self.return_array_type(var_type.to_owned()) {
-            self.insert_array_struct_elements(
-                var_name.to_owned(),
-                var_type.to_owned(),
-                array_type.clone(),
-            );
-            self.array_variables
-                .insert(var_name, array_type);
+            self.insert_array_struct_elements(var_name.to_owned(), var_type, array_type.clone());
+            self.array_variables.insert(var_name, array_type);
         } else {
-            self.insert_struct_elements(var_name.to_owned(), var_type);
+            self.insert_struct_elements(var_name, var_type);
         }
     }
 
@@ -844,7 +841,7 @@ impl<'a> Parser<'a> {
             }
         };
         let element_type = capture_regex(&regex, var_type.as_str(), "element_type").unwrap();
-        self.insert_struct_elements(var_name.to_owned(), element_type);
+        self.insert_struct_elements(var_name, element_type);
     }
 
     /// Check if `element_type` is a known structure and
@@ -857,10 +854,7 @@ impl<'a> Parser<'a> {
             for field in &struct_type.fields {
                 let selector = var_name.to_owned() + ".";
                 let name_with_selector = selector.to_owned() + field.name.as_str();
-                self.insert_array_variable(
-                    name_with_selector,
-                    field.field_type.to_owned(),
-                );
+                self.insert_array_variable(name_with_selector, field.field_type.to_owned());
             }
         }
     }
@@ -1476,6 +1470,8 @@ impl<'a> Parser<'a> {
             return self.parse_delete(&line, constructor, &REGEX_DELETE)
         } else if REGEX_BREAK.is_match(&line) {
             return Statement::Break
+        } else if REGEX_ARRAY_METHOD.is_match(&line) {
+            return self.parse_array_method(&line, constructor, &REGEX_ARRAY_METHOD)
         }
 
         Statement::Comment(format!("Sol2Ink Not Implemented yet: {}", line.clone()))
@@ -2374,7 +2370,8 @@ impl<'a> Parser<'a> {
                 let name_with_selector =
                     capture_regex(&regex_mapping, part_with_selector.as_str(), "name").unwrap();
 
-                let complex_mapping = self.return_array_expression(name_with_selector, mapping, indices);
+                let complex_mapping =
+                    self.return_array_expression(name_with_selector, mapping, indices);
                 result.push(complex_mapping.clone());
                 selector = selector + name.as_str() + ".";
             }
@@ -2397,10 +2394,10 @@ impl<'a> Parser<'a> {
                 &regex_mapping,
                 raw.as_str(),
                 constructor,
-                enclosed_expressions.clone(),
-            );
+                enclosed_expressions,
+            );push
 
-            return self.return_array_expression(mapping_raw, mapping, indices);
+            return self.return_array_expression(mapping_raw, mapping, indices)
         }
 
         let regex_with_selector =
@@ -2510,7 +2507,12 @@ impl<'a> Parser<'a> {
         indices
     }
 
-    fn return_array_expression(&self, mapping_raw: String, mapping: Expression, indices: Vec<Expression>) -> Expression {
+    fn return_array_expression(
+        &self,
+        mapping_raw: String,
+        mapping: Expression,
+        indices: Vec<Expression>,
+    ) -> Expression {
         return if let Some(array_type) = self.array_variables.get(&mapping_raw) {
             match array_type {
                 ArrayType::DynamicArray => Expression::DynamicArray(bx!(mapping), indices),
@@ -2789,6 +2791,16 @@ impl<'a> Parser<'a> {
             Expression::Mapping(name, indices, _) => Statement::Delete(name, indices),
             _ => Statement::Comment(format!("Failed to parse delete {value_raw}")),
         }
+    }
+
+    fn parse_array_method(&mut self, line: &str, constructor: bool, regex: &Regex) -> Statement {
+        let variable_raw = capture_regex(regex, line, "variable").unwrap();
+        let method = capture_regex(regex, line, "method").unwrap();
+        let element_raw = capture_regex(regex, line, "element").unwrap();
+        let variable = self.parse_expression(&variable_raw, constructor, None);
+        let element = self.parse_expression(&element_raw, constructor, None);
+
+        Statement::ArrayMethodCall(variable, method, element)
     }
 
     /// Converts solidity variable type to ink! variable type (eg. address -> AccountId, uint -> u128, ...)

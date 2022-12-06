@@ -34,9 +34,9 @@ contract Arrays {
         storage_mapping[1] = element;
 
         // assign array type
-        function_d_array[1] = storage_f_array[0];
-        function_d_array[2] = storage_d_array[2];
-        element = storage_mapping[1];
+        function_d_array[1+element] = storage_f_array[0];
+        function_d_array[2/element] = storage_d_array[2+element];
+        element = storage_mapping[element+1];
 
         // nested array
         storage_d_struct_array[1].test_struct.struct_f_array[2] = 2;
@@ -63,13 +63,17 @@ contract Arrays {
         function_d_array[2] = nested_test_struct.test_struct.struct_d_array[3];
         element = test_struct.struct_mapping[10];
 
-        //        // push
-        //        function_d_array.push(1);
-        //        storage_d_array.push(1);
-        //
-        //        // pop
-        //        function_d_array.pop();
-        //        storage_d_array.pop();
+        // push
+        function_d_array.push(1);
+        storage_d_array.push(element);
+        nested_test_struct.test_struct.struct_d_array[3].push(element);
+        storage_d_struct_array[3].test_struct.struct_d_array[3].push(1);
+
+        // pop
+        function_d_array.pop(element);
+        storage_d_array.pop(1);
+        nested_test_struct.test_struct.struct_d_array[3].pop(1);
+        storage_d_struct_array[3].test_struct.struct_d_array[3].pop(element);
 
         return function_d_array;
     }

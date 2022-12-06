@@ -798,6 +798,10 @@ impl ToTokens for Statement {
                     #left #operation #right;
                 })
             }
+            Statement::ArrayMethodCall(variable, method_str, element) => {
+                let method = TokenStream::from_str(method_str).unwrap();
+                stream.extend(quote! {#variable . #method ( #element );})
+            }
             Statement::Break => stream.extend(quote! {break}),
             Statement::Catch(statements) => {
                 stream.extend(quote! {

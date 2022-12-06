@@ -76,9 +76,13 @@ pub mod arrays {
             self.data.storage_d_array[2] = 2;
             self.data.storage_mapping.insert(&1, &(element));
             // assign array type
-            function_d_array[1] = self.data.storage_f_array[0];
-            function_d_array[2] = self.data.storage_d_array[2];
-            element = self.data.storage_mapping.get(&1).unwrap_or_default();
+            function_d_array[1 + element] = self.data.storage_f_array[0];
+            function_d_array[2 / element] = self.data.storage_d_array[2 + element];
+            element = self
+                .data
+                .storage_mapping
+                .get(&element + 1)
+                .unwrap_or_default();
             // nested array
             self.data.storage_d_struct_array[1]
                 .test_struct
@@ -119,13 +123,22 @@ pub mod arrays {
             function_d_array[1] = test_struct.struct_f_array[2];
             function_d_array[2] = nested_test_struct.test_struct.struct_d_array[3];
             element = test_struct.struct_mapping.get(&10).unwrap_or_default();
-            // // push
-            // function_d_array.push(1);
-            // storage_d_array.push(1);
-            //
-            // // pop
-            // function_d_array.pop();
-            // storage_d_array.pop();
+            // push
+            function_d_array.push(1);
+            self.data.storage_d_array.push(element);
+            nested_test_struct.test_struct.struct_d_array[3].push(element);
+            self.data.storage_d_struct_array[3]
+                .test_struct
+                .struct_d_array[3]
+                .push(1);
+            // pop
+            function_d_array.pop(element);
+            self.data.storage_d_array.pop(1);
+            nested_test_struct.test_struct.struct_d_array[3].pop(1);
+            self.data.storage_d_struct_array[3]
+                .test_struct
+                .struct_d_array[3]
+                .pop(element);
             return Ok(function_d_array)
         }
 

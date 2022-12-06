@@ -136,6 +136,7 @@ pub struct FunctionParam {
 pub enum Statement {
     AssemblyEnd,
     Assign(Expression, Expression, Operation),
+    ArrayMethodCall(Expression, String, Expression),
     Break,
     Catch(Vec<Statement>),
     CatchEnd,
