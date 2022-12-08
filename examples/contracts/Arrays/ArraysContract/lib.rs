@@ -65,19 +65,25 @@ pub mod arrays {
             ink_lang::codegen::initialize_contract(|instance: &mut Self| {})
         }
 
-        fn _work_with_arrays(&self, element: u128, d_array: Vec<u8>) -> Result<Vec<u128>, Error> {
-            // fn parameters (error with f_array)
-            d_array[4] = element;
+        fn _work_with_arrays(
+            &self,
+            element: u128,
+            f_array: [u8; 8],
+            d_array: Vec<u8>,
+        ) -> Result<Vec<u128>, Error> {
+            // fn parameters
+            f_array[1] = 0;
+            d_array[1] = element;
             // declaration (error with f_array)
             let function_d_array: Vec<u128> = vec![u128::default(); 1];
-            function_d_array[0] = element;
+            function_d_array[self.data.storage_f_array.len()?] = element;
             // assign value
-            self.data.storage_f_array[0] = 0;
-            self.data.storage_d_array[2] = 2;
+            self.data.storage_f_array[1] = 0;
+            self.data.storage_d_array[self.data.storage_f_array.len()?] = 0;
             self.data.storage_mapping.insert(&1, &(element));
             // assign array type
             function_d_array[1 + element] = self.data.storage_f_array[0];
-            function_d_array[2 / element] = self.data.storage_d_array[2 + element];
+            function_d_array[1 / element] = self.data.storage_d_array[1 + element];
             element = self
                 .data
                 .storage_mapping
@@ -86,59 +92,59 @@ pub mod arrays {
             // nested array
             self.data.storage_d_struct_array[1]
                 .test_struct
-                .struct_f_array[2] = 2;
-            self.data.storage_d_struct_array[3]
+                .struct_f_array[1] = 0;
+            self.data.storage_d_struct_array[1]
                 .test_struct
-                .struct_d_array[3] = 3;
-            self.data.storage_d_struct_array[2]
+                .struct_d_array[1] = 0;
+            self.data.storage_d_struct_array[1]
                 .test_struct
                 .struct_mapping
-                .get(&2)
-                .unwrap_or_default() = 1;
+                .get(&1)
+                .unwrap_or_default() = 0;
             element = self.data.storage_d_struct_array[1]
                 .test_struct
-                .struct_f_array[2];
-            element = self.data.storage_d_struct_array[3]
+                .struct_f_array[1];
+            element = self.data.storage_d_struct_array[1]
                 .test_struct
-                .struct_d_array[3];
-            element = self.data.storage_d_struct_array[2]
+                .struct_d_array[1];
+            element = self.data.storage_d_struct_array[1]
                 .test_struct
                 .struct_mapping
-                .get(&2)
+                .get(&1)
                 .unwrap_or_default();
             // struct fields
             let test_struct: TestStruct;
-            test_struct.struct_f_array[2] = element;
-            test_struct.struct_d_array[3] = 3;
-            test_struct.struct_mapping.insert(&10, &(element));
+            test_struct.struct_f_array[1] = element;
+            test_struct.struct_d_array[1] = d_array.len()?;
+            test_struct.struct_mapping.insert(&1, &(element));
             // nested struct fields
             let nested_test_struct: NestedTestStruct;
-            nested_test_struct.test_struct.struct_f_array[2] = element;
-            nested_test_struct.test_struct.struct_d_array[3] = 3;
+            nested_test_struct.test_struct.struct_f_array[1] = element;
+            nested_test_struct.test_struct.struct_d_array[1] = 0;
             nested_test_struct
                 .test_struct
                 .struct_mapping
-                .insert(&10, &(element));
+                .insert(&1, &(element));
             // assign struct field
-            function_d_array[1] = test_struct.struct_f_array[2];
-            function_d_array[2] = nested_test_struct.test_struct.struct_d_array[3];
-            element = test_struct.struct_mapping.get(&10).unwrap_or_default();
+            function_d_array[1] = test_struct.struct_f_array[1];
+            function_d_array[1] = nested_test_struct.test_struct.struct_d_array[1];
+            element = test_struct.struct_mapping.get(&1).unwrap_or_default();
             // push
             function_d_array.push(1);
             self.data.storage_d_array.push(element);
-            nested_test_struct.test_struct.struct_d_array[3].push(element);
-            self.data.storage_d_struct_array[3]
+            nested_test_struct.test_struct.struct_d_array[1].push(element);
+            self.data.storage_d_struct_array[1]
                 .test_struct
-                .struct_d_array[3]
+                .struct_d_array[1]
                 .push(1);
             // pop
-            function_d_array.pop(element);
-            self.data.storage_d_array.pop(1);
-            nested_test_struct.test_struct.struct_d_array[3].pop(1);
-            self.data.storage_d_struct_array[3]
+            function_d_array.pop();
+            self.data.storage_d_array.pop();
+            nested_test_struct.test_struct.struct_d_array[1].pop();
+            self.data.storage_d_struct_array[1]
                 .test_struct
-                .struct_d_array[3]
-                .pop(element);
+                .struct_d_array[1]
+                .pop();
             return Ok(function_d_array)
         }
 

@@ -334,7 +334,7 @@ lazy_static! {
         r#"(?x)
         ^\s*(?P<variable>.+?).
         (?P<method>(push|pop))\(\s*
-        (?P<element>.+?)\);\s*$"#,
+        (?P<element>.*?)\);\s*$"#,
     ).unwrap();
 }
 
@@ -2406,7 +2406,11 @@ impl<'a> Parser<'a> {
             let left_raw = capture_regex(&regex_with_selector, raw, "left").unwrap();
             let right_raw = capture_regex(&regex_with_selector, raw, "right").unwrap();
             let left = self.parse_expression(&left_raw, constructor, enclosed_expressions.clone());
-            let right = self.parse_expression(&right_raw, constructor, enclosed_expressions);
+            let right = if right_raw == "length" {
+                Expression::FunctionCall("len".to_string(), vec![], None, true)
+            } else {
+                self.parse_expression(&right_raw, constructor, enclosed_expressions)
+            };
 
             match &right {
                 Expression::FunctionCall(function_name, expressions, _, external) => {
