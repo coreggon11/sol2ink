@@ -16,16 +16,18 @@ contract Arrays {
     }
 
     mapping(uint256 => uint256) storage_mapping;
-    bytes32 storage_f_array;
+    uint256[13] storage_f_array;
     uint256[] storage_d_array;
     NestedTestStruct[] storage_d_struct_array;
 
-    function work_with_arrays(uint256 element, bytes8 f_array, uint8[] d_array) private pure returns (uint256[] memory) {
+    function work_with_arrays(uint256 element, uint8[13] f_array, uint8[] d_array) private pure returns (uint256[] memory) {
         // fn parameters
         f_array[1] = 0;
         d_array[1] = element;
 
-        // declaration (error with f_array)
+        // declaration
+        uint8[13] memory function_f_array;
+        function_f_array[1] = 0;
         uint256[] memory function_d_array = new uint256[](1);
         function_d_array[storage_f_array.length] = element;
 

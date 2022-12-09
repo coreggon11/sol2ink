@@ -2821,6 +2821,14 @@ impl<'a> Parser<'a> {
             } else {
                 (arg_type.as_str(), false)
             };
+        let regex_fixed_array = Regex::new(r#"^(?P<variable>.+?)\[(?P<size>.+?)]\s*$"#).unwrap();
+        if regex_fixed_array.is_match(no_array_arg_type) {
+            let variable_raw =
+                capture_regex(&regex_fixed_array, no_array_arg_type, "variable").unwrap();
+            let variable = self.convert_variable_type(variable_raw);
+            let size = capture_regex(&regex_fixed_array, no_array_arg_type, "size").unwrap();
+            return format!("[{}; {}]", variable, size)
+        }
         let regex_mapping: Regex = Regex::new(
             r#"(?x)^\s*mapping\(
                 (?P<type_from>.+?)=>

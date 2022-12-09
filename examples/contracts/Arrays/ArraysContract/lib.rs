@@ -47,7 +47,7 @@ pub mod arrays {
     #[openbrush::upgradeable_storage(STORAGE_KEY)]
     pub struct Data {
         pub storage_mapping: Mapping<u128, u128>,
-        pub storage_f_array: [u8; 32],
+        pub storage_f_array: [u128; 13],
         pub storage_d_array: Vec<u128>,
         pub storage_d_struct_array: Vec<NestedTestStruct>,
     }
@@ -68,13 +68,15 @@ pub mod arrays {
         fn _work_with_arrays(
             &self,
             element: u128,
-            f_array: [u8; 8],
+            f_array: [u8; 13],
             d_array: Vec<u8>,
         ) -> Result<Vec<u128>, Error> {
             // fn parameters
             f_array[1] = 0;
             d_array[1] = element;
-            // declaration (error with f_array)
+            // declaration
+            let function_f_array: [u8; 13];
+            function_f_array[1] = 0;
             let function_d_array: Vec<u128> = vec![u128::default(); 1];
             function_d_array[self.data.storage_f_array.len()?] = element;
             // assign value
