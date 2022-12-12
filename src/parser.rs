@@ -1505,8 +1505,30 @@ impl<'a> Parser<'a> {
             let expression = self.parse_expression(&value, constructor, None);
             Statement::Declaration(field_name, field_type, Some(expression))
         } else {
-            Statement::Declaration(field_name, field_type, None)
+            Statement::Declaration(
+                field_name,
+                field_type.to_owned(),
+                self.return_new_array_or_none(&field_type),
+            )
         }
+    }
+
+    /// If we have declaration of fixed-size array without assign value
+    /// ``` type[size] memory array; ```
+    /// it returns expression for correct declaration on ink! side
+    ///
+    /// `field_type` type of array
+    ///
+    /// returns `Expression::NewArray`
+    fn return_new_array_or_none(&mut self, field_type: &str) -> Option<Expression> {
+        let regex_fixed_array = Regex::new(r#"^\[(?P<type>.+?);\s*(?P<size>.+?)]$"#).unwrap();
+        if regex_fixed_array.is_match(field_type) {
+            let array_type = capture_regex(&regex_fixed_array, field_type, "type").unwrap();
+            let array_size_raw = capture_regex(&regex_fixed_array, field_type, "size").unwrap();
+            let array_size = self.parse_expression(&array_size_raw, false, None);
+            return Some(Expression::NewArray(array_type, bx!(array_size)))
+        }
+        None
     }
 
     /// Parses a require statement
