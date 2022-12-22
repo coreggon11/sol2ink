@@ -798,9 +798,9 @@ impl ToTokens for Statement {
                     #left #operation #right;
                 })
             }
-            Statement::ArrayMethodCall(variable, method_str, element) => {
-                let method = TokenStream::from_str(method_str).unwrap();
-                stream.extend(quote! {#variable . #method ( #element );})
+            Statement::ArrayFunctionCall(variable, function_raw, element) => {
+                let function = TokenStream::from_str(function_raw).unwrap();
+                stream.extend(quote! {#variable . #function ( #element );})
             }
             Statement::Break => stream.extend(quote! {break}),
             Statement::Catch(statements) => {
@@ -1029,7 +1029,13 @@ impl ToTokens for Expression {
                     TokenStream::from_str(&selector_raw.clone().unwrap_or_default()).unwrap();
                 quote!(#selector.env().caller())
             }
-            Expression::FunctionCall(function_name_raw, args_raw, selector_maybe, external) => {
+            Expression::FunctionCall(
+                function_name_raw,
+                args_raw,
+                selector_maybe,
+                external,
+                return_error,
+            ) => {
                 let mut function_call = TokenStream::new();
                 if let Some(selector_raw) = selector_maybe {
                     let selector = TokenStream::from_str(selector_raw).unwrap();
@@ -1048,8 +1054,14 @@ impl ToTokens for Expression {
                         args.extend(quote!(#arg));
                     }
                 }
-                quote! {
-                    #function_call #function_name(#args)?
+                if *return_error {
+                    quote! {
+                        #function_call #function_name(#args)?
+                    }
+                } else {
+                    quote! {
+                        #function_call #function_name(#args)
+                    }
                 }
             }
             Expression::IsZero(expression) => {

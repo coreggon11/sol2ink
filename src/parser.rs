@@ -330,7 +330,7 @@ lazy_static! {
     static ref REGEX_BREAK:Regex = Regex::new(
         r#"^\s*break\s*;"#,
     ).unwrap();
-    static ref REGEX_ARRAY_METHOD:Regex = Regex::new(
+    static ref REGEX_ARRAY_FUNCTION:Regex = Regex::new(
         r#"(?x)
         ^\s*(?P<variable>.+?).
         (?P<method>(push|pop))\(\s*
@@ -1470,8 +1470,8 @@ impl<'a> Parser<'a> {
             return self.parse_delete(&line, constructor, &REGEX_DELETE)
         } else if REGEX_BREAK.is_match(&line) {
             return Statement::Break
-        } else if REGEX_ARRAY_METHOD.is_match(&line) {
-            return self.parse_array_method(&line, constructor, &REGEX_ARRAY_METHOD)
+        } else if REGEX_ARRAY_FUNCTION.is_match(&line) {
+            return self.parse_array_method(&line, constructor, &REGEX_ARRAY_FUNCTION)
         }
 
         Statement::Comment(format!("Sol2Ink Not Implemented yet: {}", line.clone()))
@@ -2429,13 +2429,13 @@ impl<'a> Parser<'a> {
             let right_raw = capture_regex(&regex_with_selector, raw, "right").unwrap();
             let left = self.parse_expression(&left_raw, constructor, enclosed_expressions.clone());
             let right = if right_raw == "length" {
-                Expression::FunctionCall("len".to_string(), vec![], None, true)
+                Expression::FunctionCall("len".to_string(), vec![], None, true, false)
             } else {
                 self.parse_expression(&right_raw, constructor, enclosed_expressions)
             };
 
             match &right {
-                Expression::FunctionCall(function_name, expressions, _, external) => {
+                Expression::FunctionCall(function_name, expressions, _, external, true) => {
                     return Expression::WithSelector(
                         bx!(left),
                         bx!(Expression::FunctionCall(
@@ -2443,6 +2443,7 @@ impl<'a> Parser<'a> {
                             expressions.clone(),
                             None,
                             *external,
+                            true
                         )),
                     )
                 }
@@ -2800,6 +2801,7 @@ impl<'a> Parser<'a> {
             args,
             selector,
             *self.functions.get(&function_name_raw).unwrap_or(&true),
+            true,
         )
     }
 
@@ -2821,12 +2823,12 @@ impl<'a> Parser<'a> {
 
     fn parse_array_method(&mut self, line: &str, constructor: bool, regex: &Regex) -> Statement {
         let variable_raw = capture_regex(regex, line, "variable").unwrap();
-        let method = capture_regex(regex, line, "method").unwrap();
+        let function = capture_regex(regex, line, "method").unwrap();
         let element_raw = capture_regex(regex, line, "element").unwrap();
         let variable = self.parse_expression(&variable_raw, constructor, None);
         let element = self.parse_expression(&element_raw, constructor, None);
 
-        Statement::ArrayMethodCall(variable, method, element)
+        Statement::ArrayFunctionCall(variable, function, element)
     }
 
     /// Converts solidity variable type to ink! variable type (eg. address -> AccountId, uint -> u128, ...)

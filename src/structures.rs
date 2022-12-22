@@ -136,7 +136,7 @@ pub struct FunctionParam {
 pub enum Statement {
     AssemblyEnd,
     Assign(Expression, Expression, Operation),
-    ArrayMethodCall(Expression, String, Expression),
+    ArrayFunctionCall(Expression, String, Expression),
     Break,
     Catch(Vec<Statement>),
     CatchEnd,
@@ -244,7 +244,7 @@ pub enum Expression {
     Constant(String),
     Enclosed(Box<Expression>),
     EnvCaller(Option<String>),
-    FunctionCall(String, Vec<Expression>, Option<String>, bool),
+    FunctionCall(String, Vec<Expression>, Option<String>, bool, bool),
     IsZero(Box<Expression>),
     Literal(String),
     Logical(Box<Expression>, Operation, Box<Expression>),

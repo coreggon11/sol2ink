@@ -21,7 +21,7 @@ Read more about how Sol2Ink works under the hood [here](https://www.sol2ink.com)
 ### Future development
 
 - [X] Sol2Ink CLI
-- [ ] User friendly errors when transpiling uncompilable contract
+- [ ] User-friendly errors when transpiling uncompilable contract
 - [ ] Parsing libraries
 - [ ] Implement currently incorrectly parsed statements and expressions
 - [ ] Ability to parse a whole Solidity project into ink! project

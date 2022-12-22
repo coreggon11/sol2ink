@@ -156,14 +156,14 @@ pub mod erc_1155 {
             accounts: Vec<AccountId>,
             ids: Vec<u128>,
         ) -> Result<Vec<u128>, Error> {
-            if accounts.len()? != ids.len()? {
+            if accounts.len() != ids.len() {
                 return Err(Error::Custom(String::from(
                     "ERC1155: accounts and ids length mismatch",
                 )))
             }
-            let batch_balances: Vec<u128> = vec![u128::default(); accounts.len()?];
+            let batch_balances: Vec<u128> = vec![u128::default(); accounts.len()];
             let i: u128 = 0;
-            while i < accounts.len()? {
+            while i < accounts.len() {
                 batch_balances[i] = self.balance_of(accounts[i], ids[i])?;
                 i += 1;
             }
@@ -297,7 +297,7 @@ pub mod erc_1155 {
             amounts: Vec<u128>,
             data: Vec<u8>,
         ) -> Result<(), Error> {
-            if ids.len()? != amounts.len()? {
+            if ids.len() != amounts.len() {
                 return Err(Error::Custom(String::from(
                     "ERC1155: ids and amounts length mismatch",
                 )))
@@ -310,7 +310,7 @@ pub mod erc_1155 {
             let operator: AccountId = self.env().caller();
             self._before_token_transfer(operator, from, to, ids, amounts, data)?;
             let i: u128 = 0;
-            while i < ids.len()? {
+            while i < ids.len() {
                 let id: u128 = ids[i];
                 let amount: u128 = amounts[i];
                 let from_balance: u128 = self.data.balances.get(&(id, from)).unwrap_or_default();
@@ -423,7 +423,7 @@ pub mod erc_1155 {
                     "ERC1155: mint to the zero address",
                 )))
             }
-            if ids.len()? != amounts.len()? {
+            if ids.len() != amounts.len() {
                 return Err(Error::Custom(String::from(
                     "ERC1155: ids and amounts length mismatch",
                 )))
@@ -431,7 +431,7 @@ pub mod erc_1155 {
             let operator: AccountId = self.env().caller();
             self._before_token_transfer(operator, ZERO_ADDRESS.into(), to, ids, amounts, data)?;
             let i: u128 = 0;
-            while i < ids.len()? {
+            while i < ids.len() {
                 self.data.balances.insert(
                     &(ids[i], to),
                     &(self.data.balances.get(&(ids[i], to)).unwrap_or_default() + amounts[i]),
@@ -509,7 +509,7 @@ pub mod erc_1155 {
                     "ERC1155: burn from the zero address",
                 )))
             }
-            if ids.len()? != amounts.len()? {
+            if ids.len() != amounts.len() {
                 return Err(Error::Custom(String::from(
                     "ERC1155: ids and amounts length mismatch",
                 )))
@@ -517,7 +517,7 @@ pub mod erc_1155 {
             let operator: AccountId = self.env().caller();
             self._before_token_transfer(operator, from, ZERO_ADDRESS.into(), ids, amounts, "")?;
             let i: u128 = 0;
-            while i < ids.len()? {
+            while i < ids.len() {
                 let id: u128 = ids[i];
                 let amount: u128 = amounts[i];
                 let from_balance: u128 = self.data.balances.get(&(id, from)).unwrap_or_default();
