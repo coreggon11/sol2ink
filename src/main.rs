@@ -1,6 +1,6 @@
 // MIT License
 
-// Copyright (c) 2022 Supercolony
+// Copyright (c) 2022 727.ventures
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -31,6 +31,8 @@ pub mod parser;
 pub mod structures;
 pub mod toml_builder;
 
+use crate::parser::ParserError;
+use parser::ParserOutput;
 use std::{
     collections::{
         HashMap,
@@ -38,8 +40,6 @@ use std::{
     },
     env,
 };
-
-use crate::parser::ParserError;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -82,113 +82,37 @@ fn run(path: &String) -> Result<(), parser::ParserError> {
     );
     let output = parser.parse_file()?;
     match output {
-        (None, None) | (Some(_), Some(_)) => Err(ParserError::FileCorrupted),
-        (Some(contract), None) => {
-            let ink_contract = assembler::assemble_contract(contract);
+        ParserOutput::Contract(contract) => {
+            let ink_contract = assembler::assemble_contract(&contract);
+            let implementation = assembler::assemble_impl(&contract);
+            let trait_definition = assembler::assemble_trait(&contract);
+            let lib_definition = assembler::assemble_lib();
             let file_name = path.replace(".sol", "");
-            file_utils::write_file(ink_contract, Some(file_name))?;
+            file_utils::write_files(
+                ink_contract,
+                implementation,
+                trait_definition,
+                lib_definition,
+                Some(file_name),
+                &contract.name,
+            )?;
             println!("File saved!");
             Ok(())
         }
-        (None, Some(interface)) => {
+        ParserOutput::Interface(interface) => {
             let ink_trait = assembler::assemble_interface(interface);
-            let file_name = path.replace(".sol", "");
+            let file_name = path.replace(".sol", ".rs");
             file_utils::write_file(ink_trait, Some(file_name))?;
             println!("File saved!");
             Ok(())
         }
-    }
-}
-
-#[cfg(test)]
-mod creating_test {
-    use crate::run;
-
-    #[test]
-    fn erc20() {
-        assert_eq!(
-            run(&"examples/contracts/ERC20/ERC20.sol".to_string()),
+        ParserOutput::Library(library) => {
+            let ink_trait = assembler::assemble_library(library);
+            let file_name = path.replace(".sol", ".rs");
+            file_utils::write_file(ink_trait, Some(file_name))?;
+            println!("File saved!");
             Ok(())
-        );
-    }
-
-    #[test]
-    fn erc721() {
-        assert_eq!(
-            run(&"examples/contracts/ERC721/ERC721.sol".to_string()),
-            Ok(())
-        );
-    }
-
-    #[test]
-    fn erc1155() {
-        assert_eq!(
-            run(&"examples/contracts/ERC1155/ERC1155.sol".to_string()),
-            Ok(())
-        );
-    }
-
-    #[test]
-    fn access_control() {
-        assert_eq!(
-            run(&"examples/contracts/AccessControl/AccessControl.sol".to_string()),
-            Ok(())
-        );
-    }
-
-    #[test]
-    fn solang_example() {
-        assert_eq!(
-            run(&"examples/contracts/SolangExample/example.sol".to_string()),
-            Ok(())
-        );
-    }
-
-    #[test]
-    fn flipper() {
-        assert_eq!(
-            run(&"examples/contracts/Flipper/flipper.sol".to_string()),
-            Ok(())
-        );
-    }
-
-    #[test]
-    fn primitives() {
-        assert_eq!(
-            run(&"examples/contracts/Primitives/Primitives.sol".to_string()),
-            Ok(())
-        );
-    }
-
-    #[test]
-    fn ierc20() {
-        assert_eq!(
-            run(&"examples/interfaces/IERC20/IERC20.sol".to_string()),
-            Ok(())
-        );
-    }
-
-    #[test]
-    fn ierc721() {
-        assert_eq!(
-            run(&"examples/interfaces/IERC721/IERC721.sol".to_string()),
-            Ok(())
-        );
-    }
-
-    #[test]
-    fn ierc1155() {
-        assert_eq!(
-            run(&"examples/interfaces/IERC1155/IERC1155.sol".to_string()),
-            Ok(())
-        );
-    }
-
-    #[test]
-    fn iaccess_control() {
-        assert_eq!(
-            run(&"examples/interfaces/IAccessControl/IAccessControl.sol".to_string()),
-            Ok(())
-        );
+        }
+        _ => Err(ParserError::FileCorrupted),
     }
 }

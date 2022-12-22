@@ -5,7 +5,7 @@ title: Known issues
 
 Here is a list of known issues which you may face using Sol2Ink:
 
-- inability to parse libraries
+- inability to parse libraries (added in 1.1.0)
 - inability to parse uncompilable contracts
 - calling functions with a value
 - occasional incorrect parsing of selectors within brackets
