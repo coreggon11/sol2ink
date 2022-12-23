@@ -70,21 +70,15 @@ impl<T: Storage<Data>> ERC1155 for T {
         accounts: Vec<AccountId>,
         ids: Vec<u128>,
     ) -> Result<Vec<u128>, Error> {
-        if accounts.length != ids.length {
+        if accounts.len() != ids.len() {
             return Err(Error::Custom(String::from(
                 "ERC1155: accounts and ids length mismatch",
             )))
         }
-        let mut batch_balances: Vec<u128> = vec![u128::default(); accounts.length];
+        let mut batch_balances: Vec<u128> = vec![u128::default(); accounts.len()];
         let mut i: u128 = 0;
-        while i < accounts.length {
-            batch_balances.insert(
-                &i,
-                &(self.balance_of(
-                    accounts.get(&i).unwrap_or_default(),
-                    ids.get(&i).unwrap_or_default(),
-                )?),
-            );
+        while i < accounts.len() {
+            batch_balances[i] = self.balance_of(accounts[i], ids[i])?;
             i += 1;
         }
         return Ok(batch_balances)
@@ -391,7 +385,7 @@ impl<T: Storage<Data>> Internal for T {
         amounts: Vec<u128>,
         data: Vec<u8>,
     ) -> Result<(), Error> {
-        if ids.length != amounts.length {
+        if ids.len() != amounts.len() {
             return Err(Error::Custom(String::from(
                 "ERC1155: ids and amounts length mismatch",
             )))
@@ -404,9 +398,9 @@ impl<T: Storage<Data>> Internal for T {
         let mut operator: AccountId = Self::env().caller();
         self._before_token_transfer(operator, from, to, ids, amounts, data)?;
         let mut i: u128 = 0;
-        while i < ids.length {
-            let mut id: u128 = ids.get(&i).unwrap_or_default();
-            let mut amount: u128 = amounts.get(&i).unwrap_or_default();
+        while i < ids.len() {
+            let mut id: u128 = ids[i];
+            let mut amount: u128 = amounts[i];
             let mut from_balance: u128 = self.data().balances.get(&(id, from)).unwrap_or_default();
             if from_balance < amount {
                 return Err(Error::Custom(String::from(
@@ -505,7 +499,7 @@ impl<T: Storage<Data>> Internal for T {
                 "ERC1155: mint to the zero address",
             )))
         }
-        if ids.length != amounts.length {
+        if ids.len() != amounts.len() {
             return Err(Error::Custom(String::from(
                 "ERC1155: ids and amounts length mismatch",
             )))
@@ -513,15 +507,10 @@ impl<T: Storage<Data>> Internal for T {
         let mut operator: AccountId = Self::env().caller();
         self._before_token_transfer(operator, ZERO_ADDRESS.into(), to, ids, amounts, data)?;
         let mut i: u128 = 0;
-        while i < ids.length {
+        while i < ids.len() {
             self.data().balances.insert(
-                &(ids.get(&i).unwrap_or_default(), to),
-                &(self
-                    .data()
-                    .balances
-                    .get(&(ids.get(&i).unwrap_or_default(), to))
-                    .unwrap_or_default()
-                    + amounts.get(&i).unwrap_or_default()),
+                &(ids[i], to),
+                &(self.data().balances.get(&(ids[i], to)).unwrap_or_default() + amounts[i]),
             );
             i += 1;
         }
@@ -584,7 +573,7 @@ impl<T: Storage<Data>> Internal for T {
                 "ERC1155: burn from the zero address",
             )))
         }
-        if ids.length != amounts.length {
+        if ids.len() != amounts.len() {
             return Err(Error::Custom(String::from(
                 "ERC1155: ids and amounts length mismatch",
             )))
@@ -592,9 +581,9 @@ impl<T: Storage<Data>> Internal for T {
         let mut operator: AccountId = Self::env().caller();
         self._before_token_transfer(operator, from, ZERO_ADDRESS.into(), ids, amounts, "")?;
         let mut i: u128 = 0;
-        while i < ids.length {
-            let mut id: u128 = ids.get(&i).unwrap_or_default();
-            let mut amount: u128 = amounts.get(&i).unwrap_or_default();
+        while i < ids.len() {
+            let mut id: u128 = ids[i];
+            let mut amount: u128 = amounts[i];
             let mut from_balance: u128 = self.data().balances.get(&(id, from)).unwrap_or_default();
             if from_balance < amount {
                 return Err(Error::Custom(String::from(
@@ -745,7 +734,7 @@ impl<T: Storage<Data>> Internal for T {
 
     default fn _as_singleton_array(&self, element: u128) -> Result<Vec<u128>, Error> {
         let mut array: Vec<u128> = vec![u128::default(); 1];
-        array.insert(&0, &(element));
+        array[0] = element;
         return Ok(array)
     }
 
