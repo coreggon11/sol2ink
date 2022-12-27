@@ -1,6 +1,6 @@
 // MIT License
 
-// Copyright (c) 2022 Supercolony
+// Copyright (c) 2022 727.ventures
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -20,10 +20,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-const INK_VERSION: &str = "~3.3.0";
-const OPENBRUSH_VERSION: &str = "2.2.0";
+const INK_VERSION: &str = "~3.4.0";
+const OPENBRUSH_VERSION: &str = "2.3.0";
 
-pub fn generate_cargo_toml() -> String {
+pub fn generate_cargo_toml(mod_name: Option<String>) -> String {
     let mut out = String::new();
 
     out.push_str("[package]\n");
@@ -42,14 +42,25 @@ pub fn generate_cargo_toml() -> String {
     out.push_str(generate_ink_dependency("ink_engine", false, true).as_str());
     out.push_str("scale = { package = \"parity-scale-codec\", version = \"3\", default-features = false, features = [\"derive\"] }\n");
     out.push_str("scale-info = { version = \"2\", default-features = false, features = [\"derive\"], optional = true }\n");
-    out.push_str("openbrush = { version = \"");
-    out.push_str(OPENBRUSH_VERSION);
-    out.push_str("\", default-features = false }\n");
+    // TODO: uncomment when openbrush on crates.io
+    // out.push_str("openbrush = { version = \"");
+    // out.push_str(OPENBRUSH_VERSION);
+    // out.push_str("\", default-features = false }\n");
+    out.push_str(r#"openbrush = { git = "https://github.com/Supercolony-net/openbrush-contracts", tag = "v2.3.0", default-features = false, features = [] }"#);
+    out.push('\n');
+
+    if let Some(mod_name) = mod_name.clone() {
+        out.push_str(mod_name.as_str());
+        out.push_str(" = { path = \"..\", default-features = false }\n");
+    }
+
     out.push('\n');
     out.push_str("[lib]\n");
     out.push_str("name = \"sol_2_ink_generated\"\n");
     out.push_str("path = \"lib.rs\"\n");
-    out.push_str("crate-type = [\"cdylib\"]\n");
+    if mod_name.is_some() {
+        out.push_str("crate-type = [\"cdylib\"]\n");
+    }
     out.push('\n');
     out.push_str("[features]\n");
     out.push_str("default = [\"std\"]\n");

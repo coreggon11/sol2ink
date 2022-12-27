@@ -1,6 +1,6 @@
 // MIT License
 
-// Copyright (c) 2022 Supercolony
+// Copyright (c) 2022 727.ventures
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -38,9 +38,11 @@ use std::{
 use substring::Substring;
 
 macro_rules! selector {
-    ($constructor:ident) => {
+    ($constructor:ident, $env_access:ident) => {
         if $constructor {
             String::from("instance")
+        } else if $env_access {
+            String::from("Self")
         } else {
             String::from("self")
         }
@@ -62,7 +64,7 @@ lazy_static! {
 
         map.insert(
             "address",
-            ("AccountId", None, None),
+            ("AccountId", None, Some("openbrush::traits::AccountId")),
         );
         map.insert(
             "hex",
@@ -146,7 +148,7 @@ lazy_static! {
         map.insert("mapping", ("Mapping", None, None));
         map.insert(
             "string",
-            ("String", None, Some("ink_prelude::string::String")),
+            ("String", None, Some("openbrush::traits::String")),
         );
         map.insert("uint8", ("u8", None, None));
         map.insert("uint16", ("u16", None, None));
@@ -219,9 +221,23 @@ lazy_static! {
     static ref SPECIFIC_EXPRESSION: HashMap<String, Expression> = {
         let mut map = HashMap::new();
         map.insert(String::from("address(0)"), Expression::ZeroAddressInto);
+        map.insert(String::from("address(this)"), Expression::AccountId(None));
         map.insert(String::from("address(0x0)"), Expression::ZeroAddressInto);
         map.insert(String::from("msg.sender"), Expression::EnvCaller(None));
+        map.insert(String::from("block.timestamp"), Expression::BlockTimestamp(None));
         map.insert(String::from("msg.value"), Expression::TransferredValue(None));
+        map
+    };
+    static ref SOLIDITY_UNITS:HashMap<String, u128> = {
+        let mut map = HashMap::new();
+        map.insert(String::from("wei"), 1);
+        map.insert(String::from("gwei"), 1_000_000_000);
+        map.insert(String::from("ether"), 1_000_000_000_000_000_000);
+        map.insert(String::from("seconds"), 1);
+        map.insert(String::from("minutes"), 60);
+        map.insert(String::from("hours"), 3_600);
+        map.insert(String::from("days"), 86_400);
+        map.insert(String::from("weeks"), 604_800);
         map
     };
     static ref REGEX_RETURN: Regex =
@@ -233,10 +249,16 @@ lazy_static! {
         (=\s*(?P<value>.+))*;\s*$"#
     )
     .unwrap();
+    static ref REGEX_REQUIRE_VAR: Regex = Regex::new(
+        r#"(?x)
+        ^\s*require\s*\((?P<condition>.+?)\s*
+        (,\s*(?P<error>[^"']*)\s*)\);\s*$"#
+    )
+    .unwrap();
     static ref REGEX_REQUIRE: Regex = Regex::new(
         r#"(?x)
         ^\s*require\s*\((?P<condition>.+?)\s*
-        (,\s*["|'](?P<error>.*)["|']\s*)*\);\s*$"#
+        (,\s*(?P<error>["|'].*["|'])\s*)*\);\s*$"#
     )
     .unwrap();
     static ref REGEX_COMMENT: Regex = Regex::new(r#"(?x)^\s*///*\s*(?P<comment>.*)\s*$"#).unwrap();
@@ -323,6 +345,12 @@ lazy_static! {
         \s*(?P<if_false>.+?)\s*$"#,
     )
     .unwrap();
+    static ref REGEX_SOLIDITY_UNITS: Regex = Regex::new(
+        r#"(?x)
+        ^\s*(?P<value>\d*)\s*
+        (?P<unit>wei|gwei|ether|seconds|minutes|hours|days|weeks)\s*$"#,
+    )
+    .unwrap();
     static ref REGEX_DELETE:Regex = Regex::new(
         r#"^\s*delete\s+(?P<value>.+)\s*;"#,
     )
@@ -337,6 +365,13 @@ pub enum ParserError {
     FileError(String),
     FileCorrupted,
     LibraryParsingNotImplemented,
+}
+
+pub enum ParserOutput {
+    Contract(Contract),
+    Interface(Interface),
+    Library(Library),
+    None,
 }
 
 impl From<std::io::Error> for ParserError {
@@ -413,7 +448,7 @@ impl<'a> Parser<'a> {
     /// returns Some(contract) if a contract was successfully parsed
     /// returns Some(interface) if an interface was successfully parsed
     /// returns None if the file is not a valid contract or interface
-    pub fn parse_file(&mut self) -> Result<(Option<Contract>, Option<Interface>), ParserError> {
+    pub fn parse_file(&mut self) -> Result<ParserOutput, ParserError> {
         let mut comments = Vec::<String>::new();
         let mut action = Action::None;
         let mut buffer = String::new();
@@ -443,18 +478,19 @@ impl<'a> Parser<'a> {
                         buffer.clear();
                     } else if buffer == "contract" {
                         let contract = self.parse_contract(comments)?;
-                        return Ok((Some(contract), None))
+                        return Ok(ParserOutput::Contract(contract))
                     } else if buffer == "interface" {
                         let interface = self.parse_interface(comments)?;
-                        return Ok((None, Some(interface)))
+                        return Ok(ParserOutput::Interface(interface))
                     } else if buffer == "library" {
-                        return Err(ParserError::LibraryParsingNotImplemented)
+                        let library = self.parse_library(comments)?;
+                        return Ok(ParserOutput::Library(library))
                     }
                 }
             }
         }
 
-        Ok((None, None))
+        Ok(ParserOutput::None)
     }
 
     /// parses a line containing a comment and returns it as a string
@@ -659,7 +695,7 @@ impl<'a> Parser<'a> {
 
     /// Parses the code of a Solidity interface
     ///
-    /// `contract_doc` the documentation comments of the interface
+    /// `contract_comments` the documentation comments of the interface
     ///
     /// returns the representation of the interface as `Interface` struct
     pub fn parse_interface(
@@ -740,6 +776,122 @@ impl<'a> Parser<'a> {
         })
     }
 
+    /// Parses the code of a Solidity library
+    ///
+    /// `libraray_doc` the documentation comments of the library
+    ///
+    /// returns the representation of the library as `Library` struct
+    pub fn parse_library(&mut self, libraray_doc: Vec<String>) -> Result<Library, ParserError> {
+        let mut buffer = String::new();
+        let mut action = Action::None;
+
+        let mut name = String::new();
+        let mut comments = Vec::<String>::new();
+        let mut fields = Vec::<ContractField>::new();
+        let mut events = Vec::<Event>::new();
+        let mut enums = Vec::<Enum>::new();
+        let mut structs = Vec::<Struct>::new();
+        let mut functions = Vec::<Function>::new();
+
+        while let Some(ch) = self.chars.next() {
+            match ch {
+                NEW_LINE if action == Action::None || action == Action::Contract => {}
+                SLASH if action == Action::Contract => action = Action::Slash,
+                SLASH if action == Action::Slash => {
+                    let comment = self.parse_comment();
+                    if !comment.is_empty() {
+                        comments.push(comment);
+                    }
+                    action = Action::Contract;
+                }
+                ASTERISK if action == Action::Slash => {
+                    let mut new_comments = self.parse_multiline_comment();
+                    comments.append(&mut new_comments);
+                    action = Action::Contract;
+                }
+                SPACE | CURLY_OPEN if action == Action::ContractName => {
+                    name = buffer.trim().to_string();
+                    buffer.clear();
+                    // we skip everything regarding generalization
+                    // TODO: cover generaliztaion
+                    if ch != CURLY_OPEN {
+                        read_until(self.chars, vec![CURLY_OPEN]);
+                    }
+                    action = Action::Contract;
+                }
+                _ if action == Action::None => {
+                    buffer.push(ch);
+                    action = Action::ContractName;
+                }
+                SEMICOLON if action == Action::Contract => {
+                    buffer.push(ch);
+                    fields.push(self.parse_contract_field(buffer.trim(), &comments));
+                    buffer.clear();
+                    comments.clear();
+                }
+                _ if action == Action::ContractName || action == Action::Contract => {
+                    buffer.push(ch);
+                    match buffer.trim() {
+                        "event" => {
+                            let event = self.parse_event(&comments);
+                            self.events.insert(event.name.clone(), event.clone());
+                            events.push(event);
+                            comments.clear();
+                            buffer.clear();
+                        }
+                        "enum" => {
+                            enums.push(self.parse_enum(&comments));
+                            comments.clear();
+                            buffer.clear();
+                        }
+                        "struct" => {
+                            structs.push(self.parse_struct(&comments));
+                            comments.clear();
+                            buffer.clear();
+                        }
+                        "function" => {
+                            functions.push(self.parse_function(&comments)?);
+                            comments.clear();
+                            buffer.clear();
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        for contract_field in fields.iter() {
+            self.storage
+                .insert(contract_field.name.clone(), contract_field.clone());
+        }
+        for function in functions.iter() {
+            self.functions
+                .insert(function.header.name.clone(), function.header.external);
+        }
+        for structure in structs.iter() {
+            self.structs
+                .insert(structure.name.clone(), structure.clone());
+        }
+
+        // now we know the contracts members and we can parse statements
+        for function in functions.iter_mut() {
+            function.body = self.parse_statements(&function.body, false);
+            function.header.external = true;
+        }
+
+        Ok(Library {
+            name,
+            fields,
+            events,
+            enums,
+            structs,
+            functions,
+            imports: self.imports.clone(),
+            libraray_doc,
+        })
+    }
+
     /// Parses a field of the contract
     ///
     /// `line` the raw representation of the field
@@ -764,7 +916,7 @@ impl<'a> Parser<'a> {
         let regex: Regex = Regex::new(
             r#"(?x)^\s*
         (?P<field_type>.+?(\s|\))+)
-        (?P<attributes>(\s*constant\s*|\s*private\s*|\s*public\s*|\s*immutable\s*|\s*override\s*)*)*
+        (?P<attributes>(\s*constant\s*|\s*internal\s*|\s*private\s*|\s*public\s*|\s*immutable\s*|\s*override\s*)*)*
         (?P<field_name>.+?)\s*
         (=\s*(?P<initial_value>[^>].+)\s*)*
         ;\s*$"#,
@@ -778,8 +930,12 @@ impl<'a> Parser<'a> {
         let initial_value =
             initial_value_maybe.map(|initial_raw| self.parse_expression(&initial_raw, false, None));
         let constant = attributes_raw
+            .clone()
             .unwrap_or_else(|| String::from(""))
             .contains("constant");
+        let public = attributes_raw
+            .unwrap_or_else(|| String::from(""))
+            .contains("public");
         let field_type = self.convert_variable_type(trim(&field_type_raw));
 
         ContractField {
@@ -788,6 +944,7 @@ impl<'a> Parser<'a> {
             comments: comments.to_vec(),
             initial_value,
             constant,
+            public,
         }
     }
 
@@ -1039,7 +1196,7 @@ impl<'a> Parser<'a> {
         let regex_return_function = Regex::new(
             r#"(?x)
         ^\s*(?P<function_name>[a-zA-Z0-9_]*?)\s*
-        \(\s*(?P<parameters>[a-zA-Z0-9_,\s\[\]]*?)\s*\)\s*
+        \(\s*(?P<parameters>[a-zA-Z0-9_,\s\[\]\.]*?)\s*\)\s*
         (?P<attributes>.*)\s+returns\s*\(\s*(?P<return_parameters>[a-zA-Z0-9_,\s\[\]]*?)\s*\)
         .*$"#,
         )
@@ -1075,16 +1232,31 @@ impl<'a> Parser<'a> {
             let regex_no_return = Regex::new(
                 r#"(?x)
             ^\s*(?P<function_name>[a-zA-Z0-9_]*?)\s*
-            \(\s*(?P<parameters>[a-zA-Z0-9_,\s\[\]]*?)\s*\)
+            \(\s*(?P<parameters>[a-zA-Z0-9_,\s\[\]\.]*?)\s*\)
             \s*(?P<attributes>.*)\s*$"#,
             )
             .unwrap();
             let function_name =
-                capture_regex(&regex_no_return, &function_header_raw, "function_name").unwrap();
+                capture_regex(&regex_no_return, &function_header_raw, "function_name")
+                    .unwrap_or_else(|| {
+                        panic!("Could not parse function name from {}", function_header_raw)
+                    });
             let parameters_raw =
-                capture_regex(&regex_no_return, &function_header_raw, "parameters").unwrap();
-            let attribs_raw =
-                capture_regex(&regex_no_return, &function_header_raw, "attributes").unwrap();
+                capture_regex(&regex_no_return, &function_header_raw, "parameters").unwrap_or_else(
+                    || {
+                        panic!(
+                            "Could not parse function parameters from {}",
+                            function_header_raw
+                        )
+                    },
+                );
+            let attribs_raw = capture_regex(&regex_no_return, &function_header_raw, "attributes")
+                .unwrap_or_else(|| {
+                    panic!(
+                        "Could not parse function attributes from {}",
+                        function_header_raw
+                    )
+                });
             let parameters = self.parse_function_parameters(parameters_raw);
             (
                 function_name,
@@ -1316,8 +1488,10 @@ impl<'a> Parser<'a> {
             return self.parse_return(&line)
         } else if REGEX_DECLARE.is_match(&line) {
             return self.parse_declaration(&line, constructor)
+        } else if REGEX_REQUIRE_VAR.is_match(&line) {
+            return self.parse_require(&line, constructor, &REGEX_REQUIRE_VAR)
         } else if REGEX_REQUIRE.is_match(&line) {
-            return self.parse_require(&line, constructor)
+            return self.parse_require(&line, constructor, &REGEX_REQUIRE)
         } else if REGEX_COMMENT.is_match(&line) {
             let comment = capture_regex(&REGEX_COMMENT, &line, "comment").unwrap();
             return Statement::Comment(comment)
@@ -1429,27 +1603,18 @@ impl<'a> Parser<'a> {
     /// `constructor` whether the require is in a constructor or not
     ///
     /// returns the statements in form of `Statement::Require`
-    fn parse_require(&mut self, line: &str, constructor: bool) -> Statement {
+    fn parse_require(&mut self, line: &str, constructor: bool, regex: &Regex) -> Statement {
         self.imports
-            .insert(String::from("use ink_prelude::string::String;"));
+            .insert(String::from("use openbrush::traits::String;"));
 
-        let condition = capture_regex(&REGEX_REQUIRE, line, "condition");
-        let error = capture_regex(&REGEX_REQUIRE, line, "error");
+        let condition = capture_regex(regex, line, "condition");
+        let error_maybe = capture_regex(regex, line, "error");
+        let error_raw = error_maybe.unwrap_or_else(|| DEFAULT_ERROR.to_owned());
 
+        let error = self.parse_expression(&error_raw, constructor, None);
         let condition = self.parse_condition(&condition.unwrap(), constructor, true, None);
-        let error_output = if constructor {
-            format!(
-                "panic!(\"{}\")",
-                error.unwrap_or_else(|| DEFAULT_ERROR.to_owned())
-            )
-        } else {
-            format!(
-                "return Err(Error::Custom(String::from(\"{}\")))",
-                error.unwrap_or_else(|| DEFAULT_ERROR.to_owned())
-            )
-        };
 
-        Statement::Require(condition, error_output)
+        Statement::Require(condition, error, constructor)
     }
 
     /// Parses a solidity condition which is not enclosed in curly brackets
@@ -1921,7 +2086,6 @@ impl<'a> Parser<'a> {
         let mut buffer = String::new();
         let mut open_parentheses = 0;
         let mut close_parenthesis = 0;
-        let mut event_count = 0;
 
         for ch in args_raw.chars() {
             match ch {
@@ -1935,18 +2099,7 @@ impl<'a> Parser<'a> {
                 }
                 COMMA => {
                     if open_parentheses == close_parenthesis {
-                        args.push(Expression::StructArg(
-                            self.events
-                                .get(&event_name_raw)
-                                .unwrap_or_else(|| panic!("Event {event_name_raw} not defined"))
-                                .fields
-                                .get(event_count)
-                                .unwrap()
-                                .name
-                                .clone(),
-                            bx!(self.parse_expression(&trim(&buffer), constructor, None)),
-                        ));
-                        event_count += 1;
+                        args.push(self.parse_expression(&trim(&buffer), constructor, None));
                         buffer.clear();
                     } else {
                         buffer.push(ch)
@@ -1956,17 +2109,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        args.push(Expression::StructArg(
-            self.events
-                .get(&event_name_raw)
-                .unwrap()
-                .fields
-                .get(event_count)
-                .unwrap()
-                .name
-                .clone(),
-            bx!(self.parse_expression(&trim(&buffer), constructor, None)),
-        ));
+        args.push(self.parse_expression(&trim(&buffer), constructor, None));
 
         Statement::Emit(event_name_raw, args)
     }
@@ -2063,20 +2206,30 @@ impl<'a> Parser<'a> {
         constructor: bool,
         enclosed_expressions: Option<HashMap<String, Expression>>,
     ) -> Expression {
+        if REGEX_SOLIDITY_UNITS.is_match(raw) {
+            let converted = self.convert_solidity_units(raw);
+            return Expression::Literal(converted)
+        }
         if is_literal(raw) {
             return Expression::Literal(raw.clone())
-        } else if let Some(expression) = SPECIFIC_EXPRESSION.get(raw) {
+        }
+        if let Some(expression) = SPECIFIC_EXPRESSION.get(raw) {
             if expression == &Expression::ZeroAddressInto {
                 self.imports
                     .insert(String::from("use openbrush::traits::ZERO_ADDRESS;"));
             } else if expression == &Expression::EnvCaller(None) {
-                return Expression::EnvCaller(Some(selector!(constructor)))
+                return Expression::EnvCaller(Some(selector!(constructor, true)))
             } else if expression == &Expression::TransferredValue(None) {
-                return Expression::TransferredValue(Some(selector!(constructor)))
+                return Expression::TransferredValue(Some(selector!(constructor, true)))
+            } else if expression == &Expression::BlockTimestamp(None) {
+                return Expression::BlockTimestamp(Some(selector!(constructor, true)))
+            } else if expression == &Expression::AccountId(None) {
+                return Expression::AccountId(Some(selector!(constructor, true)))
             }
 
             return expression.clone()
-        } else if let Some(new_type) = TYPES.get(raw.as_str()) {
+        }
+        if let Some(new_type) = TYPES.get(raw.as_str()) {
             return Expression::Literal(new_type.0.to_owned())
         }
 
@@ -2364,6 +2517,15 @@ impl<'a> Parser<'a> {
         Expression::Member(raw.clone(), selector)
     }
 
+    fn convert_solidity_units(&self, raw: &str) -> String {
+        let value = capture_regex(&REGEX_SOLIDITY_UNITS, raw, "value").unwrap();
+        let unit = capture_regex(&REGEX_SOLIDITY_UNITS, raw, "unit").unwrap();
+        let value = value.parse::<u128>().unwrap();
+        let unit_int = *SOLIDITY_UNITS.get(&unit).unwrap();
+        let value = value * unit_int;
+        value.to_string()
+    }
+
     /// Extracts enclosed expression from expression
     ///
     /// The function replaces all enclosed expressions with an expression identifier
@@ -2604,7 +2766,7 @@ impl<'a> Parser<'a> {
         }
 
         let selector = if self.functions.get(&function_name_raw).is_some() {
-            Some(selector!(constructor))
+            Some(selector!(constructor, false))
         } else {
             None
         };
@@ -2639,7 +2801,8 @@ impl<'a> Parser<'a> {
     /// `imports` the set of imports of the contract
     ///
     /// return the converted type
-    fn convert_variable_type(&mut self, arg_type: String) -> String {
+    fn convert_variable_type(&mut self, arg_type_raw: String) -> String {
+        let arg_type = arg_type_raw.replace('.', "::");
         // removes array braces from the type
         let (no_array_arg_type, is_vec) =
             if arg_type.substring(arg_type.len() - 2, arg_type.len()) == "[]" {
@@ -2705,7 +2868,7 @@ impl<'a> Parser<'a> {
     /// returns Some if the field needs a selector, None otherwise
     fn get_selector(&self, constructor: bool, field_name: &String) -> Option<String> {
         if self.storage.contains_key(field_name) {
-            Some(selector!(constructor))
+            Some(selector!(constructor, false))
         } else {
             None
         }
@@ -2769,6 +2932,14 @@ fn parse_modifiers(attributes: &str) -> Vec<Expression> {
     adjusted.remove_matches("pure");
     adjusted = trim(&adjusted);
     adjusted = adjusted.replace(", ", ",");
+    let mut regex = Regex::new(r"\s+\+\s+").unwrap();
+    adjusted = regex.replace_all(&adjusted, "+").to_string();
+    regex = Regex::new(r"\s+-\s+").unwrap();
+    adjusted = regex.replace_all(&adjusted, "-").to_string();
+    regex = Regex::new(r"\s+/\s+").unwrap();
+    adjusted = regex.replace_all(&adjusted, "/").to_string();
+    regex = Regex::new(r"\s+\*\s+").unwrap();
+    adjusted = regex.replace_all(&adjusted, "*").to_string();
     if adjusted.is_empty() {
         Vec::default()
     } else {

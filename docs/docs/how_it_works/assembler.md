@@ -1,5 +1,5 @@
 ---
-sidebar_position: 6
+sidebar_position: 7
 title: Assembling a contract
 ---
 
@@ -7,7 +7,7 @@ Sol2Ink has everything it needs; now, it needs to mix it. Here we will clarify w
 
 ### Error
 
-Each contract will contain the following error definition: 
+Each contract and library will contain the following error definition: 
 ```rust
 #[derive(Debug, Encode, Decode, PartialEq)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
