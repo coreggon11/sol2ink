@@ -22,6 +22,13 @@
 
 use std::collections::HashSet;
 
+#[derive(Clone, Debug)]
+pub enum ArrayType {
+    DynamicArray,
+    FixedSizeArray,
+    Mapping,
+}
+
 #[derive(Clone)]
 pub struct Contract {
     pub name: String,
@@ -144,6 +151,7 @@ pub struct FunctionParam {
 pub enum Statement {
     AssemblyEnd,
     Assign(Expression, Expression, Operation),
+    ArrayFunctionCall(Expression, String, Expression),
     Break,
     Catch(Vec<Statement>),
     CatchEnd,
@@ -244,13 +252,16 @@ impl Operation {
 pub enum Expression {
     AccountId(Option<String>),
     Arithmetic(Box<Expression>, Box<Expression>, Operation),
+    BlockTimestamp(Option<String>),
+    DynamicArray(Box<Expression>, Vec<Expression>),
+    FixedSizeArray(Box<Expression>, Vec<Expression>),
     Cast(bool, String, Box<Expression>),
+    ComplexMapping(Vec<Expression>),
     Condition(Box<Condition>),
     Constant(String),
     Enclosed(Box<Expression>),
     EnvCaller(Option<String>),
-    BlockTimestamp(Option<String>),
-    FunctionCall(String, Vec<Expression>, Option<String>, bool),
+    FunctionCall(String, Vec<Expression>, Option<String>, bool, bool),
     IsZero(Box<Expression>),
     Literal(String),
     Logical(Box<Expression>, Operation, Box<Expression>),

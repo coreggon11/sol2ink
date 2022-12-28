@@ -68,6 +68,7 @@ fn run(path: &String) -> Result<(), parser::ParserError> {
     let mut events = HashMap::new();
     let mut modifiers = HashMap::new();
     let mut structs = HashMap::new();
+    let mut array_variables = HashMap::new();
 
     let mut parser = parser::Parser::new(
         &mut chars,
@@ -77,6 +78,7 @@ fn run(path: &String) -> Result<(), parser::ParserError> {
         &mut events,
         &mut modifiers,
         &mut structs,
+        &mut array_variables,
     );
     let output = parser.parse_file()?;
     match output {

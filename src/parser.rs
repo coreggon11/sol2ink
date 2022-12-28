@@ -288,7 +288,7 @@ lazy_static! {
     .unwrap();
     static ref REGEX_ASSIGN: Regex = Regex::new(
         r#"(?x)
-        ^\s*(?P<left>[0-9a-zA-Z_\[\].]+?)\s*
+        ^\s*(?P<left>[0-9a-zA-Z_\[\].+\-*/]+?)\s*
         (?P<operation>[+\-*/&|]*=)\s*
         (?P<right>[^=][^;]*)+?;*\s*$"#
     )
@@ -358,6 +358,12 @@ lazy_static! {
     static ref REGEX_BREAK:Regex = Regex::new(
         r#"^\s*break\s*;"#,
     ).unwrap();
+    static ref REGEX_ARRAY_FUNCTION:Regex = Regex::new(
+        r#"(?x)
+        ^\s*(?P<variable>.+?).
+        (?P<method>(push|pop))\(\s*
+        (?P<element>.*?)\);\s*$"#,
+    ).unwrap();
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -419,6 +425,7 @@ pub struct Parser<'a> {
     events: &'a mut HashMap<String, Event>,
     modifiers: &'a mut HashMap<String, ()>,
     structs: &'a mut HashMap<String, Struct>,
+    array_variables: &'a mut HashMap<String, ArrayType>,
 }
 
 impl<'a> Parser<'a> {
@@ -431,6 +438,7 @@ impl<'a> Parser<'a> {
         events: &'a mut HashMap<String, Event>,
         modifiers: &'a mut HashMap<String, ()>,
         structs: &'a mut HashMap<String, Struct>,
+        array_variables: &'a mut HashMap<String, ArrayType>,
     ) -> Self {
         Parser {
             chars,
@@ -440,6 +448,7 @@ impl<'a> Parser<'a> {
             events,
             modifiers,
             structs,
+            array_variables,
         }
     }
 
@@ -667,6 +676,12 @@ impl<'a> Parser<'a> {
         for structure in structs.iter() {
             self.structs
                 .insert(structure.name.clone(), structure.clone());
+        }
+        for contract_field in fields.iter() {
+            self.insert_array_variable(
+                contract_field.name.to_owned(),
+                contract_field.field_type.to_owned(),
+            );
         }
 
         // now we know the contracts members and we can parse statements
@@ -925,7 +940,8 @@ impl<'a> Parser<'a> {
 
         let field_type_raw = capture_regex(&regex, &line, "field_type").unwrap();
         let attributes_raw = capture_regex(&regex, &line, "attributes");
-        let field_name = capture_regex(&regex, &line, "field_name").unwrap();
+        let mut field_name = capture_regex(&regex, &line, "field_name").unwrap();
+        remove_memory_keywords(&mut field_name);
         let initial_value_maybe = capture_regex(&regex, &line, "initial_value");
         let initial_value =
             initial_value_maybe.map(|initial_raw| self.parse_expression(&initial_raw, false, None));
@@ -946,6 +962,72 @@ impl<'a> Parser<'a> {
             constant,
             public,
         }
+    }
+
+    /// Insert variable name in `array_variables` if it has array type
+    ///
+    /// `var_name` name of variable
+    /// `var_type` converted variable type
+    fn insert_array_variable(&mut self, var_name: String, var_type: String) {
+        if let Some(array_type) = self.return_array_type(var_type.to_owned()) {
+            self.insert_array_struct_elements(var_name.to_owned(), var_type, array_type.clone());
+            self.array_variables.insert(var_name, array_type);
+        } else {
+            self.insert_struct_elements(var_name, var_type);
+        }
+    }
+
+    /// Get type of `var_type` elements and
+    /// insert its name in `array_variables` if it's
+    /// struct with array fields
+    ///
+    /// `var_name` name of variable
+    /// `var_type` converted variable type
+    /// `array_type` array type of variable
+    fn insert_array_struct_elements(
+        &mut self,
+        var_name: String,
+        var_type: String,
+        array_type: ArrayType,
+    ) {
+        let regex = match array_type {
+            ArrayType::DynamicArray => Regex::new(r#"Vec<\s*(?P<element_type>.+?)\s*>"#).unwrap(),
+            ArrayType::FixedSizeArray => Regex::new(r#"\[\s*(?P<element_type>.+?);.*?]"#).unwrap(),
+            ArrayType::Mapping => {
+                Regex::new(r#"Mapping<.*?,\s*(?P<element_type>.+?)\s*>"#).unwrap()
+            }
+        };
+        let element_type = capture_regex(&regex, var_type.as_str(), "element_type").unwrap();
+        self.insert_struct_elements(var_name, element_type);
+    }
+
+    /// Check if `element_type` is a known structure and
+    /// call `self.insert_array_variable()` for every structure element
+    ///
+    /// `var_name` name of variable
+    /// `element_type` converted variable type
+    fn insert_struct_elements(&mut self, var_name: String, element_type: String) {
+        if let Some(struct_type) = self.structs.clone().get(&element_type) {
+            for field in &struct_type.fields {
+                let selector = var_name.to_owned() + ".";
+                let name_with_selector = selector.to_owned() + field.name.as_str();
+                self.insert_array_variable(name_with_selector, field.field_type.to_owned());
+            }
+        }
+    }
+
+    /// Check if `var_type` has array type
+    ///
+    /// Returns `Some(ArrayType)` if yes
+    fn return_array_type(&mut self, var_type: String) -> Option<ArrayType> {
+        if var_type.contains("Mapping") {
+            return Some(ArrayType::Mapping)
+        } else if var_type.contains("Vec") {
+            return Some(ArrayType::DynamicArray)
+        } else if var_type.contains('[') {
+            return Some(ArrayType::FixedSizeArray)
+        }
+        None
     }
 
     /// Parses Solidity event
@@ -1074,7 +1156,7 @@ impl<'a> Parser<'a> {
         let regex = Regex::new(
             r#"(?x)
                 (?P<comment1>(\n\s*//.*)*|(\n\s*/\*(.*\n)*?.*\*/\s*))?
-                (?P<field>\n\s*[A-Za-z0-9=>()_]+\s+[A-Za-z0-9_]+\s*;)
+                (?P<field>\n\s*[A-Za-z0-9=>()\[\]_]+\s+[A-Za-z0-9_]+\s*;)
                 (?P<comment2>(.*//.*)|(.*/\*(.*\n)*?.*\*/))?"#,
         )
         .unwrap();
@@ -1189,9 +1271,7 @@ impl<'a> Parser<'a> {
     /// returns the representation of the function header as `FunctionHeader` struct
     fn parse_function_header(&mut self, comments: &[String]) -> FunctionHeader {
         let mut function_header_raw = read_until(self.chars, vec![SEMICOLON, CURLY_OPEN]);
-        function_header_raw.remove_matches(" memory");
-        function_header_raw.remove_matches(" storage");
-        function_header_raw.remove_matches(" calldata");
+        remove_memory_keywords(&mut function_header_raw);
 
         let regex_return_function = Regex::new(
             r#"(?x)
@@ -1282,7 +1362,7 @@ impl<'a> Parser<'a> {
 
     /// Parses parameters of a function
     ///
-    /// `parameters` the raw representation of the paramters of the function
+    /// `parameters` the raw representation of the parameters of the function
     ///
     /// returns the vec of function parameters of this function as `FunctionParam` struct
     fn parse_function_parameters(&mut self, parameters: String) -> Vec<FunctionParam> {
@@ -1296,9 +1376,12 @@ impl<'a> Parser<'a> {
                 if parameter.len() < 2 {
                     break
                 }
+                let param_type = self.convert_variable_type(parameter[0].to_owned());
+                self.insert_array_variable(parameter[1].to_owned(), param_type.to_owned());
+
                 out.push(FunctionParam {
                     name: parameter[1].to_owned(),
-                    param_type: self.convert_variable_type(parameter[0].to_owned()),
+                    param_type,
                 })
             }
         }
@@ -1561,6 +1644,8 @@ impl<'a> Parser<'a> {
             return self.parse_delete(&line, constructor, &REGEX_DELETE)
         } else if REGEX_BREAK.is_match(&line) {
             return Statement::Break
+        } else if REGEX_ARRAY_FUNCTION.is_match(&line) {
+            return self.parse_array_method(&line, constructor, &REGEX_ARRAY_FUNCTION)
         }
 
         Statement::Comment(format!("Sol2Ink Not Implemented yet: {}", line.clone()))
@@ -1588,13 +1673,36 @@ impl<'a> Parser<'a> {
         let field_name = capture_regex(&REGEX_DECLARE, line, "field_name").unwrap();
         let value_raw = capture_regex(&REGEX_DECLARE, line, "value");
         let field_type = self.convert_variable_type(field_type_raw);
+        self.insert_array_variable(field_name.clone(), field_type.to_owned());
 
         if let Some(value) = value_raw {
             let expression = self.parse_expression(&value, constructor, None);
             Statement::Declaration(field_name, field_type, Some(expression))
         } else {
-            Statement::Declaration(field_name, field_type, None)
+            Statement::Declaration(
+                field_name,
+                field_type.to_owned(),
+                self.return_new_array_or_none(&field_type),
+            )
         }
+    }
+
+    /// If we have declaration of fixed-size array without assign value
+    /// ``` type[size] memory array; ```
+    /// it returns expression for correct declaration on ink! side
+    ///
+    /// `field_type` type of array
+    ///
+    /// returns `Expression::NewArray`
+    fn return_new_array_or_none(&mut self, field_type: &str) -> Option<Expression> {
+        let regex_fixed_array = Regex::new(r#"^\[(?P<type>.+?);\s*(?P<size>.+?)]$"#).unwrap();
+        if regex_fixed_array.is_match(field_type) {
+            let array_type = capture_regex(&regex_fixed_array, field_type, "type").unwrap();
+            let array_size_raw = capture_regex(&regex_fixed_array, field_type, "size").unwrap();
+            let array_size = self.parse_expression(&array_size_raw, false, None);
+            return Some(Expression::NewArray(array_type, bx!(array_size)))
+        }
+        None
     }
 
     /// Parses a require statement
@@ -2278,7 +2386,7 @@ impl<'a> Parser<'a> {
             args_string = args_string.replace(": ", ":");
             args_string = args_string.replace(", ", ",");
 
-            if args_string.contains(':') {
+            return if args_string.contains(':') {
                 // named params
                 let args_raw = split(&args_string, ",", None);
                 let regex_named_param = Regex::new(
@@ -2301,7 +2409,7 @@ impl<'a> Parser<'a> {
                         Expression::StructArg(param_name, bx!(value))
                     })
                     .collect::<Vec<Expression>>();
-                return Expression::StructInit(struct_name_raw, args)
+                Expression::StructInit(struct_name_raw, args)
             } else {
                 let args_raw = split(&args_string, ",", None);
                 let mut args = Vec::default();
@@ -2318,7 +2426,7 @@ impl<'a> Parser<'a> {
 
                     args.push(Expression::StructArg(param_name, bx!(value)));
                 }
-                return Expression::StructInit(struct_name_raw, args)
+                Expression::StructInit(struct_name_raw, args)
             }
         }
 
@@ -2405,36 +2513,45 @@ impl<'a> Parser<'a> {
             return Expression::Condition(bx!(condition))
         }
 
-        let regex_with_selector =
-            Regex::new(r#"(?x)^\s*(?P<left>.+?)\.(?P<right>.+?);*\s*$"#).unwrap();
-        if regex_with_selector.is_match(raw) {
-            let left_raw = capture_regex(&regex_with_selector, raw, "left").unwrap();
-            let right_raw = capture_regex(&regex_with_selector, raw, "right").unwrap();
-            let left = self.parse_expression(&left_raw, constructor, enclosed_expressions.clone());
-            let right = self.parse_expression(&right_raw, constructor, enclosed_expressions);
+        let regex_complex_mapping = Regex::new(r#"^(\s*.+?\s*\[\s*.+\s*]){2}.*$"#).unwrap();
+        if regex_complex_mapping.is_match(raw) {
+            let regex_mapping_part = Regex::new(r#"[^.][^\[\]]+?\s*(\[\s*.+?\s*])+?"#).unwrap();
+            let mapping_parts: Vec<String> = regex_mapping_part
+                .find_iter(raw.as_str())
+                .filter_map(|s| s.as_str().parse().ok())
+                .collect();
 
-            match &right {
-                Expression::FunctionCall(function_name, expressions, _, external) => {
-                    return Expression::WithSelector(
-                        bx!(left),
-                        bx!(Expression::FunctionCall(
-                            function_name.clone(),
-                            expressions.clone(),
-                            None,
-                            *external,
-                        )),
-                    )
-                }
-                Expression::Member(member_name, _) => {
-                    return Expression::WithSelector(
-                        bx!(left),
-                        bx!(Expression::Member(member_name.clone(), None)),
-                    )
-                }
-                _ => {}
-            };
+            let regex_mapping =
+                Regex::new(r#"(?P<name>.+?)\s*(?P<index>(\[\s*.+\s*]))+?"#).unwrap();
+            let mut result = Vec::new();
+            let mut selector = String::new();
 
-            return Expression::WithSelector(bx!(left), bx!(right))
+            for part in mapping_parts {
+                let indices = self.parse_mapping_indices(
+                    &regex_mapping,
+                    part.as_str(),
+                    constructor,
+                    enclosed_expressions.clone(),
+                );
+                let name = capture_regex(&regex_mapping, part.as_str(), "name").unwrap();
+                let mapping = if self.storage.clone().contains_key(&name) {
+                    let storage_selector = self.get_selector(constructor, &name);
+                    Expression::Member(name.to_owned(), storage_selector)
+                } else {
+                    Expression::Member(name.to_owned(), None)
+                };
+
+                let part_with_selector = selector.to_owned() + part.as_str();
+                let name_with_selector =
+                    capture_regex(&regex_mapping, part_with_selector.as_str(), "name").unwrap();
+
+                let complex_mapping =
+                    self.return_array_expression(name_with_selector, mapping, indices);
+                result.push(complex_mapping.clone());
+                selector = selector + name.as_str() + ".";
+            }
+
+            return Expression::ComplexMapping(result)
         }
 
         let regex_mapping = Regex::new(
@@ -2448,38 +2565,51 @@ impl<'a> Parser<'a> {
             let mapping_raw = capture_regex(&regex_mapping, raw, "mapping_name").unwrap();
             let mapping =
                 self.parse_expression(&mapping_raw, constructor, enclosed_expressions.clone());
-            let indices_raw = capture_regex(&regex_mapping, raw, "index").unwrap();
-            let mut indices = Vec::<Expression>::new();
-            let mut buffer = String::new();
-            let mut open_braces = 0;
-            let mut close_braces = 0;
+            let indices = self.parse_mapping_indices(
+                &regex_mapping,
+                raw.as_str(),
+                constructor,
+                enclosed_expressions,
+            );
 
-            for ch in indices_raw.chars() {
-                match ch {
-                    BRACKET_OPEN => {
-                        if open_braces > close_braces {
-                            buffer.push(ch)
-                        }
-                        open_braces += 1;
-                    }
-                    BRACKET_CLOSE => {
-                        close_braces += 1;
-                        if open_braces == close_braces {
-                            indices.push(self.parse_expression(
-                                &buffer,
-                                constructor,
-                                enclosed_expressions.clone(),
-                            ));
-                            buffer.clear();
-                        } else {
-                            buffer.push(ch)
-                        }
-                    }
-                    _ => buffer.push(ch),
+            return self.return_array_expression(mapping_raw, mapping, indices)
+        }
+
+        let regex_with_selector =
+            Regex::new(r#"(?x)^\s*(?P<left>.+?)\.(?P<right>.+?);*\s*$"#).unwrap();
+        if regex_with_selector.is_match(raw) {
+            let left_raw = capture_regex(&regex_with_selector, raw, "left").unwrap();
+            let right_raw = capture_regex(&regex_with_selector, raw, "right").unwrap();
+            let left = self.parse_expression(&left_raw, constructor, enclosed_expressions.clone());
+            let right = if right_raw == "length" {
+                Expression::FunctionCall("len".to_string(), vec![], None, true, false)
+            } else {
+                self.parse_expression(&right_raw, constructor, enclosed_expressions)
+            };
+
+            match &right {
+                Expression::FunctionCall(function_name, expressions, _, external, true) => {
+                    return Expression::WithSelector(
+                        bx!(left),
+                        bx!(Expression::FunctionCall(
+                            function_name.clone(),
+                            expressions.clone(),
+                            None,
+                            *external,
+                            true
+                        )),
+                    )
                 }
-            }
+                Expression::Member(member_name, _) => {
+                    return Expression::WithSelector(
+                        bx!(left),
+                        bx!(Expression::Member(member_name.clone(), None)),
+                    )
+                }
+                _ => {}
+            };
 
-            return Expression::Mapping(bx!(mapping), indices, None)
+            return Expression::WithSelector(bx!(left), bx!(right))
         }
 
         if REGEX_BINARY_SUFFIX.is_match(raw) {
@@ -2515,6 +2645,63 @@ impl<'a> Parser<'a> {
         let selector = self.get_selector(constructor, raw);
 
         Expression::Member(raw.clone(), selector)
+    }
+
+    fn parse_mapping_indices(
+        &mut self,
+        regex_mapping: &Regex,
+        raw: &str,
+        constructor: bool,
+        enclosed_expressions: Option<HashMap<String, Expression>>,
+    ) -> Vec<Expression> {
+        let indices_raw = capture_regex(regex_mapping, raw, "index").unwrap();
+        let mut indices = Vec::<Expression>::new();
+        let mut buffer = String::new();
+        let mut open_braces = 0;
+        let mut close_braces = 0;
+
+        for ch in indices_raw.chars() {
+            match ch {
+                BRACKET_OPEN => {
+                    if open_braces > close_braces {
+                        buffer.push(ch)
+                    }
+                    open_braces += 1;
+                }
+                BRACKET_CLOSE => {
+                    close_braces += 1;
+                    if open_braces == close_braces {
+                        indices.push(self.parse_expression(
+                            &buffer,
+                            constructor,
+                            enclosed_expressions.clone(),
+                        ));
+                        buffer.clear();
+                    } else {
+                        buffer.push(ch)
+                    }
+                }
+                _ => buffer.push(ch),
+            }
+        }
+        indices
+    }
+
+    fn return_array_expression(
+        &self,
+        mapping_raw: String,
+        mapping: Expression,
+        indices: Vec<Expression>,
+    ) -> Expression {
+        return if let Some(array_type) = self.array_variables.get(&mapping_raw) {
+            match array_type {
+                ArrayType::DynamicArray => Expression::DynamicArray(bx!(mapping), indices),
+                ArrayType::FixedSizeArray => Expression::FixedSizeArray(bx!(mapping), indices),
+                _ => Expression::Mapping(bx!(mapping), indices, None),
+            }
+        } else {
+            Expression::Mapping(bx!(mapping), indices, None)
+        }
     }
 
     fn convert_solidity_units(&self, raw: &str) -> String {
@@ -2776,6 +2963,7 @@ impl<'a> Parser<'a> {
             args,
             selector,
             *self.functions.get(&function_name_raw).unwrap_or(&true),
+            true,
         )
     }
 
@@ -2795,6 +2983,16 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn parse_array_method(&mut self, line: &str, constructor: bool, regex: &Regex) -> Statement {
+        let variable_raw = capture_regex(regex, line, "variable").unwrap();
+        let function = capture_regex(regex, line, "method").unwrap();
+        let element_raw = capture_regex(regex, line, "element").unwrap();
+        let variable = self.parse_expression(&variable_raw, constructor, None);
+        let element = self.parse_expression(&element_raw, constructor, None);
+
+        Statement::ArrayFunctionCall(variable, function, element)
+    }
+
     /// Converts solidity variable type to ink! variable type (eg. address -> AccountId, uint -> u128, ...)
     ///
     /// `arg_type` solidity argument type
@@ -2810,6 +3008,14 @@ impl<'a> Parser<'a> {
             } else {
                 (arg_type.as_str(), false)
             };
+        let regex_fixed_array = Regex::new(r#"^(?P<variable>.+?)\[(?P<size>.+?)]\s*$"#).unwrap();
+        if regex_fixed_array.is_match(no_array_arg_type) {
+            let variable_raw =
+                capture_regex(&regex_fixed_array, no_array_arg_type, "variable").unwrap();
+            let variable = self.convert_variable_type(variable_raw);
+            let size = capture_regex(&regex_fixed_array, no_array_arg_type, "size").unwrap();
+            return format!("[{}; {}]", variable, size)
+        }
         let regex_mapping: Regex = Regex::new(
             r#"(?x)^\s*mapping\(
                 (?P<type_from>.+?)=>
@@ -3011,4 +3217,10 @@ fn read_until(chars: &mut Chars, until: Vec<char>) -> String {
         }
     }
     trim(&buffer)
+}
+
+fn remove_memory_keywords(line: &mut String) {
+    line.remove_matches(" memory");
+    line.remove_matches(" storage");
+    line.remove_matches(" calldata");
 }

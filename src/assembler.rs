@@ -1155,6 +1155,10 @@ impl ToTokens for Statement {
                     #left #operation #right;
                 })
             }
+            Statement::ArrayFunctionCall(variable, function_raw, element) => {
+                let function = TokenStream::from_str(function_raw).unwrap();
+                stream.extend(quote! {#variable . #function ( #element );})
+            }
             Statement::Break => stream.extend(quote! {break}),
             Statement::Catch(statements) => {
                 stream.extend(quote! {
@@ -1369,6 +1373,12 @@ impl ToTokens for Expression {
                 };
                 quote!(#namespace #selector env().block_timestamp())
             }
+            Expression::DynamicArray(expression, indices_raw) => {
+                quote! {#expression #([#indices_raw])* }
+            }
+            Expression::FixedSizeArray(expression, indices_raw) => {
+                quote! {#expression #([#indices_raw])* }
+            }
             Expression::Cast(unique_cast, cast_type_raw, expression) => {
                 let cast_type = TokenStream::from_str(cast_type_raw).unwrap();
                 if *unique_cast {
@@ -1376,6 +1386,17 @@ impl ToTokens for Expression {
                 } else {
                     quote!((#expression as #cast_type))
                 }
+            }
+            Expression::ComplexMapping(mappings) => {
+                let mut expression = TokenStream::new();
+                for (i, mapping) in mappings.iter().enumerate() {
+                    if i > 0 {
+                        expression.extend(quote!(.#mapping));
+                    } else {
+                        expression.extend(quote!(#mapping));
+                    }
+                }
+                quote! { #expression }
             }
             Expression::Condition(condition_raw) => {
                 let left = &condition_raw.left;
@@ -1405,7 +1426,13 @@ impl ToTokens for Expression {
                 };
                 quote!(#namespace #selector env().caller())
             }
-            Expression::FunctionCall(function_name_raw, args_raw, selector_maybe, external) => {
+            Expression::FunctionCall(
+                function_name_raw,
+                args_raw,
+                selector_maybe,
+                external,
+                return_error,
+            ) => {
                 let mut function_call = TokenStream::new();
                 if let Some(selector_raw) = selector_maybe {
                     let selector = TokenStream::from_str(selector_raw).unwrap();
@@ -1424,8 +1451,14 @@ impl ToTokens for Expression {
                         args.extend(quote!(#arg));
                     }
                 }
-                quote! {
-                    #function_call #function_name(#args)?
+                if *return_error {
+                    quote! {
+                        #function_call #function_name(#args)?
+                    }
+                } else {
+                    quote! {
+                        #function_call #function_name(#args)
+                    }
                 }
             }
             Expression::IsZero(expression) => {
