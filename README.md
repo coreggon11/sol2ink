@@ -18,6 +18,8 @@ And of course, as with all programs, there are probably some hidden unknown bugs
 
 Read more about how Sol2Ink works under the hood [here](https://www.sol2ink.com).
 
+If you have any questions regarding Sol2Ink, you can join the [Brushfam Element channel](https://matrix.to/#/!utTuYglskDvqRRMQta:matrix.org?via=matrix.org&via=t2bot.io&via=web3.foundation) to find your answers and meet other ink! smart contracts developers.
+
 ### Future development
 
 - [X] Sol2Ink CLI
