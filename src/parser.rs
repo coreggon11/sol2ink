@@ -1247,7 +1247,8 @@ impl<'a> Parser<'a> {
 
             " ".to_owned() + comment.trim()
         } else {
-            let comment = comment_raw.replace("//", "");
+            let regex = Regex::new(r"\n*\s*//").unwrap();
+            let comment = regex.replace_all(comment_raw.as_str(), "\n");
             " ".to_owned() + comment.trim()
         }
     }
