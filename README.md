@@ -18,8 +18,6 @@ And of course, as with all programs, there are probably some hidden unknown bugs
 
 Read more about how Sol2Ink works under the hood [here](https://www.sol2ink.com).
 
-If you have any questions regarding Sol2Ink, you can join the [Brushfam Element channel](https://matrix.to/#/!utTuYglskDvqRRMQta:matrix.org?via=matrix.org&via=t2bot.io&via=web3.foundation) to find your answers and meet other ink! smart contracts developers.
-
 ### Future development
 
 - [X] Sol2Ink CLI
@@ -44,3 +42,7 @@ If you are using Sol2Ink from release pages, you will need to run `./sol_to_ink 
 
 Examples are stored in the example folder, where we have the input Solidity file and the output Rust and Ink! file.
 By running `cargo test`, we will transpile all of the examples stored in this folder. We have several example contracts from OpenZeppelin and two example contracts from Solang. These original contracts were not modified (except the OpenZeppelin contracts, where we added missing enums, events, structs, etc. from the respective interface file), and the outputs of Sol2Ink are not modified either.
+
+### Our Element Channel
+
+If you have any questions regarding Sol2Ink, you can join the [Brushfam Element channel](https://matrix.to/#/!utTuYglskDvqRRMQta:matrix.org?via=matrix.org&via=t2bot.io&via=web3.foundation) to find your answers and meet other ink! smart contracts developers.
