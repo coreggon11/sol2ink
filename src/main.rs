@@ -24,12 +24,15 @@
 #![feature(string_remove_matches)]
 #![feature(exclusive_range_pattern)]
 
+extern crate core;
+
 pub mod assembler;
 pub mod file_utils;
 pub mod formatter;
 pub mod parser;
 pub mod structures;
 pub mod toml_builder;
+pub mod cli;
 
 use crate::parser::ParserError;
 use parser::ParserOutput;
@@ -40,22 +43,59 @@ use std::{
     },
     env,
 };
+use std::path::Path;
+use crate::cli::{cli, CliInput};
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
+    let args = cli();
 
-    if args.len() <= 1 {
-        println!("Please pass name of the file as argument");
-        return
+    let files = args.files.unwrap_or_else(|| {
+        eprintln!("No files provided");
+        std::process::exit(1);
+    });
+
+    if files.is_empty() {
+        eprintln!("No files provided");
+        std::process::exit(1);
     }
 
-    std::process::exit(match run(&args[1]) {
-        Ok(_) => 0,
-        Err(err) => {
-            eprintln!("error: {:?}", err);
-            1
+    for file in files {
+        match file {
+            CliInput::SolidityFile(file) => {
+                match run(&file) {
+                    Ok(_) => {
+                        println!("Successfully parsed {}", file);
+                    },
+                    Err(err) => {
+                        eprintln!("error: {:?}", err);
+                        std::process::exit(1);
+                    }
+                }
+            }
+            CliInput::Directory(dir) => {
+                let files = Path::new(&dir).read_dir().unwrap();
+
+                for file in files {
+                    let file = file.unwrap();
+                    let file = file.path();
+                    let file = file.to_str().unwrap();
+
+                    if file.ends_with(".sol") {
+                        match run(&file.to_string()) {
+                            Ok(_) => {
+                                println!("Successfully parsed {}", file);
+                            },
+                            Err(err) => {
+                                eprintln!("error: {:?}", err);
+                                std::process::exit(1);
+                            }
+                        }
+                    }
+                }
+            }
         }
-    });
+
+    }
 }
 
 fn run(path: &String) -> Result<(), parser::ParserError> {

@@ -14,3 +14,4 @@ rust-format = { version = "0.3.4", features = ["token_stream", "post_process"] }
 proc-macro2 = "1.0.47"
 quote = "1.0.21"
 lazy_static = "1.4.0"
+clap = { version = "4.0.32", features = ["derive"] }
