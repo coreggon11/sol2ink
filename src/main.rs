@@ -110,7 +110,7 @@ fn run_new(path: &String) -> Result<(), ParserError> {
     let output = parser2::parse_file(&content)?;
     for output in output {
         match output {
-            parser2::ParserOutput::Contract(contract) => {
+            ParserOutput::Contract(contract) => {
                 let ink_contract = assembler::assemble_contract(&contract);
                 let implementation = assembler::assemble_impl(&contract);
                 let trait_definition = assembler::assemble_trait(&contract);
@@ -126,13 +126,13 @@ fn run_new(path: &String) -> Result<(), ParserError> {
                 )?;
                 println!("File saved!");
             }
-            parser2::ParserOutput::Interface(interface) => {
+            ParserOutput::Interface(_interface) => {
                 // let ink_trait = assembler::assemble_interface(interface);
                 // let file_name = path.replace(".sol", ".rs");
                 // file_utils::write_file(ink_trait, Some(file_name))?;
                 // println!("File saved!");
             }
-            parser2::ParserOutput::Library(library) => {
+            ParserOutput::Library(_library) => {
                 // let ink_trait = assembler::assemble_library(library);
                 // let file_name = path.replace(".sol", ".rs");
                 // file_utils::write_file(ink_trait, Some(file_name))?;

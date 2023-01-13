@@ -44,7 +44,8 @@ pub enum ParserOutput {
 #[derive(Debug, Eq, PartialEq)]
 pub enum ParserError {
     FileError(String),
-    
+    FileCorrupted,
+
     ContractNameNotFound,
     StructNameNotFound,
     VariableNameNotFound,
@@ -59,11 +60,11 @@ impl From<std::io::Error> for ParserError {
 }
 
 pub fn parse_file(content: &String) -> Result<Vec<ParserOutput>, ParserError> {
-    let token_tree = parse(&content, 0).unwrap_or_else(|err| panic!("err"));
+    let token_tree = parse(&content, 0).map_err(|_| ParserError::FileCorrupted)?;
 
     let mut output = Vec::new();
     let source_unit = token_tree.0;
-    let comments = token_tree.1;
+    let _comments = token_tree.1;
 
     for source_unit_part in source_unit.0.iter() {
         match &source_unit_part {
@@ -82,8 +83,6 @@ pub fn parse_file(content: &String) -> Result<Vec<ParserOutput>, ParserError> {
 fn handle_contract_definition(
     contract_definition: &ContractDefinition,
 ) -> Result<ParserOutput, ParserError> {
-    let contract_type = contract_definition.clone().ty;
-
     match contract_definition.ty {
         ContractTy::Abstract(_) => {
             unimplemented!(
@@ -161,7 +160,6 @@ fn parse_struct(struct_definition: &StructDefinition) -> Result<Struct, ParserEr
                 _ => Err(ParserError::IncorrectTypeOfVariable),
             }
             .ok()?;
-            println!("{:?}", variable_declaration.name);
             Some(StructField {
                 name: variable_declaration
                     .name
@@ -199,7 +197,7 @@ fn convert_solidity_type(solidity_type: &Type) -> String {
         }
         Type::Bytes(bytes) => format!("[u8 ; {bytes} ]"),
         Type::DynamicBytes => String::from("Vec<u8>"),
-        Type::Mapping(_, key_type, value_type) => todo!(),
+        Type::Mapping(_, _key_type, _value_type) => todo!(),
         _ => String::default(),
     }
 }
