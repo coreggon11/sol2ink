@@ -12,6 +12,11 @@ pub enum Error {
     Custom(String),
 }
 
+pub enum Enum {
+    First,
+    Second,
+}
+
 
 #[derive(Default, Encode, Decode)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]

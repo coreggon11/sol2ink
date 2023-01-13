@@ -27,6 +27,7 @@ use solang_parser::{
         ContractDefinition,
         ContractPart,
         ContractTy,
+        EnumDefinition,
         EventDefinition,
         Expression as SolangExpression,
         SourceUnitPart,
@@ -51,6 +52,7 @@ pub enum ParserError {
     StructNameNotFound,
     EventNameNotFound,
     VariableNameNotFound,
+    EnumValueNotDefined,
 
     IncorrectTypeOfVariable,
 }
@@ -107,6 +109,7 @@ fn parse_contract(contract_definition: &ContractDefinition) -> Result<Contract, 
 
     let mut structs: Vec<Struct> = Default::default();
     let mut events: Vec<Event> = Default::default();
+    let mut enums: Vec<Enum> = Default::default();
 
     for part in contract_definition.parts.iter() {
         match part {
@@ -119,7 +122,10 @@ fn parse_contract(contract_definition: &ContractDefinition) -> Result<Contract, 
                 let parsed_event = parse_event(event_definition)?;
                 events.push(parsed_event);
             }
-            ContractPart::EnumDefinition(_) => {}
+            ContractPart::EnumDefinition(enum_definition) => {
+                let parsed_enum = parse_enum(enum_definition)?;
+                enums.push(parsed_enum);
+            }
             ContractPart::ErrorDefinition(_) => {}
             ContractPart::VariableDefinition(_) => {}
             ContractPart::FunctionDefinition(_) => {}
@@ -144,6 +150,7 @@ fn parse_contract(contract_definition: &ContractDefinition) -> Result<Contract, 
         name,
         structs,
         events,
+        enums,
         ..Default::default()
     })
 }
@@ -227,6 +234,37 @@ fn parse_event(event_definition: &EventDefinition) -> Result<Event, ParserError>
     Ok(Event {
         name: name.to_string(),
         fields,
+        comments: Default::default(),
+    })
+}
+
+fn parse_enum(event_definition: &EnumDefinition) -> Result<Enum, ParserError> {
+    let name = &event_definition
+        .name
+        .as_ref()
+        .ok_or(ParserError::EventNameNotFound)?
+        .name;
+
+    let values: Vec<EnumField> = event_definition
+        .values
+        .iter()
+        .map(|enum_value| {
+            Some(EnumField {
+                name: enum_value
+                    .as_ref()
+                    .ok_or(ParserError::EnumValueNotDefined)
+                    .ok()?
+                    .name
+                    .clone(),
+                comments: Default::default(),
+            })
+        })
+        .filter(|maybe| maybe.is_some())
+        .map(|option| option.unwrap())
+        .collect();
+    Ok(Enum {
+        name: name.to_string(),
+        values,
         comments: Default::default(),
     })
 }
