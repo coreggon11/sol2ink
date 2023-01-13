@@ -19,6 +19,24 @@ pub mod erc_20 {
     };
 
 
+    #[ink(event)]
+    pub struct Transfer {
+        #[ink(topic)]
+        from: AccountId,
+        #[ink(topic)]
+        to: AccountId,
+        value: u128,
+    }
+
+    #[ink(event)]
+    pub struct Approval {
+        #[ink(topic)]
+        owner: AccountId,
+        #[ink(topic)]
+        spender: AccountId,
+        value: u128,
+    }
+
     #[ink(storage)]
     #[derive(Default, SpreadAllocate, Storage)]
     pub struct ERC20Contract {
@@ -28,7 +46,20 @@ pub mod erc_20 {
 
     impl ERC20 for ERC20Contract {}
 
-    impl erc_20::Internal for ERC20Contract {}
+    impl erc_20::Internal for ERC20Contract {
+        fn _emit_transfer(&self, from: AccountId, to: AccountId, value: u128) {
+            self.env().emit_event(Transfer { from, to, value });
+        }
+
+        fn _emit_approval(&self, owner: AccountId, spender: AccountId, value: u128) {
+            self.env().emit_event(Approval {
+                owner,
+                spender,
+                value,
+            });
+        }
+
+    }
 
     impl ERC20Contract {
         #[ink(constructor)]

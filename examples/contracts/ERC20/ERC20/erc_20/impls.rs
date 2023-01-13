@@ -18,6 +18,16 @@ pub struct Data {
 
 impl<T: Storage<Data>> ERC20 for T {}
 
-pub trait Internal {}
+pub trait Internal {
+    fn _emit_transfer(&self, from: AccountId, to: AccountId, value: u128);
 
-impl<T: Storage<Data>> Internal for T {}
+    fn _emit_approval(&self, owner: AccountId, spender: AccountId, value: u128);
+
+}
+
+impl<T: Storage<Data>> Internal for T {
+    default fn _emit_transfer(&self, _: AccountId, _: AccountId, _: u128) {}
+
+    default fn _emit_approval(&self, _: AccountId, _: AccountId, _: u128) {}
+
+}

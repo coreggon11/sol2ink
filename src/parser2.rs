@@ -27,6 +27,7 @@ use solang_parser::{
         ContractDefinition,
         ContractPart,
         ContractTy,
+        EventDefinition,
         Expression as SolangExpression,
         SourceUnitPart,
         StructDefinition,
@@ -48,6 +49,7 @@ pub enum ParserError {
 
     ContractNameNotFound,
     StructNameNotFound,
+    EventNameNotFound,
     VariableNameNotFound,
 
     IncorrectTypeOfVariable,
@@ -104,6 +106,7 @@ fn parse_contract(contract_definition: &ContractDefinition) -> Result<Contract, 
         .clone();
 
     let mut structs: Vec<Struct> = Default::default();
+    let mut events: Vec<Event> = Default::default();
 
     for part in contract_definition.parts.iter() {
         match part {
@@ -112,7 +115,10 @@ fn parse_contract(contract_definition: &ContractDefinition) -> Result<Contract, 
                 let parsed_struct = parse_struct(struct_definition)?;
                 structs.push(parsed_struct);
             }
-            ContractPart::EventDefinition(_) => {}
+            ContractPart::EventDefinition(event_definition) => {
+                let parsed_event = parse_event(event_definition)?;
+                events.push(parsed_event);
+            }
             ContractPart::EnumDefinition(_) => {}
             ContractPart::ErrorDefinition(_) => {}
             ContractPart::VariableDefinition(_) => {}
@@ -137,6 +143,7 @@ fn parse_contract(contract_definition: &ContractDefinition) -> Result<Contract, 
     Ok(Contract {
         name,
         structs,
+        events,
         ..Default::default()
     })
 }
@@ -176,6 +183,48 @@ fn parse_struct(struct_definition: &StructDefinition) -> Result<Struct, ParserEr
         .map(|option| option.unwrap())
         .collect();
     Ok(Struct {
+        name: name.to_string(),
+        fields,
+        comments: Default::default(),
+    })
+}
+
+fn parse_event(event_definition: &EventDefinition) -> Result<Event, ParserError> {
+    let name = &event_definition
+        .name
+        .as_ref()
+        .ok_or(ParserError::EventNameNotFound)?
+        .name;
+
+    let fields: Vec<EventField> = event_definition
+        .fields
+        .iter()
+        .map(|variable_declaration| {
+            let field_type = match &variable_declaration.ty {
+                SolangExpression::Type(_, solidity_type) => {
+                    Ok(convert_solidity_type(solidity_type))
+                }
+                SolangExpression::Variable(identifier) => Ok(identifier.name.clone()),
+                _ => Err(ParserError::IncorrectTypeOfVariable),
+            }
+            .ok()?;
+            Some(EventField {
+                name: variable_declaration
+                    .name
+                    .as_ref()
+                    .ok_or(ParserError::VariableNameNotFound)
+                    .ok()?
+                    .name
+                    .clone(),
+                field_type,
+                indexed: variable_declaration.indexed,
+                comments: Default::default(),
+            })
+        })
+        .filter(|maybe| maybe.is_some())
+        .map(|option| option.unwrap())
+        .collect();
+    Ok(Event {
         name: name.to_string(),
         fields,
         comments: Default::default(),
