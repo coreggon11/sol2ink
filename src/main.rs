@@ -27,27 +27,35 @@
 extern crate core;
 
 pub mod assembler;
+pub mod cli;
 pub mod file_utils;
 pub mod formatter;
-pub mod parser;
+pub mod parser2;
 pub mod structures;
 pub mod toml_builder;
-pub mod cli;
 
-use crate::parser::ParserError;
-use parser::ParserOutput;
+use crate::{
+    cli::{
+        cli,
+        CliInput,
+    },
+    parser2::{
+        ParserError,
+        ParserOutput,
+    },
+};
 use std::{
     collections::{
         HashMap,
         HashSet,
     },
     env,
+    path::Path,
 };
-use std::path::Path;
-use crate::cli::{cli, CliInput};
 
 fn main() {
     let args = cli();
+    env::set_var("RUST_BACKTRACE", "1");
 
     let files = args.files.unwrap_or_else(|| {
         eprintln!("No files provided");
@@ -62,10 +70,10 @@ fn main() {
     for file in files {
         match file {
             CliInput::SolidityFile(file) => {
-                match run(&file) {
+                match run_new(&file) {
                     Ok(_) => {
                         println!("Successfully parsed {}", file);
-                    },
+                    }
                     Err(err) => {
                         eprintln!("error: {:?}", err);
                         std::process::exit(1);
@@ -81,10 +89,10 @@ fn main() {
                     let file = file.to_str().unwrap();
 
                     if file.ends_with(".sol") {
-                        match run(&file.to_string()) {
+                        match run_new(&file.to_string()) {
                             Ok(_) => {
                                 println!("Successfully parsed {}", file);
-                            },
+                            }
                             Err(err) => {
                                 eprintln!("error: {:?}", err);
                                 std::process::exit(1);
@@ -94,65 +102,103 @@ fn main() {
                 }
             }
         }
-
     }
 }
 
-fn run(path: &String) -> Result<(), parser::ParserError> {
-    // read the file
+fn run_new(path: &String) -> Result<(), ParserError> {
     let content = file_utils::read_file(path)?;
-    let mut chars = content.chars();
-    let mut imports = HashSet::new();
-    let mut storage = HashMap::new();
-    let mut functions = HashMap::new();
-    let mut events = HashMap::new();
-    let mut modifiers = HashMap::new();
-    let mut structs = HashMap::new();
-    let mut array_variables = HashMap::new();
-
-    let mut parser = parser::Parser::new(
-        &mut chars,
-        &mut imports,
-        &mut storage,
-        &mut functions,
-        &mut events,
-        &mut modifiers,
-        &mut structs,
-        &mut array_variables,
-    );
-    let output = parser.parse_file()?;
-    match output {
-        ParserOutput::Contract(contract) => {
-            let ink_contract = assembler::assemble_contract(&contract);
-            let implementation = assembler::assemble_impl(&contract);
-            let trait_definition = assembler::assemble_trait(&contract);
-            let lib_definition = assembler::assemble_lib();
-            let file_name = path.replace(".sol", "");
-            file_utils::write_files(
-                ink_contract,
-                implementation,
-                trait_definition,
-                lib_definition,
-                Some(file_name),
-                &contract.name,
-            )?;
-            println!("File saved!");
-            Ok(())
+    let output = parser2::parse_file(&content)?;
+    for output in output {
+        match output {
+            parser2::ParserOutput::Contract(contract) => {
+                let ink_contract = assembler::assemble_contract(&contract);
+                let implementation = assembler::assemble_impl(&contract);
+                let trait_definition = assembler::assemble_trait(&contract);
+                let lib_definition = assembler::assemble_lib();
+                let file_name = path.replace(".sol", "");
+                file_utils::write_files(
+                    ink_contract,
+                    implementation,
+                    trait_definition,
+                    lib_definition,
+                    Some(file_name),
+                    &contract.name,
+                )?;
+                println!("File saved!");
+            }
+            parser2::ParserOutput::Interface(interface) => {
+                // let ink_trait = assembler::assemble_interface(interface);
+                // let file_name = path.replace(".sol", ".rs");
+                // file_utils::write_file(ink_trait, Some(file_name))?;
+                // println!("File saved!");
+            }
+            parser2::ParserOutput::Library(library) => {
+                // let ink_trait = assembler::assemble_library(library);
+                // let file_name = path.replace(".sol", ".rs");
+                // file_utils::write_file(ink_trait, Some(file_name))?;
+                // println!("File saved!");
+            }
+            _ => {}
         }
-        ParserOutput::Interface(interface) => {
-            let ink_trait = assembler::assemble_interface(interface);
-            let file_name = path.replace(".sol", ".rs");
-            file_utils::write_file(ink_trait, Some(file_name))?;
-            println!("File saved!");
-            Ok(())
-        }
-        ParserOutput::Library(library) => {
-            let ink_trait = assembler::assemble_library(library);
-            let file_name = path.replace(".sol", ".rs");
-            file_utils::write_file(ink_trait, Some(file_name))?;
-            println!("File saved!");
-            Ok(())
-        }
-        _ => Err(ParserError::FileCorrupted),
     }
+    Ok(())
 }
+
+// fn run(path: &String) -> Result<(), parser::ParserError> {
+// read the file
+// let content = file_utils::read_file(path)?;
+// let mut chars = content.chars();
+// let mut imports = HashSet::new();
+// let mut storage = HashMap::new();
+// let mut functions = HashMap::new();
+// let mut events = HashMap::new();
+// let mut modifiers = HashMap::new();
+// let mut structs = HashMap::new();
+// let mut array_variables = HashMap::new();
+
+// let mut parser = parser::Parser::new(
+//     &mut chars,
+//     &mut imports,
+//     &mut storage,
+//     &mut functions,
+//     &mut events,
+//     &mut modifiers,
+//     &mut structs,
+//     &mut array_variables,
+// );
+// let output = parser.parse_file()?;
+// match output {
+//     ParserOutput::Contract(contract) => {
+//         let ink_contract = assembler::assemble_contract(&contract);
+//         let implementation = assembler::assemble_impl(&contract);
+//         let trait_definition = assembler::assemble_trait(&contract);
+//         let lib_definition = assembler::assemble_lib();
+//         let file_name = path.replace(".sol", "");
+//         file_utils::write_files(
+//             ink_contract,
+//             implementation,
+//             trait_definition,
+//             lib_definition,
+//             Some(file_name),
+//             &contract.name,
+//         )?;
+//         println!("File saved!");
+//         Ok(())
+//     }
+//     ParserOutput::Interface(interface) => {
+//         let ink_trait = assembler::assemble_interface(interface);
+//         let file_name = path.replace(".sol", ".rs");
+//         file_utils::write_file(ink_trait, Some(file_name))?;
+//         println!("File saved!");
+//         Ok(())
+//     }
+//     ParserOutput::Library(library) => {
+//         let ink_trait = assembler::assemble_library(library);
+//         let file_name = path.replace(".sol", ".rs");
+//         file_utils::write_file(ink_trait, Some(file_name))?;
+//         println!("File saved!");
+//         Ok(())
+//     }
+//     _ => Err(ParserError::FileCorrupted),
+// }
+// }

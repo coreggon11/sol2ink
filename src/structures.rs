@@ -29,7 +29,7 @@ pub enum ArrayType {
     Mapping,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Contract {
     pub name: String,
     pub fields: Vec<ContractField>,
@@ -116,7 +116,7 @@ pub struct Struct {
     pub comments: Vec<String>,
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct StructField {
     pub name: String,
     pub field_type: String,
