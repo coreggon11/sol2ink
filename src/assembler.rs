@@ -31,6 +31,7 @@ use convert_case::{
 };
 use proc_macro2::{
     Ident,
+    Span,
     TokenStream,
 };
 use quote::*;
@@ -403,7 +404,7 @@ fn assemble_events(events: &Vec<Event>) -> TokenStream {
                 "{}",
                 check_expression_for_keywords(&event_field.name).to_case(Snake)
             );
-            let event_field_type = TokenStream::from_str(&event_field.field_type).unwrap();
+            let event_field_type = &event_field.field_type;
 
             event_fields.extend(quote! {
                 #event_field_name: #event_field_type,
@@ -432,7 +433,7 @@ fn assemble_data_struct(fields: &[ContractField]) -> TokenStream {
     // assemble storage fields
     for field in fields.iter().filter(|field| !field.constant) {
         let field_name = format_ident!("{}", field.name.to_case(Snake));
-        let field_type = TokenStream::from_str(&field.field_type).unwrap();
+        let field_type = &field.field_type;
 
         for comment in field.comments.iter() {
             storage_fields.extend(quote! {
@@ -468,7 +469,7 @@ fn assemble_getters(fields: &[ContractField]) -> TokenStream {
         .filter(|field| !field.constant && field.public)
     {
         let field_name = format_ident!("{}", field.name.to_case(Snake));
-        let field_type = TokenStream::from_str(&field.field_type).unwrap();
+        let field_type = &field.field_type;
 
         output.extend(quote! {
             fn #field_name(&self) -> #field_type {
@@ -488,7 +489,7 @@ fn assemble_getters_trait(fields: &[ContractField]) -> TokenStream {
     // assemble storage fields
     for field in fields.iter().filter(|field| !field.constant) {
         let field_name = format_ident!("{}", field.name.to_case(Snake));
-        let field_type = TokenStream::from_str(&field.field_type).unwrap();
+        let field_type = &field.field_type;
 
         output.extend(quote! {
             #[ink(message)]
@@ -527,7 +528,7 @@ fn assemble_constants(fields: &Vec<ContractField>) -> TokenStream {
             "{}",
             check_expression_for_keywords(&field.name).to_case(UpperSnake)
         );
-        let field_type = TokenStream::from_str(&field.field_type).unwrap();
+        let field_type = &field.field_type;
         let initial_value = field.initial_value.clone().unwrap();
 
         for comment in field.comments.iter() {
@@ -577,7 +578,7 @@ fn assemble_structs(structs: &Vec<Struct>) -> TokenStream {
                 &check_expression_for_keywords(&struct_field.name).to_case(Snake)
             );
 
-            let struct_field_type = TokenStream::from_str(&struct_field.field_type).unwrap();
+            let struct_field_type = &struct_field.field_type;
 
             struct_fields.extend(quote! {
                 #struct_field_comments
@@ -866,7 +867,7 @@ fn assemble_emit_functions(events: &Vec<Event>) -> (TokenStream, TokenStream) {
                 "{}",
                 check_expression_for_keywords(&event_field.name).to_case(Snake)
             );
-            let event_field_type = TokenStream::from_str(&event_field.field_type).unwrap();
+            let event_field_type = &event_field.field_type;
 
             event_args.extend(quote! {
                 #event_field_name: #event_field_type,
@@ -906,7 +907,7 @@ fn assemble_contract_emit_functions(events: &Vec<Event>) -> TokenStream {
                 "{}",
                 check_expression_for_keywords(&event_field.name).to_case(Snake)
             );
-            let event_field_type = TokenStream::from_str(&event_field.field_type).unwrap();
+            let event_field_type = &event_field.field_type;
 
             event_params.extend(quote! {
                 #event_field_name: #event_field_type,
@@ -1576,6 +1577,41 @@ impl ToTokens for Expression {
                 quote!(#left.#right)
             }
             Expression::ZeroAddressInto => quote!(ZERO_ADDRESS.into()),
+        })
+    }
+}
+
+impl ToTokens for Type {
+    fn to_tokens(&self, stream: &mut TokenStream) {
+        stream.extend(match self {
+            Type::AccountId => quote!(AccountId),
+            Type::Bool => quote!(bool),
+            Type::String => quote!(String),
+            Type::Int(size) => {
+                let ident = Ident::new(&format!("i{size}"), Span::call_site());
+                quote!(#ident)
+            }
+            Type::Uint(size) => {
+                let ident = Ident::new(&format!("u{size}"), Span::call_site());
+                quote!(#ident)
+            }
+            Type::Bytes(size) => {
+                let ident = Ident::new(&format!("[u8; {size}]"), Span::call_site());
+                quote!(#ident)
+            }
+            Type::DynamicBytes => quote!(Vec<u8>),
+            Type::Variable(name) => {
+                TokenStream::from_str(&check_expression_for_keywords(name)).unwrap()
+            }
+            Type::Mapping(keys, value) => {
+                if keys.len() == 1 {
+                    let key = &keys[0];
+                    quote!( Mapping <#key, #value>)
+                } else {
+                    quote!(Mapping <(#(#keys,)*), #value>)
+                }
+            }
+            Type::None => quote!(),
         })
     }
 }

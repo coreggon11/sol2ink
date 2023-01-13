@@ -66,7 +66,7 @@ pub struct Interface {
 
 #[derive(Clone)]
 pub struct ContractField {
-    pub field_type: String,
+    pub field_type: Type,
     pub name: String,
     pub comments: Vec<String>,
     pub initial_value: Option<Expression>,
@@ -91,7 +91,7 @@ pub struct Event {
 #[derive(Clone)]
 pub struct EventField {
     pub indexed: bool,
-    pub field_type: String,
+    pub field_type: Type,
     pub name: String,
     pub comments: Vec<String>,
 }
@@ -116,10 +116,10 @@ pub struct Struct {
     pub comments: Vec<String>,
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct StructField {
     pub name: String,
-    pub field_type: String,
+    pub field_type: Type,
     pub comments: Vec<String>,
 }
 
@@ -287,3 +287,18 @@ pub enum Block {
     Unchecked,
     While,
 }
+
+#[derive(Clone, Debug)]
+pub enum Type {
+    AccountId,
+    Bool,
+    String,
+    Int(u16),
+    Uint(u16),
+    Bytes(u8),
+    DynamicBytes,
+    Variable(String),
+    Mapping(Vec<Type>, Box<Type>),
+    None,
+}
+

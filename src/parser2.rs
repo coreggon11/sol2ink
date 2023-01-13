@@ -30,9 +30,13 @@ use solang_parser::{
         EnumDefinition,
         EventDefinition,
         Expression as SolangExpression,
+        Identifier,
         SourceUnitPart,
         StructDefinition,
-        Type,
+        Type as SolangType,
+        VariableAttribute,
+        VariableDefinition,
+        Visibility,
     },
 };
 
@@ -100,16 +104,12 @@ fn handle_contract_definition(
 }
 
 fn parse_contract(contract_definition: &ContractDefinition) -> Result<Contract, ParserError> {
-    let name = contract_definition
-        .name
-        .as_ref()
-        .ok_or(ParserError::ContractNameNotFound)?
-        .name
-        .clone();
+    let name = parse_identifier(&contract_definition.name)?;
 
     let mut structs: Vec<Struct> = Default::default();
     let mut events: Vec<Event> = Default::default();
     let mut enums: Vec<Enum> = Default::default();
+    let mut fields: Vec<ContractField> = Default::default();
 
     for part in contract_definition.parts.iter() {
         match part {
@@ -127,7 +127,10 @@ fn parse_contract(contract_definition: &ContractDefinition) -> Result<Contract, 
                 enums.push(parsed_enum);
             }
             ContractPart::ErrorDefinition(_) => {}
-            ContractPart::VariableDefinition(_) => {}
+            ContractPart::VariableDefinition(variable_definition) => {
+                let parsed_field = parse_storage_field(variable_definition)?;
+                fields.push(parsed_field);
+            }
             ContractPart::FunctionDefinition(_) => {}
             ContractPart::TypeDefinition(_) => {}
             ContractPart::Using(_) => {}
@@ -136,11 +139,7 @@ fn parse_contract(contract_definition: &ContractDefinition) -> Result<Contract, 
     }
     // TODO
     // parent = contract_definition.base
-    // pub fields: Vec<ContractField>,
     // pub constructor: Function,
-    // pub events: Vec<Event>,
-    // pub enums: Vec<Enum>,
-    // pub structs: Vec<Struct>,
     // pub functions: Vec<Function>,
     // pub imports: HashSet<String>,
     // pub contract_doc: Vec<String>,
@@ -151,37 +150,21 @@ fn parse_contract(contract_definition: &ContractDefinition) -> Result<Contract, 
         structs,
         events,
         enums,
+        fields,
         ..Default::default()
     })
 }
 
 fn parse_struct(struct_definition: &StructDefinition) -> Result<Struct, ParserError> {
-    let name = &struct_definition
-        .name
-        .as_ref()
-        .ok_or(ParserError::StructNameNotFound)?
-        .name;
+    let name = parse_identifier(&struct_definition.name)?;
 
     let fields: Vec<StructField> = struct_definition
         .fields
         .iter()
         .map(|variable_declaration| {
-            let field_type = match &variable_declaration.ty {
-                SolangExpression::Type(_, solidity_type) => {
-                    Ok(convert_solidity_type(solidity_type))
-                }
-                SolangExpression::Variable(identifier) => Ok(identifier.name.clone()),
-                _ => Err(ParserError::IncorrectTypeOfVariable),
-            }
-            .ok()?;
+            let field_type = parse_type(&variable_declaration.ty).ok()?;
             Some(StructField {
-                name: variable_declaration
-                    .name
-                    .as_ref()
-                    .ok_or(ParserError::VariableNameNotFound)
-                    .ok()?
-                    .name
-                    .clone(),
+                name: parse_identifier(&variable_declaration.name).ok()?,
                 field_type,
                 comments: Default::default(),
             })
@@ -197,32 +180,15 @@ fn parse_struct(struct_definition: &StructDefinition) -> Result<Struct, ParserEr
 }
 
 fn parse_event(event_definition: &EventDefinition) -> Result<Event, ParserError> {
-    let name = &event_definition
-        .name
-        .as_ref()
-        .ok_or(ParserError::EventNameNotFound)?
-        .name;
+    let name = parse_identifier(&event_definition.name)?;
 
     let fields: Vec<EventField> = event_definition
         .fields
         .iter()
         .map(|variable_declaration| {
-            let field_type = match &variable_declaration.ty {
-                SolangExpression::Type(_, solidity_type) => {
-                    Ok(convert_solidity_type(solidity_type))
-                }
-                SolangExpression::Variable(identifier) => Ok(identifier.name.clone()),
-                _ => Err(ParserError::IncorrectTypeOfVariable),
-            }
-            .ok()?;
+            let field_type = parse_type(&variable_declaration.ty).ok()?;
             Some(EventField {
-                name: variable_declaration
-                    .name
-                    .as_ref()
-                    .ok_or(ParserError::VariableNameNotFound)
-                    .ok()?
-                    .name
-                    .clone(),
+                name: parse_identifier(&variable_declaration.name).ok()?,
                 field_type,
                 indexed: variable_declaration.indexed,
                 comments: Default::default(),
@@ -239,23 +205,14 @@ fn parse_event(event_definition: &EventDefinition) -> Result<Event, ParserError>
 }
 
 fn parse_enum(event_definition: &EnumDefinition) -> Result<Enum, ParserError> {
-    let name = &event_definition
-        .name
-        .as_ref()
-        .ok_or(ParserError::EventNameNotFound)?
-        .name;
+    let name = parse_identifier(&event_definition.name)?;
 
     let values: Vec<EnumField> = event_definition
         .values
         .iter()
         .map(|enum_value| {
             Some(EnumField {
-                name: enum_value
-                    .as_ref()
-                    .ok_or(ParserError::EnumValueNotDefined)
-                    .ok()?
-                    .name
-                    .clone(),
+                name: parse_identifier(enum_value).ok()?,
                 comments: Default::default(),
             })
         })
@@ -263,29 +220,96 @@ fn parse_enum(event_definition: &EnumDefinition) -> Result<Enum, ParserError> {
         .map(|option| option.unwrap())
         .collect();
     Ok(Enum {
-        name: name.to_string(),
+        name,
         values,
         comments: Default::default(),
     })
 }
 
-fn convert_solidity_type(solidity_type: &Type) -> String {
+fn parse_storage_field(
+    variable_definition: &VariableDefinition,
+) -> Result<ContractField, ParserError> {
+    let field_type = parse_type(&variable_definition.ty)?;
+    let name = parse_identifier(&variable_definition.name)?;
+    let constant = variable_definition
+        .attrs
+        .iter()
+        .find(|&item| {
+            if let VariableAttribute::Constant(_) = &item {
+                true
+            } else {
+                false
+            }
+        })
+        .is_some();
+    let public = variable_definition
+        .attrs
+        .iter()
+        .find(|&item| {
+            if let VariableAttribute::Visibility(Visibility::External(_)) = &item {
+                true
+            } else if let VariableAttribute::Visibility(Visibility::Public(_)) = &item {
+                true
+            } else {
+                false
+            }
+        })
+        .is_some();
+    let initial_value = None; // TODO
+    let comments = Vec::default();
+    Ok(ContractField {
+        field_type,
+        name,
+        initial_value,
+        constant,
+        public,
+        comments,
+    })
+}
+
+fn parse_identifier(variable_declaration: &Option<Identifier>) -> Result<String, ParserError> {
+    Ok(variable_declaration
+        .as_ref()
+        .ok_or(ParserError::VariableNameNotFound)?
+        .name
+        .clone())
+}
+
+fn parse_type(ty: &SolangExpression) -> Result<Type, ParserError> {
+    match &ty {
+        SolangExpression::Type(_, SolangType::Mapping(_, key_type, value_type)) => {
+            let mut parsed_key_types = vec![parse_type(key_type)?];
+            let mut value_type_now = value_type.as_ref();
+            while let SolangExpression::Type(
+                _,
+                SolangType::Mapping(_, key_type_value, value_type_value),
+            ) = value_type_now
+            {
+                parsed_key_types.push(parse_type(&key_type_value)?);
+                value_type_now = value_type_value;
+            }
+            let parsed_key_type = if parsed_key_types.len() == 1 {
+            } else {
+            };
+            let parsed_value_type = parse_type(&value_type_now)?;
+            Ok(Type::Mapping(parsed_key_types, Box::new(parsed_value_type)))
+        }
+        SolangExpression::Type(_, solidity_type) => Ok(convert_solidity_type(solidity_type)),
+        SolangExpression::Variable(identifier) => Ok(Type::Variable(identifier.name.clone())),
+        _ => Err(ParserError::IncorrectTypeOfVariable),
+    }
+}
+
+fn convert_solidity_type(solidity_type: &SolangType) -> Type {
     match solidity_type {
-        Type::Address | Type::AddressPayable => String::from("AccountId"),
-        Type::Bool => String::from("bool"),
-        Type::String => String::from("String"),
-        Type::Int(original_bytes) => {
-            let bytes = convert_int_bytes(original_bytes);
-            format!("i{bytes}")
-        }
-        Type::Uint(original_bytes) => {
-            let bytes = convert_int_bytes(original_bytes);
-            format!("u{bytes}")
-        }
-        Type::Bytes(bytes) => format!("[u8 ; {bytes} ]"),
-        Type::DynamicBytes => String::from("Vec<u8>"),
-        Type::Mapping(_, _key_type, _value_type) => todo!(),
-        _ => String::default(),
+        SolangType::Address | SolangType::AddressPayable => Type::AccountId,
+        SolangType::Bool => Type::Bool,
+        SolangType::String => Type::String,
+        SolangType::Int(original_bytes) => Type::Int(convert_int_bytes(original_bytes)),
+        SolangType::Uint(original_bytes) => Type::Uint(convert_int_bytes(original_bytes)),
+        SolangType::Bytes(length) => Type::Bytes(*length),
+        SolangType::DynamicBytes => Type::DynamicBytes,
+        _ => Type::None,
     }
 }
 

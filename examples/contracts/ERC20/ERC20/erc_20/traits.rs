@@ -30,4 +30,20 @@ pub struct Struct {
 pub type ERC20Ref = dyn ERC20;
 
 #[openbrush::trait_definition]
-pub trait ERC20 {}
+pub trait ERC20 {
+    #[ink(message)]
+    fn balances(&self) -> Mapping<AccountId, u128>;
+
+    #[ink(message)]
+    fn allowances(&self) -> Mapping<(AccountId, AccountId), u128>;
+
+    #[ink(message)]
+    fn total_supply(&self) -> u128;
+
+    #[ink(message)]
+    fn name(&self) -> String;
+
+    #[ink(message)]
+    fn symbol(&self) -> String;
+
+}

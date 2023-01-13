@@ -12,6 +12,11 @@ pub const STORAGE_KEY: u32 = openbrush::storage_unique_key!(Data);
 #[derive(Default, Debug)]
 #[openbrush::upgradeable_storage(STORAGE_KEY)]
 pub struct Data {
+    pub balances: Mapping<AccountId, u128>,
+    pub allowances: Mapping<(AccountId, AccountId), u128>,
+    pub total_supply: u128,
+    pub name: String,
+    pub symbol: String,
     pub _reserved: Option<()>,
 }
 
