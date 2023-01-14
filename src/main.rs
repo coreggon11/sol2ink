@@ -29,7 +29,6 @@ extern crate core;
 pub mod assembler;
 pub mod cli;
 pub mod file_utils;
-pub mod formatter;
 pub mod parser2;
 pub mod structures;
 pub mod toml_builder;

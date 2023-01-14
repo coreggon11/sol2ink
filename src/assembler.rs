@@ -620,7 +620,7 @@ fn assemble_constructor(constructor: &Function, fields: &[ContractField]) -> Tok
     // assemble params
     for param in constructor.header.params.iter() {
         let param_name = format_ident!("{}", param.name.to_case(Snake));
-        let param_type = TokenStream::from_str(&param.param_type).unwrap();
+        let param_type = &param.param_type;
 
         params.extend(quote! {
             #param_name: #param_type,
@@ -727,7 +727,7 @@ fn assemble_functions(functions: &Vec<Function>, is_library: bool) -> TokenStrea
                 "{}",
                 check_expression_for_keywords(&param.name).to_case(Snake)
             );
-            let param_type = TokenStream::from_str(&param.param_type).unwrap();
+            let param_type = &param.param_type;
 
             params.extend(quote! {
                 , #param_name: #param_type
@@ -740,7 +740,7 @@ fn assemble_functions(functions: &Vec<Function>, is_library: bool) -> TokenStrea
 
             for i in 0..function.header.return_params.len() {
                 let param = &function.header.return_params[i];
-                let param_type = TokenStream::from_str(&param.param_type).unwrap();
+                let param_type = &param.param_type;
 
                 if i > 0 {
                     params.extend(quote! {,});
@@ -952,7 +952,7 @@ fn assemble_modifiers(modifiers: &Vec<Modifier>, contract_name: &Ident) -> Token
         // assemble params
         for param in modifier.header.params.iter() {
             let param_name = format_ident!("{}", param.name.to_case(Snake));
-            let param_type = TokenStream::from_str(&param.param_type).unwrap();
+            let param_type = &param.param_type;
 
             params.extend(quote! {
                 , #param_name: #param_type
@@ -1041,7 +1041,7 @@ fn assemble_function_headers(function_headers: &Vec<FunctionHeader>) -> TokenStr
                 "{}",
                 check_expression_for_keywords(&param.name).to_case(Snake)
             );
-            let param_type = TokenStream::from_str(&param.param_type).unwrap();
+            let param_type = &param.param_type;
 
             params.extend(quote! {
                 , #param_name: #param_type
@@ -1052,8 +1052,7 @@ fn assemble_function_headers(function_headers: &Vec<FunctionHeader>) -> TokenStr
         if !header.return_params.is_empty() {
             let mut params = TokenStream::new();
             for i in 0..header.return_params.len() {
-                let param_type =
-                    TokenStream::from_str(&header.return_params[i].param_type).unwrap();
+                let param_type = &header.return_params[i].param_type;
 
                 if i > 0 {
                     params.extend(quote! {,});

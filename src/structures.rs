@@ -144,7 +144,7 @@ pub struct FunctionHeader {
 #[derive(Clone, Debug)]
 pub struct FunctionParam {
     pub name: String,
-    pub param_type: String,
+    pub param_type: Type,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -301,4 +301,3 @@ pub enum Type {
     Mapping(Vec<Type>, Box<Type>),
     None,
 }
-

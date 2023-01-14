@@ -1,4 +1,4 @@
-// Generated with Sol2Ink v1.1.0
+// Generated with Sol2Ink v2.0.0-beta
 // https://github.com/Supercolony-net/sol2ink
 
 use scale::{
@@ -31,6 +31,48 @@ pub type ERC20Ref = dyn ERC20;
 
 #[openbrush::trait_definition]
 pub trait ERC20 {
+    #[ink(message)]
+    fn name(&self) -> Result<String, Error>;
+
+    #[ink(message)]
+    fn symbol(&self) -> Result<String, Error>;
+
+    #[ink(message)]
+    fn decimals(&self) -> Result<u8, Error>;
+
+    #[ink(message)]
+    fn total_supply(&self) -> Result<u128, Error>;
+
+    #[ink(message)]
+    fn balance_of(&self, account: AccountId) -> Result<u128, Error>;
+
+    #[ink(message)]
+    fn transfer(&mut self, to: AccountId, amount: u128) -> Result<bool, Error>;
+
+    #[ink(message)]
+    fn allowance(&self, owner: AccountId, spender: AccountId) -> Result<u128, Error>;
+
+    #[ink(message)]
+    fn approve(&mut self, spender: AccountId, amount: u128) -> Result<bool, Error>;
+
+    #[ink(message)]
+    fn transfer_from(
+        &mut self,
+        from: AccountId,
+        to: AccountId,
+        amount: u128,
+    ) -> Result<bool, Error>;
+
+    #[ink(message)]
+    fn increase_allowance(&mut self, spender: AccountId, added_value: u128) -> Result<bool, Error>;
+
+    #[ink(message)]
+    fn decrease_allowance(
+        &mut self,
+        spender: AccountId,
+        subtracted_value: u128,
+    ) -> Result<bool, Error>;
+
     #[ink(message)]
     fn balances(&self) -> Mapping<AccountId, u128>;
 

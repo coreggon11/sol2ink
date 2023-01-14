@@ -30,7 +30,12 @@ use solang_parser::{
         EnumDefinition,
         EventDefinition,
         Expression as SolangExpression,
+        FunctionAttribute,
+        FunctionDefinition,
+        FunctionTy,
         Identifier,
+        IdentifierPath,
+        Mutability,
         SourceUnitPart,
         StructDefinition,
         Type as SolangType,
@@ -104,12 +109,15 @@ fn handle_contract_definition(
 }
 
 fn parse_contract(contract_definition: &ContractDefinition) -> Result<Contract, ParserError> {
-    let name = parse_identifier(&contract_definition.name)?;
+    let name = parse_identifier(&contract_definition.name);
 
     let mut structs: Vec<Struct> = Default::default();
     let mut events: Vec<Event> = Default::default();
     let mut enums: Vec<Enum> = Default::default();
     let mut fields: Vec<ContractField> = Default::default();
+    let mut functions: Vec<Function> = Default::default();
+    let mut constructor: Function = Default::default();
+    let mut modifiers: Vec<Function> = Default::default();
 
     for part in contract_definition.parts.iter() {
         match part {
@@ -131,7 +139,14 @@ fn parse_contract(contract_definition: &ContractDefinition) -> Result<Contract, 
                 let parsed_field = parse_storage_field(variable_definition)?;
                 fields.push(parsed_field);
             }
-            ContractPart::FunctionDefinition(_) => {}
+            ContractPart::FunctionDefinition(function_definition) => {
+                let parsed_function = parse_function(function_definition)?;
+                match function_definition.ty {
+                    FunctionTy::Constructor => constructor = parsed_function,
+                    FunctionTy::Modifier => modifiers.push(parsed_function),
+                    _ => functions.push(parsed_function),
+                }
+            }
             ContractPart::TypeDefinition(_) => {}
             ContractPart::Using(_) => {}
             ContractPart::StraySemicolon(_) => {}
@@ -151,21 +166,22 @@ fn parse_contract(contract_definition: &ContractDefinition) -> Result<Contract, 
         events,
         enums,
         fields,
+        functions,
+        constructor,
         ..Default::default()
     })
 }
 
 fn parse_struct(struct_definition: &StructDefinition) -> Result<Struct, ParserError> {
-    let name = parse_identifier(&struct_definition.name)?;
+    let name = parse_identifier(&struct_definition.name);
 
     let fields: Vec<StructField> = struct_definition
         .fields
         .iter()
         .map(|variable_declaration| {
-            let field_type = parse_type(&variable_declaration.ty).ok()?;
             Some(StructField {
-                name: parse_identifier(&variable_declaration.name).ok()?,
-                field_type,
+                name: parse_identifier(&variable_declaration.name),
+                field_type: parse_type(&variable_declaration.ty).ok()?,
                 comments: Default::default(),
             })
         })
@@ -180,16 +196,15 @@ fn parse_struct(struct_definition: &StructDefinition) -> Result<Struct, ParserEr
 }
 
 fn parse_event(event_definition: &EventDefinition) -> Result<Event, ParserError> {
-    let name = parse_identifier(&event_definition.name)?;
+    let name = parse_identifier(&event_definition.name);
 
     let fields: Vec<EventField> = event_definition
         .fields
         .iter()
         .map(|variable_declaration| {
-            let field_type = parse_type(&variable_declaration.ty).ok()?;
             Some(EventField {
-                name: parse_identifier(&variable_declaration.name).ok()?,
-                field_type,
+                name: parse_identifier(&variable_declaration.name),
+                field_type: parse_type(&variable_declaration.ty).ok()?,
                 indexed: variable_declaration.indexed,
                 comments: Default::default(),
             })
@@ -205,14 +220,14 @@ fn parse_event(event_definition: &EventDefinition) -> Result<Event, ParserError>
 }
 
 fn parse_enum(event_definition: &EnumDefinition) -> Result<Enum, ParserError> {
-    let name = parse_identifier(&event_definition.name)?;
+    let name = parse_identifier(&event_definition.name);
 
     let values: Vec<EnumField> = event_definition
         .values
         .iter()
         .map(|enum_value| {
             Some(EnumField {
-                name: parse_identifier(enum_value).ok()?,
+                name: parse_identifier(enum_value),
                 comments: Default::default(),
             })
         })
@@ -230,31 +245,20 @@ fn parse_storage_field(
     variable_definition: &VariableDefinition,
 ) -> Result<ContractField, ParserError> {
     let field_type = parse_type(&variable_definition.ty)?;
-    let name = parse_identifier(&variable_definition.name)?;
-    let constant = variable_definition
-        .attrs
-        .iter()
-        .find(|&item| {
-            if let VariableAttribute::Constant(_) = &item {
-                true
-            } else {
-                false
-            }
-        })
-        .is_some();
-    let public = variable_definition
-        .attrs
-        .iter()
-        .find(|&item| {
-            if let VariableAttribute::Visibility(Visibility::External(_)) = &item {
-                true
-            } else if let VariableAttribute::Visibility(Visibility::Public(_)) = &item {
-                true
-            } else {
-                false
-            }
-        })
-        .is_some();
+    let name = parse_identifier(&variable_definition.name);
+    let constant = variable_definition.attrs.iter().any(|item| {
+        match item {
+            VariableAttribute::Constant(_) => true,
+            _ => false,
+        }
+    });
+    let public = variable_definition.attrs.iter().any(|item| {
+        match item {
+            VariableAttribute::Visibility(Visibility::External(_))
+            | VariableAttribute::Visibility(Visibility::Public(_)) => true,
+            _ => false,
+        }
+    });
     let initial_value = None; // TODO
     let comments = Vec::default();
     Ok(ContractField {
@@ -267,12 +271,104 @@ fn parse_storage_field(
     })
 }
 
-fn parse_identifier(variable_declaration: &Option<Identifier>) -> Result<String, ParserError> {
-    Ok(variable_declaration
-        .as_ref()
-        .ok_or(ParserError::VariableNameNotFound)?
-        .name
-        .clone())
+fn parse_function(function_definition: &FunctionDefinition) -> Result<Function, ParserError> {
+    let name = parse_identifier(&function_definition.name);
+    let params = function_definition
+        .params
+        .iter()
+        .map(|item| item.1.clone().unwrap())
+        .map(|param| {
+            let name = parse_identifier(&param.name);
+            let param_type = parse_type(&param.ty).ok()?;
+            Some(FunctionParam { name, param_type })
+        })
+        .filter(|maybe| maybe.is_some())
+        .map(|option| option.unwrap())
+        .collect();
+    let external = function_definition.attributes.iter().any(|attribute| {
+        match attribute {
+            FunctionAttribute::Visibility(Visibility::External(_))
+            | FunctionAttribute::Visibility(Visibility::Public(_)) => true,
+            _ => false,
+        }
+    });
+    let view = function_definition.attributes.iter().any(|attribute| {
+        match attribute {
+            FunctionAttribute::Mutability(Mutability::Pure(_))
+            | FunctionAttribute::Mutability(Mutability::View(_)) => true,
+            _ => false,
+        }
+    });
+    let payable = function_definition.attributes.iter().any(|attribute| {
+        match attribute {
+            FunctionAttribute::Mutability(Mutability::Payable(_)) => true,
+            _ => false,
+        }
+    });
+    let return_params = function_definition
+        .returns
+        .iter()
+        .map(|item| item.1.clone().unwrap())
+        .map(|param| {
+            let name = parse_identifier(&param.name);
+            let param_type = parse_type(&param.ty).ok()?;
+            Some(FunctionParam { name, param_type })
+        })
+        .filter(|maybe| maybe.is_some())
+        .map(|option| option.unwrap())
+        .collect();
+    // TODO
+    let _modifiers = function_definition
+        .attributes
+        .iter()
+        .filter(|&attribute| {
+            match attribute {
+                FunctionAttribute::BaseOrModifier(..) => true,
+                _ => false,
+            }
+        })
+        .map(|modifier| {
+            if let FunctionAttribute::BaseOrModifier(_, base) = modifier {
+                let _name = parse_identifier_path(&base.name);
+                let _args = ();
+                // TODO
+            } else {
+                panic!("This can not happen due to filter before");
+            }
+        });
+
+    let header = FunctionHeader {
+        name,
+        params,
+        external,
+        view,
+        payable,
+        return_params,
+        ..Default::default()
+    };
+
+    // TODO: body
+    return Ok(Function {
+        header,
+        body: Vec::default(),
+    })
+}
+
+fn parse_identifier(variable_declaration: &Option<Identifier>) -> String {
+    match variable_declaration {
+        Some(identifier) => identifier.name.clone(),
+        None => String::from("_"),
+    }
+}
+
+fn parse_identifier_path(identifier_path: &IdentifierPath) -> String {
+    identifier_path
+        .identifiers
+        .iter()
+        .map(|identifier| identifier.name.clone())
+        .collect::<Vec<String>>()
+        .join(".")
+        .to_string()
 }
 
 fn parse_type(ty: &SolangExpression) -> Result<Type, ParserError> {
@@ -288,9 +384,6 @@ fn parse_type(ty: &SolangExpression) -> Result<Type, ParserError> {
                 parsed_key_types.push(parse_type(&key_type_value)?);
                 value_type_now = value_type_value;
             }
-            let parsed_key_type = if parsed_key_types.len() == 1 {
-            } else {
-            };
             let parsed_value_type = parse_type(&value_type_now)?;
             Ok(Type::Mapping(parsed_key_types, Box::new(parsed_value_type)))
         }
