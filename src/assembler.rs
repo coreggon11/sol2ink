@@ -20,7 +20,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use crate::structures::*;
+use crate::{
+    parser2::convert_solidity_type,
+    structures::*,
+};
 use convert_case::{
     Case::{
         Pascal,
@@ -35,7 +38,10 @@ use proc_macro2::{
     TokenStream,
 };
 use quote::*;
-use solang_parser::pt::Statement as SolangStatement;
+use solang_parser::pt::{
+    Expression as SolangExpression,
+    Statement as SolangStatement,
+};
 use std::{
     collections::{
         HashSet,
@@ -631,11 +637,9 @@ fn assemble_constructor(constructor: &Function, fields: &[ContractField]) -> Tok
     let mut body = TokenStream::new();
 
     // assemble body
-    if let Some(constructor_functions) = constructor_functions {
-        body.extend(quote! {
-            #constructor_functions
-        });
-    }
+    body.extend(quote! {
+        #constructor_functions
+    });
 
     for field in fields
         .iter()
@@ -804,11 +808,9 @@ fn assemble_functions(functions: &Vec<Function>, is_library: bool) -> TokenStrea
         // }
 
         // body
-        if let Some(statement) = statement {
-            body.extend(quote! {
-                #statement
-            });
-        }
+        body.extend(quote! {
+            #statement
+        });
 
         if function.header.return_params.is_empty() {
             body.extend(quote! {
@@ -1344,9 +1346,210 @@ impl ToTokens for Statement {
     }
 }
 
-impl ToTokens for Statement2 {
+impl ToTokens for WrappedStatement {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.extend(quote!())
+        tokens.extend(match &self.0 {
+            None => quote!(),
+            Some(statement) => {
+                match statement {
+                    SolangStatement::Block {
+                        loc,
+                        unchecked,
+                        statements,
+                    } => {
+                        let wrapped_statements: Vec<WrappedStatement> = statements
+                            .clone()
+                            .iter()
+                            .map(|statement| WrappedStatement(Some(statement.clone())))
+                            .collect();
+                        if *unchecked {
+                            quote! {
+                                // <<< Please handle try/catch blocks manually
+                                #(#wrapped_statements)*
+                                // >>> Please handle try/catch blocks manually
+                            }
+                        } else {
+                            quote!(#(#wrapped_statements)*)
+                        }
+                    }
+                    SolangStatement::Assembly {
+                        loc,
+                        dialect,
+                        flags,
+                        block,
+                    } => {
+                        // println!("{statement:?}");
+                        quote!()
+                    }
+                    SolangStatement::Args(_, _) => {
+                        quote!()
+                    }
+                    SolangStatement::If(_, expression, statement1, statement2) => {
+                        let condition = WrappedExpression(Some(expression.clone()));
+                        quote! {
+                            if #condition {
+                            }
+                        }
+                    }
+                    SolangStatement::While(_, _, _) => {
+                        quote!()
+                    }
+                    SolangStatement::Expression(_, _) => {
+                        quote!()
+                    }
+                    SolangStatement::VariableDefinition(_, _, _) => {
+                        quote!()
+                    }
+                    SolangStatement::For(_, _, _, _, _) => {
+                        quote!()
+                    }
+                    SolangStatement::DoWhile(_, _, _) => {
+                        quote!()
+                    }
+                    SolangStatement::Continue(_) => {
+                        quote!()
+                    }
+                    SolangStatement::Break(_) => {
+                        quote!()
+                    }
+                    SolangStatement::Return(_, _) => {
+                        quote!()
+                    }
+                    SolangStatement::Revert(_, _, _) => {
+                        quote!()
+                    }
+                    SolangStatement::RevertNamedArgs(_, _, _) => {
+                        quote!()
+                    }
+                    SolangStatement::Emit(_, _) => {
+                        quote!()
+                    }
+                    SolangStatement::Try(_, _, _, _) => {
+                        quote!()
+                    }
+                    SolangStatement::Error(_) => {
+                        quote!()
+                    }
+                }
+            }
+        })
+    }
+}
+
+impl ToTokens for WrappedExpression {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.extend(match &self.0 {
+            Some(expression) => {
+                match expression {
+                    SolangExpression::PostIncrement(_, expression) => {
+                        let wrapped = WrappedExpression::wrap(expression);
+                        quote!(
+                            #wrapped += 1;
+                        )
+                    }
+                    SolangExpression::PostDecrement(_, expression) => {
+                        let wrapped = WrappedExpression::wrap(expression);
+                        quote!(
+                            #wrapped -= 1;
+                        )
+                    }
+                    SolangExpression::New(_, _) => todo!(),
+                    SolangExpression::ArraySubscript(_, _, _) => quote!(),
+                    SolangExpression::ArraySlice(_, _, _, _) => quote!(),
+                    SolangExpression::Parenthesis(_, _) => quote!(),
+                    SolangExpression::MemberAccess(_, expression, identifier) => {
+                        let wrapped_expression = WrappedExpression::wrap(&expression);
+                        let wrapped_identifier = WrappedIdentifier::wrap(identifier);
+                        quote!(#wrapped_expression :: #wrapped_identifier)
+                    }
+                    SolangExpression::FunctionCall(_, function_name, function_args) => {
+                        let function_args_wrapped = function_args
+                            .iter()
+                            .map(|arg| WrappedExpression::wrap(&arg))
+                            .collect::<Vec<_>>();
+
+                        if let SolangExpression::Variable(identifier) = *function_name.clone() {
+                            if &identifier.name == "type" && function_args_wrapped.len() == 1 {
+                                let ty = &function_args_wrapped[0];
+                                quote!( #ty )
+                            } else {
+                                panic!("Multiple parameters were provided for Solidity type() function!");
+                            }
+                        } else {
+                            let function_name_wrapped = WrappedExpression::wrap(function_name);
+
+                            quote!( #function_name_wrapped ( #(#function_args_wrapped,)*))
+                        }
+                    }
+                    SolangExpression::FunctionCallBlock(_, _, _) => quote!(),
+                    SolangExpression::NamedFunctionCall(_, _, _) => quote!(),
+                    SolangExpression::Not(_, _) => quote!(),
+                    SolangExpression::Complement(_, _) => quote!(),
+                    SolangExpression::Delete(_, _) => quote!(),
+                    SolangExpression::PreIncrement(_, _) => quote!(),
+                    SolangExpression::PreDecrement(_, _) => quote!(),
+                    SolangExpression::UnaryPlus(_, _) => quote!(),
+                    SolangExpression::UnaryMinus(_, _) => quote!(),
+                    SolangExpression::Power(_, _, _) => quote!(),
+                    SolangExpression::Multiply(_, _, _) => quote!(),
+                    SolangExpression::Divide(_, _, _) => quote!(),
+                    SolangExpression::Modulo(_, _, _) => quote!(),
+                    SolangExpression::Add(_, _, _) => quote!(),
+                    SolangExpression::Subtract(_, _, _) => quote!(),
+                    SolangExpression::ShiftLeft(_, _, _) => quote!(),
+                    SolangExpression::ShiftRight(_, _, _) => quote!(),
+                    SolangExpression::BitwiseAnd(_, _, _) => quote!(),
+                    SolangExpression::BitwiseXor(_, _, _) => quote!(),
+                    SolangExpression::BitwiseOr(_, _, _) => quote!(),
+                    SolangExpression::Less(_, _, _) => quote!(),
+                    SolangExpression::More(_, _, _) => quote!(),
+                    SolangExpression::LessEqual(_, _, _) => quote!(),
+                    SolangExpression::MoreEqual(_, _, _) => quote!(),
+                    SolangExpression::Equal(_, _, _) => quote!(),
+                    SolangExpression::NotEqual(_, left, right) => {
+                        let left_wrapped = WrappedExpression::wrap(left);
+                        let right_wrapped = WrappedExpression::wrap(right);
+                        quote!(
+                            #left_wrapped != #right_wrapped
+                        )
+                    }
+                    SolangExpression::And(_, _, _) => quote!(),
+                    SolangExpression::Or(_, _, _) => quote!(),
+                    SolangExpression::ConditionalOperator(_, _, _, _) => quote!(),
+                    SolangExpression::Assign(_, _, _) => quote!(),
+                    SolangExpression::AssignOr(_, _, _) => quote!(),
+                    SolangExpression::AssignAnd(_, _, _) => quote!(),
+                    SolangExpression::AssignXor(_, _, _) => quote!(),
+                    SolangExpression::AssignShiftLeft(_, _, _) => quote!(),
+                    SolangExpression::AssignShiftRight(_, _, _) => quote!(),
+                    SolangExpression::AssignAdd(_, _, _) => quote!(),
+                    SolangExpression::AssignSubtract(_, _, _) => quote!(),
+                    SolangExpression::AssignMultiply(_, _, _) => quote!(),
+                    SolangExpression::AssignDivide(_, _, _) => quote!(),
+                    SolangExpression::AssignModulo(_, _, _) => quote!(),
+                    SolangExpression::BoolLiteral(_, _) => quote!(),
+                    SolangExpression::NumberLiteral(_, _, _) => quote!(),
+                    SolangExpression::RationalNumberLiteral(_, _, _, _) => quote!(),
+                    SolangExpression::HexNumberLiteral(_, _) => quote!(),
+                    SolangExpression::StringLiteral(_) => quote!(),
+                    SolangExpression::Type(_, ty) => {
+                        let ink_type = convert_solidity_type(ty);
+                        quote!( #ink_type )
+                    }
+                    SolangExpression::HexLiteral(_) => quote!(),
+                    SolangExpression::AddressLiteral(_, _) => quote!(),
+                    SolangExpression::Variable(identifier) => {
+                        let wrapped = WrappedIdentifier::wrap(identifier);
+                        quote!(#wrapped)
+                    }
+                    SolangExpression::List(_, _) => quote!(),
+                    SolangExpression::ArrayLiteral(_, _) => quote!(),
+                    SolangExpression::Unit(_, _, _) => quote!(),
+                    SolangExpression::This(_) => quote!(),
+                }
+            }
+            None => quote!(),
+        })
     }
 }
 
@@ -1587,24 +1790,21 @@ impl ToTokens for Expression {
     }
 }
 
+impl ToTokens for WrappedIdentifier {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.extend(TokenStream::from_str(&self.parse_snake()).unwrap())
+    }
+}
+
 impl ToTokens for Type {
     fn to_tokens(&self, stream: &mut TokenStream) {
         stream.extend(match self {
             Type::AccountId => quote!(AccountId),
             Type::Bool => quote!(bool),
             Type::String => quote!(String),
-            Type::Int(size) => {
-                let ident = Ident::new(&format!("i{size}"), Span::call_site());
-                quote!(#ident)
-            }
-            Type::Uint(size) => {
-                let ident = Ident::new(&format!("u{size}"), Span::call_site());
-                quote!(#ident)
-            }
-            Type::Bytes(size) => {
-                let ident = Ident::new(&format!("[u8; {size}]"), Span::call_site());
-                quote!(#ident)
-            }
+            Type::Int(size) => TokenStream::from_str(&format!("i{size}")).unwrap(),
+            Type::Uint(size) => TokenStream::from_str(&format!("u{size}")).unwrap(),
+            Type::Bytes(size) => TokenStream::from_str(&format!("[u8; {size}]")).unwrap(),
             Type::DynamicBytes => quote!(Vec<u8>),
             Type::Variable(name) => {
                 TokenStream::from_str(&check_expression_for_keywords(name)).unwrap()

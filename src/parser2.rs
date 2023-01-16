@@ -109,7 +109,7 @@ fn handle_contract_definition(
 }
 
 fn parse_contract(contract_definition: &ContractDefinition) -> Result<Contract, ParserError> {
-    let name = parse_identifier(&contract_definition.name);
+    let name = WrappedIdentifier::wrap_option(&contract_definition.name).parse();
 
     let mut structs: Vec<Struct> = Default::default();
     let mut events: Vec<Event> = Default::default();
@@ -173,14 +173,14 @@ fn parse_contract(contract_definition: &ContractDefinition) -> Result<Contract, 
 }
 
 fn parse_struct(struct_definition: &StructDefinition) -> Result<Struct, ParserError> {
-    let name = parse_identifier(&struct_definition.name);
+    let name = WrappedIdentifier::wrap_option(&struct_definition.name).parse();
 
     let fields: Vec<StructField> = struct_definition
         .fields
         .iter()
         .map(|variable_declaration| {
             Some(StructField {
-                name: parse_identifier(&variable_declaration.name),
+                name: WrappedIdentifier::wrap_option(&variable_declaration.name).parse(),
                 field_type: parse_type(&variable_declaration.ty).ok()?,
                 comments: Default::default(),
             })
@@ -196,14 +196,14 @@ fn parse_struct(struct_definition: &StructDefinition) -> Result<Struct, ParserEr
 }
 
 fn parse_event(event_definition: &EventDefinition) -> Result<Event, ParserError> {
-    let name = parse_identifier(&event_definition.name);
+    let name = WrappedIdentifier::wrap_option(&event_definition.name).parse();
 
     let fields: Vec<EventField> = event_definition
         .fields
         .iter()
         .map(|variable_declaration| {
             Some(EventField {
-                name: parse_identifier(&variable_declaration.name),
+                name: WrappedIdentifier::wrap_option(&variable_declaration.name).parse(),
                 field_type: parse_type(&variable_declaration.ty).ok()?,
                 indexed: variable_declaration.indexed,
                 comments: Default::default(),
@@ -220,14 +220,14 @@ fn parse_event(event_definition: &EventDefinition) -> Result<Event, ParserError>
 }
 
 fn parse_enum(event_definition: &EnumDefinition) -> Result<Enum, ParserError> {
-    let name = parse_identifier(&event_definition.name);
+    let name = WrappedIdentifier::wrap_option(&event_definition.name).parse();
 
     let values: Vec<EnumField> = event_definition
         .values
         .iter()
         .map(|enum_value| {
             Some(EnumField {
-                name: parse_identifier(enum_value),
+                name: WrappedIdentifier::wrap_option(enum_value).parse(),
                 comments: Default::default(),
             })
         })
@@ -245,7 +245,7 @@ fn parse_storage_field(
     variable_definition: &VariableDefinition,
 ) -> Result<ContractField, ParserError> {
     let field_type = parse_type(&variable_definition.ty)?;
-    let name = parse_identifier(&variable_definition.name);
+    let name = WrappedIdentifier::wrap_option(&variable_definition.name).parse();
     let constant = variable_definition.attrs.iter().any(|item| {
         match item {
             VariableAttribute::Constant(_) => true,
@@ -272,13 +272,13 @@ fn parse_storage_field(
 }
 
 fn parse_function(function_definition: &FunctionDefinition) -> Result<Function, ParserError> {
-    let name = parse_identifier(&function_definition.name);
+    let name = WrappedIdentifier::wrap_option(&function_definition.name).parse();
     let params = function_definition
         .params
         .iter()
         .map(|item| item.1.clone().unwrap())
         .map(|param| {
-            let name = parse_identifier(&param.name);
+            let name = WrappedIdentifier::wrap_option(&param.name).parse();
             let param_type = parse_type(&param.ty).ok()?;
             Some(FunctionParam { name, param_type })
         })
@@ -310,7 +310,7 @@ fn parse_function(function_definition: &FunctionDefinition) -> Result<Function, 
         .iter()
         .map(|item| item.1.clone().unwrap())
         .map(|param| {
-            let name = parse_identifier(&param.name);
+            let name = WrappedIdentifier::wrap_option(&param.name).parse();
             let param_type = parse_type(&param.ty).ok()?;
             Some(FunctionParam { name, param_type })
         })
@@ -347,20 +347,13 @@ fn parse_function(function_definition: &FunctionDefinition) -> Result<Function, 
         ..Default::default()
     };
 
-    return Ok(Function {
-        header,
-        body: function_definition
-            .clone()
-            .body
-            .map(|statement| Statement2::Wrapped(statement)),
-    })
-}
+    let body = if let Some(statement) = &function_definition.body {
+        WrappedStatement(Some(statement.clone()))
+    } else {
+        WrappedStatement(None)
+    };
 
-fn parse_identifier(variable_declaration: &Option<Identifier>) -> String {
-    match variable_declaration {
-        Some(identifier) => identifier.name.clone(),
-        None => String::from("_"),
-    }
+    return Ok(Function { header, body })
 }
 
 fn parse_identifier_path(identifier_path: &IdentifierPath) -> String {
@@ -395,7 +388,7 @@ fn parse_type(ty: &SolangExpression) -> Result<Type, ParserError> {
     }
 }
 
-fn convert_solidity_type(solidity_type: &SolangType) -> Type {
+pub(crate) fn convert_solidity_type(solidity_type: &SolangType) -> Type {
     match solidity_type {
         SolangType::Address | SolangType::AddressPayable => Type::AccountId,
         SolangType::Bool => Type::Bool,

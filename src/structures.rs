@@ -20,8 +20,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+use convert_case::{
+    Case::Snake,
+    Casing,
+};
 use solang_parser::pt::{
     Expression as SolangExpression,
+    Identifier,
     Statement as SolangStatement,
 };
 use std::collections::HashSet;
@@ -130,7 +135,7 @@ pub struct StructField {
 #[derive(Default, Clone)]
 pub struct Function {
     pub header: FunctionHeader,
-    pub body: Option<Statement2>,
+    pub body: WrappedStatement,
 }
 
 #[derive(Default, Clone)]
@@ -151,9 +156,43 @@ pub struct FunctionParam {
     pub param_type: Type,
 }
 
-#[derive(Clone, Debug)]
-pub enum Statement2 {
-    Wrapped(SolangStatement),
+#[derive(Default, Clone)]
+pub struct WrappedStatement(pub Option<SolangStatement>);
+
+#[derive(Default, Clone)]
+pub struct WrappedExpression(pub Option<SolangExpression>);
+
+impl WrappedExpression {
+    pub fn wrap(expression: &SolangExpression) -> Self {
+        Self(Some(expression.clone()))
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct WrappedIdentifier(pub Option<Identifier>);
+
+impl WrappedIdentifier {
+    pub fn wrap(identifier: &Identifier) -> Self {
+        Self(Some(identifier.clone()))
+    }
+
+    pub fn wrap_option(identifier: &Option<Identifier>) -> Self {
+        Self(identifier.clone())
+    }
+
+    pub fn parse(&self) -> String {
+        match &self.0 {
+            Some(identifier) => identifier.name.clone(),
+            None => String::from("_"),
+        }
+    }
+
+    pub fn parse_snake(&self) -> String {
+        match &self.0 {
+            Some(identifier) => identifier.name.to_case(Snake),
+            None => String::from("_"),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

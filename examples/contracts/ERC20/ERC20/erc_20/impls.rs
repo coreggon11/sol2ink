@@ -128,6 +128,7 @@ impl<T: Storage<Data>> Internal for T {
         spender: AccountId,
         amount: u128,
     ) -> Result<(), Error> {
+        if current_allowance != u128::max {}
         Ok(())
     }
 
