@@ -20,15 +20,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use convert_case::{
-    Case::Snake,
-    Casing,
-};
-use solang_parser::pt::{
-    Expression as SolangExpression,
-    Identifier,
-    Statement as SolangStatement,
-};
 use std::collections::HashSet;
 
 #[derive(Clone, Debug)]
@@ -158,12 +149,19 @@ pub struct FunctionParam {
 
 #[derive(Clone)]
 pub enum Statement {
-    Block(Box<Statement>),
+    Assembly(Vec<String>),
+    Block(Vec<Statement>),
+    Expression(Expression),
+    If(Expression, Box<Statement>, Option<Box<Statement>>),
+    UncheckedBlock(Vec<Statement>),
+    VariableDefinition(Expression, Option<Expression>),
+    While(Expression, Box<Statement>),
     None,
 }
 
 #[derive(Clone)]
 pub enum Expression {
+    VariableDeclaration(Type, String),
     None,
 }
 

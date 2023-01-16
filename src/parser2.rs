@@ -21,6 +21,10 @@
 // SOFTWARE.
 
 use crate::structures::*;
+use convert_case::{
+    Case::Snake,
+    Casing,
+};
 use solang_parser::{
     parse,
     pt::{
@@ -41,6 +45,7 @@ use solang_parser::{
         StructDefinition,
         Type as SolangType,
         VariableAttribute,
+        VariableDeclaration,
         VariableDefinition,
         Visibility,
     },
@@ -349,7 +354,7 @@ fn parse_function(function_definition: &FunctionDefinition) -> Result<Function, 
     };
 
     let body = if let Some(statement) = &function_definition.body {
-        Some(parse_statement(statement))
+        Some(parse_statement(statement)?)
     } else {
         None
     };
@@ -357,8 +362,149 @@ fn parse_function(function_definition: &FunctionDefinition) -> Result<Function, 
     return Ok(Function { header, body })
 }
 
-fn parse_statement(statement: &SolangStatement) -> Statement {
-    Statement::None
+fn parse_statement(statement: &SolangStatement) -> Result<Statement, ParserError> {
+    Ok(match statement {
+        SolangStatement::Block {
+            loc: _,
+            unchecked,
+            statements,
+        } => {
+            let parsed_statements = statements
+                .iter()
+                .map(|statement| Ok::<Statement, ParserError>(parse_statement(statement)?))
+                .map(|result| result.unwrap())
+                .collect::<Vec<_>>();
+            if *unchecked {
+                Statement::UncheckedBlock(parsed_statements)
+            } else {
+                Statement::Block(parsed_statements)
+            }
+        }
+        SolangStatement::Assembly {
+            loc: _,
+            dialect: _,
+            flags: _,
+            block: _,
+        } => {
+            println!("{statement:?}");
+            todo!()
+        }
+        SolangStatement::Args(_, _) => {
+            println!("{statement:?}");
+            todo!()
+        }
+        SolangStatement::If(_, expression, if_true, if_false) => {
+            let parsed_expression = parse_expression(expression);
+            let parsed_if_true = Box::new(parse_statement(if_true)?);
+            let parsed_if_false = if_false
+                .as_ref()
+                .map(|statement| Ok::<Statement, ParserError>(parse_statement(statement)?))
+                .map(|result| Box::new(result.unwrap()));
+            Statement::If(parsed_expression, parsed_if_true, parsed_if_false)
+        }
+        SolangStatement::While(_, expression, statement) => {
+            let parsed_expression = parse_expression(expression);
+            let parsed_statement = Box::new(parse_statement(statement)?);
+            Statement::While(parsed_expression, parsed_statement)
+        }
+        SolangStatement::Expression(_, expression) => {
+            let parsed_expression = parse_expression(expression);
+            Statement::Expression(parsed_expression)
+        }
+        SolangStatement::VariableDefinition(_, declaration, initial_value_maybe) => {
+            let parsed_declaration = parse_variable_declaration(declaration)?;
+            let parsed_initial_value = initial_value_maybe
+                .as_ref()
+                .map(|initial_value| parse_expression(&initial_value));
+            Statement::VariableDefinition(parsed_declaration, parsed_initial_value)
+        }
+        // SolangStatement::For(_, _, _, _, _) => todo!(),
+        // SolangStatement::DoWhile(_, _, _) => todo!(),
+        // SolangStatement::Continue(_) => todo!(),
+        // SolangStatement::Break(_) => todo!(),
+        // SolangStatement::Return(_, _) => todo!(),
+        // SolangStatement::Revert(_, _, _) => todo!(),
+        // SolangStatement::RevertNamedArgs(_, _, _) => todo!(),
+        // SolangStatement::Emit(_, _) => todo!(),
+        // SolangStatement::Try(_, _, _, _) => todo!(),
+        // SolangStatement::Error(_) => todo!(),
+        _ => Statement::None,
+    })
+}
+
+fn parse_variable_declaration(
+    variable_declaration: &VariableDeclaration,
+) -> Result<Expression, ParserError> {
+    let parsed_name = parse_identifier(&variable_declaration.name).to_case(Snake);
+    let parsed_type = parse_type(&variable_declaration.ty)?;
+    Ok(Expression::VariableDeclaration(parsed_type, parsed_name))
+}
+
+fn parse_expression(expression: &SolangExpression) -> Expression {
+    match expression {
+        _ => Expression::None
+        // SolangExpression::PostIncrement(_, _) => todo!(),
+        // SolangExpression::PostDecrement(_, _) => todo!(),
+        // SolangExpression::New(_, _) => todo!(),
+        // SolangExpression::ArraySubscript(_, _, _) => todo!(),
+        // SolangExpression::ArraySlice(_, _, _, _) => todo!(),
+        // SolangExpression::Parenthesis(_, _) => todo!(),
+        // SolangExpression::MemberAccess(_, _, _) => todo!(),
+        // SolangExpression::FunctionCall(_, _, _) => todo!(),
+        // SolangExpression::FunctionCallBlock(_, _, _) => todo!(),
+        // SolangExpression::NamedFunctionCall(_, _, _) => todo!(),
+        // SolangExpression::Not(_, _) => todo!(),
+        // SolangExpression::Complement(_, _) => todo!(),
+        // SolangExpression::Delete(_, _) => todo!(),
+        // SolangExpression::PreIncrement(_, _) => todo!(),
+        // SolangExpression::PreDecrement(_, _) => todo!(),
+        // SolangExpression::UnaryPlus(_, _) => todo!(),
+        // SolangExpression::UnaryMinus(_, _) => todo!(),
+        // SolangExpression::Power(_, _, _) => todo!(),
+        // SolangExpression::Multiply(_, _, _) => todo!(),
+        // SolangExpression::Divide(_, _, _) => todo!(),
+        // SolangExpression::Modulo(_, _, _) => todo!(),
+        // SolangExpression::Add(_, _, _) => todo!(),
+        // SolangExpression::Subtract(_, _, _) => todo!(),
+        // SolangExpression::ShiftLeft(_, _, _) => todo!(),
+        // SolangExpression::ShiftRight(_, _, _) => todo!(),
+        // SolangExpression::BitwiseAnd(_, _, _) => todo!(),
+        // SolangExpression::BitwiseXor(_, _, _) => todo!(),
+        // SolangExpression::BitwiseOr(_, _, _) => todo!(),
+        // SolangExpression::Less(_, _, _) => todo!(),
+        // SolangExpression::More(_, _, _) => todo!(),
+        // SolangExpression::LessEqual(_, _, _) => todo!(),
+        // SolangExpression::MoreEqual(_, _, _) => todo!(),
+        // SolangExpression::Equal(_, _, _) => todo!(),
+        // SolangExpression::NotEqual(_, _, _) => todo!(),
+        // SolangExpression::And(_, _, _) => todo!(),
+        // SolangExpression::Or(_, _, _) => todo!(),
+        // SolangExpression::ConditionalOperator(_, _, _, _) => todo!(),
+        // SolangExpression::Assign(_, _, _) => todo!(),
+        // SolangExpression::AssignOr(_, _, _) => todo!(),
+        // SolangExpression::AssignAnd(_, _, _) => todo!(),
+        // SolangExpression::AssignXor(_, _, _) => todo!(),
+        // SolangExpression::AssignShiftLeft(_, _, _) => todo!(),
+        // SolangExpression::AssignShiftRight(_, _, _) => todo!(),
+        // SolangExpression::AssignAdd(_, _, _) => todo!(),
+        // SolangExpression::AssignSubtract(_, _, _) => todo!(),
+        // SolangExpression::AssignMultiply(_, _, _) => todo!(),
+        // SolangExpression::AssignDivide(_, _, _) => todo!(),
+        // SolangExpression::AssignModulo(_, _, _) => todo!(),
+        // SolangExpression::BoolLiteral(_, _) => todo!(),
+        // SolangExpression::NumberLiteral(_, _, _) => todo!(),
+        // SolangExpression::RationalNumberLiteral(_, _, _, _) => todo!(),
+        // SolangExpression::HexNumberLiteral(_, _) => todo!(),
+        // SolangExpression::StringLiteral(_) => todo!(),
+        // SolangExpression::Type(_, _) => todo!(),
+        // SolangExpression::HexLiteral(_) => todo!(),
+        // SolangExpression::AddressLiteral(_, _) => todo!(),
+        // SolangExpression::Variable(_) => todo!(),
+        // SolangExpression::List(_, _) => todo!(),
+        // SolangExpression::ArrayLiteral(_, _) => todo!(),
+        // SolangExpression::Unit(_, _, _) => todo!(),
+        // SolangExpression::This(_) => todo!(),
+    }
 }
 
 fn parse_identifier_path(identifier_path: &IdentifierPath) -> String {

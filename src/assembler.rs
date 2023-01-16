@@ -31,19 +31,11 @@ use convert_case::{
 };
 use proc_macro2::{
     Ident,
-    Span,
     TokenStream,
 };
 use quote::*;
-use solang_parser::pt::{
-    Expression as SolangExpression,
-    Statement as SolangStatement,
-};
 use std::{
-    collections::{
-        HashSet,
-        VecDeque,
-    },
+    collections::HashSet,
     str::FromStr,
 };
 
@@ -528,12 +520,12 @@ fn assemble_constants(fields: &Vec<ContractField>) -> TokenStream {
 
     // assemble storage fields
     for field in fields.iter().filter(|field| field.constant) {
-        let field_name = format_ident!(
+        let _field_name = format_ident!(
             "{}",
             check_expression_for_keywords(&field.name).to_case(UpperSnake)
         );
-        let field_type = &field.field_type;
-        let initial_value = field.initial_value.clone().unwrap();
+        let _field_type = &field.field_type;
+        let _initial_value = field.initial_value.clone().unwrap();
 
         for comment in field.comments.iter() {
             output.extend(quote! {
@@ -612,7 +604,7 @@ fn assemble_constructor(constructor: &Function, fields: &[ContractField]) -> Tok
     let mut output = TokenStream::new();
     let mut params = TokenStream::new();
     let mut comments = TokenStream::new();
-    let constructor_functions = &constructor.body;
+    let _constructor_functions = &constructor.body;
 
     // assemble comments
     for comment in constructor.header.comments.iter() {
@@ -631,7 +623,7 @@ fn assemble_constructor(constructor: &Function, fields: &[ContractField]) -> Tok
         });
     }
 
-    let mut body = TokenStream::new();
+    let body = TokenStream::new();
 
     // assemble body
     // body.extend(quote! {
@@ -642,8 +634,8 @@ fn assemble_constructor(constructor: &Function, fields: &[ContractField]) -> Tok
         .iter()
         .filter(|field| field.initial_value.is_some() && !field.constant)
     {
-        let field_name = format_ident!("{}", field.name.to_case(Snake));
-        let intial_value = field.initial_value.clone();
+        let _field_name = format_ident!("{}", field.name.to_case(Snake));
+        let _intial_value = field.initial_value.clone();
 
         // body.extend(quote! {
         //     self.#field_name = #intial_value;
@@ -675,8 +667,8 @@ fn assemble_functions(functions: &Vec<Function>, is_library: bool) -> TokenStrea
         let mut return_params = TokenStream::new();
         let mut body = TokenStream::new();
         let mut comments = TokenStream::new();
-        let mut function_modifiers = TokenStream::new();
-        let mut statement = function.body.clone();
+        let function_modifiers = TokenStream::new();
+        let _statement = function.body.clone();
 
         // assemble comments
         for comment in function.header.comments.iter() {
@@ -685,7 +677,7 @@ fn assemble_functions(functions: &Vec<Function>, is_library: bool) -> TokenStrea
             });
         }
 
-        for function_modifier in function.header.modifiers.iter() {
+        for _function_modifier in function.header.modifiers.iter() {
             // function_modifiers.extend(quote! {
             //     #[modifiers(#function_modifier)]
             // });
@@ -814,7 +806,7 @@ fn assemble_functions(functions: &Vec<Function>, is_library: bool) -> TokenStrea
                 Ok(())
             });
         } else if function.header.return_params[0].name != "_" {
-            let out = TokenStream::from_str(
+            let _out = TokenStream::from_str(
                 &function
                     .header
                     .return_params
@@ -941,7 +933,7 @@ fn assemble_modifiers(modifiers: &Vec<Modifier>, contract_name: &Ident) -> Token
             "{}",
             check_expression_for_keywords(&modifier.header.name).to_case(Snake)
         );
-        let mut body = TokenStream::new();
+        let body = TokenStream::new();
         let mut comments = TokenStream::new();
         let mut params = TokenStream::new();
 
@@ -951,7 +943,7 @@ fn assemble_modifiers(modifiers: &Vec<Modifier>, contract_name: &Ident) -> Token
                 #[doc = #comment]
             });
         }
-        let statements = &modifier.statements;
+        // let statements = &modifier.statements;
 
         // assemble params
         for param in modifier.header.params.iter() {
