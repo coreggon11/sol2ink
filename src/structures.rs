@@ -1,6 +1,6 @@
 // MIT License
 
-// Copyright (c) 2022 727.ventures
+// Copyright (c) 2022 Supercolony
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -20,6 +20,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+use solang_parser::pt::{
+    Expression as SolangExpression,
+    Statement as SolangStatement,
+};
 use std::collections::HashSet;
 
 #[derive(Clone, Debug)]
@@ -126,7 +130,7 @@ pub struct StructField {
 #[derive(Default, Clone)]
 pub struct Function {
     pub header: FunctionHeader,
-    pub body: Vec<Statement>,
+    pub body: Option<Statement2>,
 }
 
 #[derive(Default, Clone)]
@@ -147,14 +151,17 @@ pub struct FunctionParam {
     pub param_type: Type,
 }
 
+#[derive(Clone, Debug)]
+pub enum Statement2 {
+    Wrapped(SolangStatement),
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Statement {
-    AssemblyEnd,
     Assign(Expression, Expression, Operation),
     ArrayFunctionCall(Expression, String, Expression),
     Break,
     Catch(Vec<Statement>),
-    CatchEnd,
     Comment(String),
     Declaration(String, String, Option<Expression>),
     Delete(Box<Expression>, Vec<Expression>),
@@ -170,21 +177,18 @@ pub enum Statement {
     FunctionCall(Expression),
     Group(Vec<Statement>),
     If(Condition, Vec<Statement>),
-    IfEnd,
     ModifierBody,
     Raw(String),
     Require(Condition, Expression, bool),
     Return(Expression),
     Ternary(Condition, Box<Statement>, Box<Statement>),
     Try(Vec<Statement>),
-    TryEnd,
     While(
         Option<Box<Statement>>,
         Expression,
         Option<Box<Statement>>,
         Vec<Statement>,
     ),
-    WhileEnd,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

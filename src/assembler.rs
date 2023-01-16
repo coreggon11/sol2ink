@@ -1,6 +1,6 @@
 // MIT License
 
-// Copyright (c) 2022 727.ventures
+// Copyright (c) 2022 Supercolony
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -35,6 +35,7 @@ use proc_macro2::{
     TokenStream,
 };
 use quote::*;
+use solang_parser::pt::Statement as SolangStatement;
 use std::{
     collections::{
         HashSet,
@@ -630,9 +631,11 @@ fn assemble_constructor(constructor: &Function, fields: &[ContractField]) -> Tok
     let mut body = TokenStream::new();
 
     // assemble body
-    body.extend(quote! {
-        #(#constructor_functions)*
-    });
+    if let Some(constructor_functions) = constructor_functions {
+        body.extend(quote! {
+            #constructor_functions
+        });
+    }
 
     for field in fields
         .iter()
@@ -672,7 +675,7 @@ fn assemble_functions(functions: &Vec<Function>, is_library: bool) -> TokenStrea
         let mut body = TokenStream::new();
         let mut comments = TokenStream::new();
         let mut function_modifiers = TokenStream::new();
-        let mut statements = function.body.clone();
+        let mut statement = function.body.clone();
 
         // assemble comments
         for comment in function.header.comments.iter() {
@@ -778,32 +781,34 @@ fn assemble_functions(functions: &Vec<Function>, is_library: bool) -> TokenStrea
 
         // @notice Rust fmt will panic if a return statement is followed by a statement
         // we will switch the order of the comments and the return statement
-        if !function.header.return_params.is_empty() && function.header.return_params[0].name == "_"
-        {
-            let mut ordered = VecDeque::<Statement>::default();
-            while let Some(Statement::Comment(_)) = statements.iter().last() {
-                ordered.push_front(statements.pop().unwrap());
-            }
-            // the last statement now is the return statement
-            if !ordered.is_empty() {
-                let return_statement = statements.pop().unwrap();
-                // we insert a comment that we reordered
-                statements.push(Statement::Comment(
-                    "Following statements were found after the return statement >>>".to_string(),
-                ));
-                // append ordered to statements
-                statements.append(&mut ordered.into_iter().collect());
-                statements.push(Statement::Comment(
-                    "<<< Following statements were found after the return statement".to_string(),
-                ));
-                statements.push(return_statement);
-            }
-        }
+        // if !function.header.return_params.is_empty() && function.header.return_params[0].name == "_"
+        // {
+        //     let mut ordered = VecDeque::<Statement>::default();
+        //     while let Some(Statement::Comment(_)) = statements.iter().last() {
+        //         ordered.push_front(statements.pop().unwrap());
+        //     }
+        //     // the last statement now is the return statement
+        //     if !ordered.is_empty() {
+        //         let return_statement = statements.pop().unwrap();
+        //         // we insert a comment that we reordered
+        //         statements.push(Statement::Comment(
+        //             "Following statements were found after the return statement >>>".to_string(),
+        //         ));
+        //         // append ordered to statements
+        //         statements.append(&mut ordered.into_iter().collect());
+        //         statements.push(Statement::Comment(
+        //             "<<< Following statements were found after the return statement".to_string(),
+        //         ));
+        //         statements.push(return_statement);
+        //     }
+        // }
 
         // body
-        body.extend(quote! {
-            #(#statements)*
-        });
+        if let Some(statement) = statement {
+            body.extend(quote! {
+                #statement
+            });
+        }
 
         if function.header.return_params.is_empty() {
             body.extend(quote! {
@@ -820,19 +825,19 @@ fn assemble_functions(functions: &Vec<Function>, is_library: bool) -> TokenStrea
                     .join(","),
             )
             .unwrap();
-            if !statements.iter().any(|s| matches!(s, Statement::Return(_))) {
-                body.extend(
-                    if function.header.return_params.len() > 1 {
-                        quote! {
-                            Ok((#out))
-                        }
-                    } else {
-                        quote! {
-                            Ok(#out)
-                        }
-                    },
-                );
-            }
+            // if !statements.iter().any(|s| matches!(s, Statement::Return(_))) {
+            //     body.extend(
+            //         if function.header.return_params.len() > 1 {
+            //             quote! {
+            //                 Ok((#out))
+            //             }
+            //         } else {
+            //             quote! {
+            //                 Ok(#out)
+            //             }
+            //         },
+            //     );
+            // }
         }
 
         output.extend(quote! {
@@ -1148,198 +1153,200 @@ impl ToTokens for Operation {
 
 impl ToTokens for Statement {
     fn to_tokens(&self, stream: &mut TokenStream) {
-        match self {
-            Statement::AssemblyEnd => {}
-            Statement::Assign(left, right, operation) => {
-                stream.extend(quote! {
-                    #left #operation #right;
-                })
-            }
-            Statement::ArrayFunctionCall(variable, function_raw, element) => {
-                let function = TokenStream::from_str(function_raw).unwrap();
-                stream.extend(quote! {#variable . #function ( #element );})
-            }
-            Statement::Break => stream.extend(quote! {break}),
-            Statement::Catch(statements) => {
-                stream.extend(quote! {
-                    else if false {
-                        #(#statements)*
-                        _comment_!("<<< Please handle try/catch blocks manually");
-                    }
-                })
-            }
-            Statement::CatchEnd => {}
-            Statement::Comment(content) => {
-                stream.extend(quote! {
-                    _comment_!(#content);
-                })
-            }
-            Statement::Declaration(var_name_raw, var_type_raw, initial_value_maybe) => {
-                let var_name = format_ident!("{}", var_name_raw.to_case(Snake));
-                let var_type = TokenStream::from_str(var_type_raw).unwrap();
-                if let Some(initial_value) = &initial_value_maybe {
-                    stream.extend(quote!(let mut #var_name : #var_type = #initial_value;));
-                } else {
-                    stream.extend(quote!(let mut #var_name : #var_type;));
-                }
-            }
-            Statement::Delete(mapping, index) => {
-                if index.clone().len() == 1 {
-                    stream.extend(quote!(#mapping.remove(#(&#index)*);));
-                } else {
-                    stream.extend(quote!(#mapping.remove(&(#(#index,)*));));
-                }
-            }
-            Statement::Loop(assign, condition, modification, statements) => {
-                stream.extend(quote! {
-                    #assign
-                    loop {
-                        #(#statements)*
-                        #modification
-                        if #condition {
-                            break;
-                        }
-                    }
-                })
-            }
-            Statement::Group(statements) => {
-                stream.extend(quote! {
-                        #(#statements)*
-                })
-            }
-            Statement::Else(statements) => {
-                stream.extend(quote! {
-                    else {
-                        #(#statements)*
-                    }
-                })
-            }
-            Statement::ElseIf(condition_raw, statements) => {
-                let left = &condition_raw.left;
-                let operation = condition_raw.operation;
-                let condition = if let Some(right) = &condition_raw.right {
-                    quote!(#left #operation #right)
-                } else {
-                    quote!(#operation #left)
-                };
-                stream.extend(quote! {
-                    else if #condition {
-                        #(#statements)*
-                    }
-                })
-            }
-            Statement::Emit(event_name_raw, args) => {
-                let fn_name =
-                    TokenStream::from_str(&format!("_emit_{}", &event_name_raw.to_case(Snake)))
-                        .unwrap();
-                stream.extend(quote! {
-                    self. #fn_name ( #(#args),* );
-                })
-            }
-            Statement::FunctionCall(expression) => {
-                stream.extend(quote! {
-                    #expression;
-                })
-            }
-            Statement::If(condition_raw, statements) => {
-                let left = &condition_raw.left;
-                let operation = condition_raw.operation;
-                let condition = if let Some(right) = &condition_raw.right {
-                    quote!(#left #operation #right)
-                } else {
-                    quote!(#operation #left)
-                };
-                stream.extend(quote! {
-                    if #condition {
-                        #(#statements)*
-                    }
-                })
-            }
-            Statement::IfEnd => {}
-            Statement::ModifierBody => {
-                stream.extend(quote! {
-                    body(instance);
-                })
-            }
-            Statement::Raw(_) => {}
-            Statement::Require(condition_raw, expression_raw, constructor) => {
-                let left = &condition_raw.left;
-                let operation = condition_raw.operation;
-                let expression = if let Expression::Literal(_) = expression_raw {
-                    quote!(String::from(#expression_raw))
-                } else {
-                    quote!(#expression_raw)
-                };
+        // match self {
+        //     Statement::Assign(left, right, operation) => {
+        //         stream.extend(quote! {
+        //             #left #operation #right;
+        //         })
+        //     }
+        //     Statement::ArrayFunctionCall(variable, function_raw, element) => {
+        //         let function = TokenStream::from_str(function_raw).unwrap();
+        //         stream.extend(quote! {#variable . #function ( #element );})
+        //     }
+        //     Statement::Break => stream.extend(quote! {break}),
+        //     Statement::Catch(statements) => {
+        //         stream.extend(quote! {
+        //             else if false {
+        //                 #(#statements)*
+        //                 _comment_!("<<< Please handle try/catch blocks manually");
+        //             }
+        //         })
+        //     }
+        //     Statement::Comment(content) => {
+        //         stream.extend(quote! {
+        //             _comment_!(#content);
+        //         })
+        //     }
+        //     Statement::Declaration(var_name_raw, var_type_raw, initial_value_maybe) => {
+        //         let var_name = format_ident!("{}", var_name_raw.to_case(Snake));
+        //         let var_type = TokenStream::from_str(var_type_raw).unwrap();
+        //         if let Some(initial_value) = &initial_value_maybe {
+        //             stream.extend(quote!(let mut #var_name : #var_type = #initial_value;));
+        //         } else {
+        //             stream.extend(quote!(let mut #var_name : #var_type;));
+        //         }
+        //     }
+        //     Statement::Delete(mapping, index) => {
+        //         if index.clone().len() == 1 {
+        //             stream.extend(quote!(#mapping.remove(#(&#index)*);));
+        //         } else {
+        //             stream.extend(quote!(#mapping.remove(&(#(#index,)*));));
+        //         }
+        //     }
+        //     Statement::Loop(assign, condition, modification, statements) => {
+        //         stream.extend(quote! {
+        //             #assign
+        //             loop {
+        //                 #(#statements)*
+        //                 #modification
+        //                 if #condition {
+        //                     break;
+        //                 }
+        //             }
+        //         })
+        //     }
+        //     Statement::Group(statements) => {
+        //         stream.extend(quote! {
+        //                 #(#statements)*
+        //         })
+        //     }
+        //     Statement::Else(statements) => {
+        //         stream.extend(quote! {
+        //             else {
+        //                 #(#statements)*
+        //             }
+        //         })
+        //     }
+        //     Statement::ElseIf(condition_raw, statements) => {
+        //         let left = &condition_raw.left;
+        //         let operation = condition_raw.operation;
+        //         let condition = if let Some(right) = &condition_raw.right {
+        //             quote!(#left #operation #right)
+        //         } else {
+        //             quote!(#operation #left)
+        //         };
+        //         stream.extend(quote! {
+        //             else if #condition {
+        //                 #(#statements)*
+        //             }
+        //         })
+        //     }
+        //     Statement::Emit(event_name_raw, args) => {
+        //         let fn_name =
+        //             TokenStream::from_str(&format!("_emit_{}", &event_name_raw.to_case(Snake)))
+        //                 .unwrap();
+        //         stream.extend(quote! {
+        //             self. #fn_name ( #(#args),* );
+        //         })
+        //     }
+        //     Statement::FunctionCall(expression) => {
+        //         stream.extend(quote! {
+        //             #expression;
+        //         })
+        //     }
+        //     Statement::If(condition_raw, statements) => {
+        //         let left = &condition_raw.left;
+        //         let operation = condition_raw.operation;
+        //         let condition = if let Some(right) = &condition_raw.right {
+        //             quote!(#left #operation #right)
+        //         } else {
+        //             quote!(#operation #left)
+        //         };
+        //         stream.extend(quote! {
+        //             if #condition {
+        //                 #(#statements)*
+        //             }
+        //         })
+        //     }
+        //     Statement::ModifierBody => {
+        //         stream.extend(quote! {
+        //             body(instance);
+        //         })
+        //     }
+        //     Statement::Raw(_) => {}
+        //     Statement::Require(condition_raw, expression_raw, constructor) => {
+        //         let left = &condition_raw.left;
+        //         let operation = condition_raw.operation;
+        //         let expression = if let Expression::Literal(_) = expression_raw {
+        //             quote!(String::from(#expression_raw))
+        //         } else {
+        //             quote!(#expression_raw)
+        //         };
 
-                let error = if *constructor {
-                    quote! {
-                        panic!(#expression)
-                    }
-                } else {
-                    quote! {
-                        return Err(Error::Custom(#expression))
-                    }
-                };
+        //         let error = if *constructor {
+        //             quote! {
+        //                 panic!(#expression)
+        //             }
+        //         } else {
+        //             quote! {
+        //                 return Err(Error::Custom(#expression))
+        //             }
+        //         };
 
-                let condition = if let Some(right) = &condition_raw.right {
-                    quote!(#left #operation #right)
-                } else {
-                    quote!(#operation #left)
-                };
-                stream.extend(quote! {
-                    if #condition {
-                        #error
-                    }
-                })
-            }
-            Statement::Return(output) => {
-                stream.extend(quote! {
-                    return Ok(#output)
-                })
-            }
-            Statement::Ternary(condition_raw, if_true, if_false) => {
-                let left = &condition_raw.left;
-                let operation = condition_raw.operation;
-                stream.extend(
-                    if let Some(right) = &condition_raw.right {
-                        quote! {
-                            if #left #operation #right {
-                                #if_true
-                            } else {
-                                #if_false
-                            }
-                        }
-                    } else {
-                        quote! {
-                            if #operation #left {
-                                #if_true
-                            } else {
-                                #if_false
-                            }
-                        }
-                    },
-                );
-            }
-            Statement::Try(statements) => {
-                stream.extend(quote! {
-                    _comment_!("Please handle try/catch blocks manually >>>");
-                    if true {
-                        #(#statements)*
-                    }
-                })
-            }
-            Statement::TryEnd => {}
-            Statement::While(assign, condition, modification, statements) => {
-                stream.extend(quote! {
-                    #assign
-                    while #condition {
-                        #(#statements)*
-                        #modification
-                    }
-                })
-            }
-            Statement::WhileEnd => {}
-        }
+        //         let condition = if let Some(right) = &condition_raw.right {
+        //             quote!(#left #operation #right)
+        //         } else {
+        //             quote!(#operation #left)
+        //         };
+        //         stream.extend(quote! {
+        //             if #condition {
+        //                 #error
+        //             }
+        //         })
+        //     }
+        //     Statement::Return(output) => {
+        //         stream.extend(quote! {
+        //             return Ok(#output)
+        //         })
+        //     }
+        //     Statement::Ternary(condition_raw, if_true, if_false) => {
+        //         let left = &condition_raw.left;
+        //         let operation = condition_raw.operation;
+        //         stream.extend(
+        //             if let Some(right) = &condition_raw.right {
+        //                 quote! {
+        //                     if #left #operation #right {
+        //                         #if_true
+        //                     } else {
+        //                         #if_false
+        //                     }
+        //                 }
+        //             } else {
+        //                 quote! {
+        //                     if #operation #left {
+        //                         #if_true
+        //                     } else {
+        //                         #if_false
+        //                     }
+        //                 }
+        //             },
+        //         );
+        //     }
+        //     Statement::Try(statements) => {
+        //         stream.extend(quote! {
+        //             _comment_!("Please handle try/catch blocks manually >>>");
+        //             if true {
+        //                 #(#statements)*
+        //             }
+        //         })
+        //     }
+        //     Statement::While(assign, condition, modification, statements) => {
+        //         stream.extend(quote! {
+        //             #assign
+        //             while #condition {
+        //                 #(#statements)*
+        //                 #modification
+        //             }
+        //         })
+        //     }
+        // }
+        stream.extend(quote! {})
+    }
+}
+
+impl ToTokens for Statement2 {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.extend(quote!())
     }
 }
 

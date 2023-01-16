@@ -333,7 +333,7 @@ fn parse_function(function_definition: &FunctionDefinition) -> Result<Function, 
                 let _args = ();
                 // TODO
             } else {
-                panic!("This can not happen due to filter before");
+                unreachable!("The vec was filtered before");
             }
         });
 
@@ -347,10 +347,12 @@ fn parse_function(function_definition: &FunctionDefinition) -> Result<Function, 
         ..Default::default()
     };
 
-    // TODO: body
     return Ok(Function {
         header,
-        body: Vec::default(),
+        body: function_definition
+            .clone()
+            .body
+            .map(|statement| Statement2::Wrapped(statement)),
     })
 }
 
