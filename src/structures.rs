@@ -135,7 +135,7 @@ pub struct StructField {
 #[derive(Default, Clone)]
 pub struct Function {
     pub header: FunctionHeader,
-    pub body: WrappedStatement,
+    pub body: Option<Statement>,
 }
 
 #[derive(Default, Clone)]
@@ -156,179 +156,15 @@ pub struct FunctionParam {
     pub param_type: Type,
 }
 
-#[derive(Default, Clone)]
-pub struct WrappedStatement(pub Option<SolangStatement>);
-
-#[derive(Default, Clone)]
-pub struct WrappedExpression(pub Option<SolangExpression>);
-
-impl WrappedExpression {
-    pub fn wrap(expression: &SolangExpression) -> Self {
-        Self(Some(expression.clone()))
-    }
-}
-
-#[derive(Default, Clone)]
-pub struct WrappedIdentifier(pub Option<Identifier>);
-
-impl WrappedIdentifier {
-    pub fn wrap(identifier: &Identifier) -> Self {
-        Self(Some(identifier.clone()))
-    }
-
-    pub fn wrap_option(identifier: &Option<Identifier>) -> Self {
-        Self(identifier.clone())
-    }
-
-    pub fn parse(&self) -> String {
-        match &self.0 {
-            Some(identifier) => identifier.name.clone(),
-            None => String::from("_"),
-        }
-    }
-
-    pub fn parse_snake(&self) -> String {
-        match &self.0 {
-            Some(identifier) => identifier.name.to_case(Snake),
-            None => String::from("_"),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone)]
 pub enum Statement {
-    Assign(Expression, Expression, Operation),
-    ArrayFunctionCall(Expression, String, Expression),
-    Break,
-    Catch(Vec<Statement>),
-    Comment(String),
-    Declaration(String, String, Option<Expression>),
-    Delete(Box<Expression>, Vec<Expression>),
-    Loop(
-        Option<Box<Statement>>,
-        Expression,
-        Option<Box<Statement>>,
-        Vec<Statement>,
-    ),
-    Else(Vec<Statement>),
-    ElseIf(Condition, Vec<Statement>),
-    Emit(String, Vec<Expression>),
-    FunctionCall(Expression),
-    Group(Vec<Statement>),
-    If(Condition, Vec<Statement>),
-    ModifierBody,
-    Raw(String),
-    Require(Condition, Expression, bool),
-    Return(Expression),
-    Ternary(Condition, Box<Statement>, Box<Statement>),
-    Try(Vec<Statement>),
-    While(
-        Option<Box<Statement>>,
-        Expression,
-        Option<Box<Statement>>,
-        Vec<Statement>,
-    ),
+    Block(Box<Statement>),
+    None,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Condition {
-    pub left: Expression,
-    pub operation: Operation,
-    pub right: Option<Expression>,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Operation {
-    Add,
-    AddAssign,
-    AddOne,
-    AndAssign,
-    Assign,
-    BitwiseAnd,
-    BitwiseOr,
-    Div,
-    DivAssign,
-    Equal,
-    GreaterThanEqual,
-    GreaterThan,
-    LessThanEqual,
-    LessThan,
-    LogicalAnd,
-    LogicalOr,
-    Modulo,
-    Mul,
-    MulAssign,
-    Not,
-    NotEqual,
-    OrAssign,
-    Pow,
-    Subtract,
-    SubtractOne,
-    SubtractAssign,
-    ShiftLeft,
-    ShiftRight,
-    True,
-    Xor,
-}
-
-impl Operation {
-    pub fn negate(&self) -> Operation {
-        match self {
-            Operation::BitwiseAnd => Operation::BitwiseOr,
-            Operation::BitwiseOr => Operation::BitwiseAnd,
-            Operation::Equal => Operation::NotEqual,
-            Operation::GreaterThanEqual => Operation::LessThan,
-            Operation::GreaterThan => Operation::LessThanEqual,
-            Operation::LessThanEqual => Operation::GreaterThan,
-            Operation::LessThan => Operation::GreaterThanEqual,
-            // TODO a and b = neg(a) or neg (b)
-            Operation::LogicalAnd => Operation::LogicalOr,
-            Operation::LogicalOr => Operation::LogicalAnd,
-            Operation::Not => Operation::True,
-            Operation::NotEqual => Operation::Equal,
-            _ => Operation::Not,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone)]
 pub enum Expression {
-    AccountId(Option<String>),
-    Arithmetic(Box<Expression>, Box<Expression>, Operation),
-    BlockTimestamp(Option<String>),
-    DynamicArray(Box<Expression>, Vec<Expression>),
-    FixedSizeArray(Box<Expression>, Vec<Expression>),
-    Cast(bool, String, Box<Expression>),
-    ComplexMapping(Vec<Expression>),
-    Condition(Box<Condition>),
-    Constant(String),
-    Enclosed(Box<Expression>),
-    EnvCaller(Option<String>),
-    FunctionCall(String, Vec<Expression>, Option<String>, bool, bool),
-    IsZero(Box<Expression>),
-    Literal(String),
-    Logical(Box<Expression>, Operation, Box<Expression>),
-    Member(String, Option<String>),
-    Mapping(Box<Expression>, Vec<Expression>, Option<Box<Expression>>),
-    Modifier(String),
-    NewArray(String, Box<Expression>),
-    StructArg(String, Box<Expression>),
-    StructInit(String, Vec<Expression>),
-    Ternary(Box<Condition>, Box<Expression>, Box<Expression>),
-    TransferredValue(Option<String>),
-    WithSelector(Box<Expression>, Box<Expression>),
-    ZeroAddressInto,
-}
-
-pub enum Block {
-    Assembly,
-    Catch,
-    Else,
-    ElseIf,
-    If,
-    Try,
-    Unchecked,
-    While,
+    None,
 }
 
 #[derive(Clone, Debug)]
