@@ -344,7 +344,7 @@ fn parse_function(function_definition: &FunctionDefinition) -> Result<Function, 
         });
 
     let header = FunctionHeader {
-        name,
+        name: name.clone(),
         params,
         external,
         view,
@@ -418,7 +418,29 @@ fn parse_statement(statement: &SolangStatement) -> Result<Statement, ParserError
                 .map(|initial_value| parse_expression(&initial_value));
             Statement::VariableDefinition(parsed_declaration, parsed_initial_value)
         }
-        // SolangStatement::For(_, _, _, _, _) => todo!(),
+        SolangStatement::For(_, variable_definition, condition, on_pass, body) => {
+            let parsed_variable_definition = variable_definition
+                .as_ref()
+                .map(|statement| Ok::<Statement, ParserError>(parse_statement(&statement)?))
+                .map(|result| Box::new(result.unwrap()));
+            let parsed_condition = condition
+                .as_ref()
+                .map(|expression| parse_expression(&expression));
+            let parsed_on_pass = on_pass
+                .as_ref()
+                .map(|statement| Ok::<Statement, ParserError>(parse_statement(&statement)?))
+                .map(|result| Box::new(result.unwrap()));
+            let parsed_body = body
+                .as_ref()
+                .map(|statement| Ok::<Statement, ParserError>(parse_statement(&statement)?))
+                .map(|result| Box::new(result.unwrap()));
+            Statement::For(
+                parsed_variable_definition,
+                parsed_condition,
+                parsed_on_pass,
+                parsed_body,
+            )
+        }
         // SolangStatement::DoWhile(_, _, _) => todo!(),
         // SolangStatement::Continue(_) => todo!(),
         // SolangStatement::Break(_) => todo!(),
@@ -436,7 +458,7 @@ fn parse_variable_declaration(
     variable_declaration: &VariableDeclaration,
 ) -> Result<Expression, ParserError> {
     let parsed_name = parse_identifier(&variable_declaration.name).to_case(Snake);
-    let parsed_type = parse_type(&variable_declaration.ty)?;
+    let parsed_type = Box::new(parse_type(&variable_declaration.ty)?);
     Ok(Expression::VariableDeclaration(parsed_type, parsed_name))
 }
 
@@ -535,6 +557,13 @@ fn parse_type(ty: &SolangExpression) -> Result<Type, ParserError> {
         }
         SolangExpression::Type(_, solidity_type) => Ok(convert_solidity_type(solidity_type)),
         SolangExpression::Variable(identifier) => Ok(Type::Variable(identifier.name.clone())),
+        SolangExpression::ArraySubscript(_, ty, expression_maybe) => {
+            let parsed_type = Box::new(parse_type(&ty)?);
+            if expression_maybe.is_some() {
+                println!("expression maybe in array is some {expression_maybe:?}");
+            }
+            Ok(Type::Array(parsed_type, None))
+        }
         _ => Err(ParserError::IncorrectTypeOfVariable),
     }
 }

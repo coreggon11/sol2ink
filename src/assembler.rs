@@ -320,10 +320,8 @@ fn assemble_enums(enums: &Vec<Enum>) -> TokenStream {
     let mut output = TokenStream::new();
 
     for enumeration in enums.iter() {
-        let enum_name = TokenStream::from_str(
-            &check_expression_for_keywords(&enumeration.name).to_case(Pascal),
-        )
-        .unwrap();
+        let enum_name =
+            TokenStream::from_str(&format_expression(&enumeration.name).to_case(Pascal)).unwrap();
         let mut enum_comments = TokenStream::new();
         let mut values = TokenStream::new();
 
@@ -396,10 +394,7 @@ fn assemble_events(events: &Vec<Event>) -> TokenStream {
                 });
             }
 
-            let event_field_name = format_ident!(
-                "{}",
-                check_expression_for_keywords(&event_field.name).to_case(Snake)
-            );
+            let event_field_name = format_ident!("{}", format_expression(&event_field.name));
             let event_field_type = &event_field.field_type;
 
             event_fields.extend(quote! {
@@ -520,10 +515,7 @@ fn assemble_constants(fields: &Vec<ContractField>) -> TokenStream {
 
     // assemble storage fields
     for field in fields.iter().filter(|field| field.constant) {
-        let _field_name = format_ident!(
-            "{}",
-            check_expression_for_keywords(&field.name).to_case(UpperSnake)
-        );
+        let _field_name = format_ident!("{}", format_expression(&field.name).to_case(UpperSnake));
         let _field_type = &field.field_type;
         let _initial_value = field.initial_value.clone().unwrap();
 
@@ -549,8 +541,7 @@ fn assemble_structs(structs: &Vec<Struct>) -> TokenStream {
     let mut output = TokenStream::new();
 
     for structure in structs.iter() {
-        let struct_name =
-            TokenStream::from_str(&check_expression_for_keywords(&structure.name)).unwrap();
+        let struct_name = TokenStream::from_str(&format_expression(&structure.name)).unwrap();
         let mut struct_comments = TokenStream::new();
         let mut struct_fields = TokenStream::new();
 
@@ -569,10 +560,7 @@ fn assemble_structs(structs: &Vec<Struct>) -> TokenStream {
                     #[doc = #comment]
                 })
             }
-            let struct_field_name = format_ident!(
-                "{}",
-                &check_expression_for_keywords(&struct_field.name).to_case(Snake)
-            );
+            let struct_field_name = format_ident!("{}", &format_expression(&struct_field.name));
 
             let struct_field_type = &struct_field.field_type;
 
@@ -700,7 +688,7 @@ fn assemble_functions(functions: &Vec<Function>, is_library: bool) -> TokenStrea
                     String::new()
                 },
                 if function.header.external {
-                    check_expression_for_keywords(&function.header.name).to_case(Snake)
+                    format_expression(&function.header.name)
                 } else {
                     function.header.name.to_case(Snake)
                 }
@@ -719,10 +707,7 @@ fn assemble_functions(functions: &Vec<Function>, is_library: bool) -> TokenStrea
 
         // assemble params
         for param in function.header.params.iter() {
-            let param_name = format_ident!(
-                "{}",
-                check_expression_for_keywords(&param.name).to_case(Snake)
-            );
+            let param_name = format_ident!("{}", &format_expression(&param.name));
             let param_type = &param.param_type;
 
             params.extend(quote! {
@@ -747,10 +732,8 @@ fn assemble_functions(functions: &Vec<Function>, is_library: bool) -> TokenStrea
                 });
 
                 if param.name != "_" {
-                    let param_name = TokenStream::from_str(
-                        &check_expression_for_keywords(&param.name).to_case(Snake),
-                    )
-                    .unwrap();
+                    let param_name =
+                        TokenStream::from_str(&format_expression(&param.name)).unwrap();
                     body.extend(quote! {
                         let mut #param_name = Default::default();
                     })
@@ -811,7 +794,7 @@ fn assemble_functions(functions: &Vec<Function>, is_library: bool) -> TokenStrea
                     .header
                     .return_params
                     .iter()
-                    .map(|param| check_expression_for_keywords(&param.name).to_case(Snake))
+                    .map(|param| format_expression(&param.name))
                     .collect::<Vec<String>>()
                     .join(","),
             )
@@ -859,10 +842,7 @@ fn assemble_emit_functions(events: &Vec<Event>) -> (TokenStream, TokenStream) {
 
         // assemble event fields
         for event_field in event.fields.iter() {
-            let event_field_name = format_ident!(
-                "{}",
-                check_expression_for_keywords(&event_field.name).to_case(Snake)
-            );
+            let event_field_name = format_ident!("{}", format_expression(&event_field.name));
             let event_field_type = &event_field.field_type;
 
             event_args.extend(quote! {
@@ -899,10 +879,7 @@ fn assemble_contract_emit_functions(events: &Vec<Event>) -> TokenStream {
 
         // assemble event fields
         for event_field in event.fields.iter() {
-            let event_field_name = format_ident!(
-                "{}",
-                check_expression_for_keywords(&event_field.name).to_case(Snake)
-            );
+            let event_field_name = format_ident!("{}", format_expression(&event_field.name));
             let event_field_type = &event_field.field_type;
 
             event_params.extend(quote! {
@@ -929,10 +906,7 @@ fn assemble_modifiers(modifiers: &Vec<Modifier>, contract_name: &Ident) -> Token
     let mut output = TokenStream::new();
 
     for modifier in modifiers.iter() {
-        let modifier_name = format_ident!(
-            "{}",
-            check_expression_for_keywords(&modifier.header.name).to_case(Snake)
-        );
+        let modifier_name = format_ident!("{}", format_expression(&modifier.header.name));
         let body = TokenStream::new();
         let mut comments = TokenStream::new();
         let mut params = TokenStream::new();
@@ -1017,7 +991,7 @@ fn assemble_function_headers(function_headers: &Vec<FunctionHeader>) -> TokenStr
             TokenStream::from_str(&format!(
                 "fn {}{}",
                 if header.external { "" } else { "_" },
-                check_expression_for_keywords(&header.name).to_case(Snake)
+                format_expression(&header.name)
             ))
             .unwrap(),
         );
@@ -1033,10 +1007,7 @@ fn assemble_function_headers(function_headers: &Vec<FunctionHeader>) -> TokenStr
 
         // assemble params
         for param in header.params.iter() {
-            let param_name = format_ident!(
-                "{}",
-                check_expression_for_keywords(&param.name).to_case(Snake)
-            );
+            let param_name = format_ident!("{}", format_expression(&param.name));
             let param_type = &param.param_type;
 
             params.extend(quote! {
@@ -1099,11 +1070,16 @@ fn signature() -> TokenStream {
     }
 }
 
-fn check_expression_for_keywords(expression_raw: &String) -> String {
-    if RUST_KEYWORDS.contains(&expression_raw.as_str()) {
+fn format_expression(expression_raw: &String) -> String {
+    let output = if RUST_KEYWORDS.contains(&expression_raw.as_str()) {
         format!("{}_is_rust_keyword", &expression_raw)
     } else {
         expression_raw.to_string()
+    };
+    if &output == "_" {
+        return output
+    } else {
+        return output.to_case(Snake)
     }
 }
 
@@ -1117,9 +1093,7 @@ impl ToTokens for Type {
             Type::Uint(size) => TokenStream::from_str(&format!("u{size}")).unwrap(),
             Type::Bytes(size) => TokenStream::from_str(&format!("[u8; {size}]")).unwrap(),
             Type::DynamicBytes => quote!(Vec<u8>),
-            Type::Variable(name) => {
-                TokenStream::from_str(&check_expression_for_keywords(name)).unwrap()
-            }
+            Type::Variable(name) => TokenStream::from_str(&format_expression(name)).unwrap(),
             Type::Mapping(keys, value) => {
                 if keys.len() == 1 {
                     let key = &keys[0];
@@ -1128,6 +1102,7 @@ impl ToTokens for Type {
                     quote!(Mapping <(#(#keys,)*), #value>)
                 }
             }
+            Type::Array(ty, _) => quote!(Vec< #ty >),
             Type::None => quote!(),
         })
     }

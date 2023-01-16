@@ -152,6 +152,12 @@ pub enum Statement {
     Assembly(Vec<String>),
     Block(Vec<Statement>),
     Expression(Expression),
+    For(
+        Option<Box<Statement>>,
+        Option<Expression>,
+        Option<Box<Statement>>,
+        Option<Box<Statement>>,
+    ),
     If(Expression, Box<Statement>, Option<Box<Statement>>),
     UncheckedBlock(Vec<Statement>),
     VariableDefinition(Expression, Option<Expression>),
@@ -159,15 +165,16 @@ pub enum Statement {
     None,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Expression {
-    VariableDeclaration(Type, String),
+    VariableDeclaration(Box<Type>, String),
     None,
 }
 
 #[derive(Clone, Debug)]
 pub enum Type {
     AccountId,
+    Array(Box<Type>, Option<Expression>),
     Bool,
     String,
     Int(u16),
