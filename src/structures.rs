@@ -151,6 +151,11 @@ pub struct FunctionParam {
 pub enum Statement {
     Assembly(Vec<String>),
     Block(Vec<Statement>),
+    Break,
+    Continue,
+    DoWhile(Box<Statement>, Expression),
+    Emit(Expression),
+    Error,
     Expression(Expression),
     For(
         Option<Box<Statement>>,
@@ -159,10 +164,13 @@ pub enum Statement {
         Option<Box<Statement>>,
     ),
     If(Expression, Box<Statement>, Option<Box<Statement>>),
+    Return(Option<Expression>),
+    Revert(String, Vec<Expression>),
+    RevertNamedArgs,
+    Try(Expression),
     UncheckedBlock(Vec<Statement>),
     VariableDefinition(Expression, Option<Expression>),
     While(Expression, Box<Statement>),
-    None,
 }
 
 #[derive(Clone, Debug)]

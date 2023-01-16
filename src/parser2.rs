@@ -441,16 +441,40 @@ fn parse_statement(statement: &SolangStatement) -> Result<Statement, ParserError
                 parsed_body,
             )
         }
-        // SolangStatement::DoWhile(_, _, _) => todo!(),
-        // SolangStatement::Continue(_) => todo!(),
-        // SolangStatement::Break(_) => todo!(),
-        // SolangStatement::Return(_, _) => todo!(),
-        // SolangStatement::Revert(_, _, _) => todo!(),
-        // SolangStatement::RevertNamedArgs(_, _, _) => todo!(),
-        // SolangStatement::Emit(_, _) => todo!(),
-        // SolangStatement::Try(_, _, _, _) => todo!(),
-        // SolangStatement::Error(_) => todo!(),
-        _ => Statement::None,
+        SolangStatement::DoWhile(_, body, condition) => {
+            let parsed_condition = parse_expression(condition);
+            let parsed_body = Box::new(parse_statement(body)?);
+            Statement::DoWhile(parsed_body, parsed_condition)
+        }
+        SolangStatement::Continue(_) => Statement::Continue,
+        SolangStatement::Break(_) => Statement::Break,
+        SolangStatement::Return(_, expression) => {
+            let parsed_expression = expression
+                .as_ref()
+                .map(|expression| parse_expression(&expression));
+            Statement::Return(parsed_expression)
+        }
+        SolangStatement::Revert(_, identifier_path, args) => {
+            let identifier_path = identifier_path
+                .as_ref()
+                .map(|maybe| parse_identifier_path(&maybe))
+                .unwrap_or(String::from("_"));
+            let parsed_args = args
+                .iter()
+                .map(|expression| parse_expression(expression))
+                .collect::<Vec<_>>();
+            Statement::Revert(identifier_path, parsed_args)
+        }
+        SolangStatement::RevertNamedArgs(_, _, _) => todo!(),
+        SolangStatement::Emit(_, expression) => {
+            let parsed_expression = parse_expression(expression);
+            Statement::Emit(parsed_expression)
+        }
+        SolangStatement::Try(_, expression, params, catch) => {
+            let parsed_expression = parse_expression(expression);
+            Statement::Try(parsed_expression)
+        }
+        SolangStatement::Error(_) => todo!(),
     })
 }
 
@@ -535,7 +559,7 @@ fn parse_identifier_path(identifier_path: &IdentifierPath) -> String {
         .iter()
         .map(|identifier| identifier.name.clone())
         .collect::<Vec<String>>()
-        .join(".")
+        .join("::")
         .to_string()
 }
 
