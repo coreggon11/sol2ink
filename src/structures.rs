@@ -29,6 +29,14 @@ pub enum ArrayType {
     Mapping,
 }
 
+#[derive(Debug, Clone)]
+pub enum MemberType {
+    Variable,
+    Function,
+    FunctionPrivate,
+    None,
+}
+
 #[derive(Clone, Default)]
 pub struct Contract {
     pub name: String,
@@ -195,7 +203,7 @@ pub enum Expression {
     StringLiteral(Vec<String>),
     Subtract(Box<Expression>, Box<Expression>),
     Type(Box<Type>),
-    Variable(String, bool),
+    Variable(String, MemberType),
     VariableDeclaration(Box<Type>, String),
 }
 

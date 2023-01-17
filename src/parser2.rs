@@ -20,7 +20,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::collections::HashMap;
+use std::collections::{
+    HashMap,
+    VecDeque,
+};
 
 use crate::structures::*;
 use convert_case::{
@@ -81,12 +84,14 @@ impl From<std::io::Error> for ParserError {
 }
 
 pub struct Parser<'a> {
-    fields_map: &'a mut HashMap<String, Type>,
+    members_map: &'a mut HashMap<String, MemberType>,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(fields_map: &'a mut HashMap<String, Type>) -> Self {
-        Parser { fields_map }
+    pub fn new(fields_map: &'a mut HashMap<String, MemberType>) -> Self {
+        Parser {
+            members_map: fields_map,
+        }
     }
 
     pub fn parse_file(&mut self, content: &str) -> Result<Vec<ParserOutput>, ParserError> {
@@ -144,6 +149,37 @@ impl<'a> Parser<'a> {
         let mut constructor: Function = Default::default();
         let mut modifiers: Vec<Function> = Default::default();
 
+        // first we register all members of the contract
+        for part in contract_definition.parts.iter() {
+            match part {
+                ContractPart::VariableDefinition(variable_definition) => {
+                    let parsed_field = self.parse_storage_field(variable_definition)?;
+                    self.members_map
+                        .insert(parsed_field.name.clone(), MemberType::Variable);
+                    fields.push(parsed_field);
+                }
+                ContractPart::FunctionDefinition(function_definition) => {
+                    let fn_name = self.parse_identifier(&function_definition.name);
+                    let external = function_definition.attributes.iter().any(|attribute| {
+                        matches!(
+                            attribute,
+                            FunctionAttribute::Visibility(Visibility::External(_))
+                                | FunctionAttribute::Visibility(Visibility::Public(_))
+                        )
+                    });
+                    self.members_map.insert(
+                        fn_name.clone(),
+                        if external {
+                            MemberType::Function
+                        } else {
+                            MemberType::FunctionPrivate
+                        },
+                    );
+                }
+                _ => (),
+            }
+        }
+
         for part in contract_definition.parts.iter() {
             match part {
                 ContractPart::Annotation(_) => println!("Anottation: {part:?}"),
@@ -160,12 +196,6 @@ impl<'a> Parser<'a> {
                     enums.push(parsed_enum);
                 }
                 ContractPart::ErrorDefinition(_) => {}
-                ContractPart::VariableDefinition(variable_definition) => {
-                    let parsed_field = self.parse_storage_field(variable_definition)?;
-                    self.fields_map
-                        .insert(parsed_field.name.clone(), parsed_field.field_type.clone());
-                    fields.push(parsed_field);
-                }
                 ContractPart::FunctionDefinition(function_definition) => {
                     let parsed_function = self.parse_function(function_definition)?;
                     match function_definition.ty {
@@ -177,6 +207,7 @@ impl<'a> Parser<'a> {
                 ContractPart::TypeDefinition(_) => {}
                 ContractPart::Using(_) => {}
                 ContractPart::StraySemicolon(_) => {}
+                _ => {}
             }
         }
         // TODO
@@ -524,17 +555,23 @@ impl<'a> Parser<'a> {
             SolangExpression::ArraySubscript(_, array, index_maybe) => {
                 match *array.clone() {
                     SolangExpression::ArraySubscript(..) => {
-                        let mut parsed_indices =
-                            vec![self.parse_expression(&*index_maybe.as_ref().unwrap().clone())];
+                        let mut parsed_indices = VecDeque::default();
+                        parsed_indices.push_back(
+                            self.parse_expression(&*index_maybe.as_ref().unwrap().clone()),
+                        );
                         let mut array_now = array.clone();
                         while let SolangExpression::ArraySubscript(_, array, index_maybe) =
                             *array_now.clone()
                         {
-                            parsed_indices.push(self.parse_expression(&index_maybe.unwrap()));
+                            parsed_indices.push_back(self.parse_expression(&index_maybe.unwrap()));
                             array_now = array.clone();
                         }
+                        let mut vec_indices = Vec::default();
+                        while !parsed_indices.is_empty() {
+                            vec_indices.push(parsed_indices.pop_back().unwrap());
+                        }
                         boxed_expression!(parsed_array, &array_now);
-                        Expression::MappingSubscript(parsed_array, parsed_indices)
+                        Expression::MappingSubscript(parsed_array, vec_indices)
                     }
                     _ => {
                         boxed_expression!(parsed_array, array);
@@ -659,8 +696,11 @@ impl<'a> Parser<'a> {
             SolangExpression::AddressLiteral(_, _) => todo!(),
             SolangExpression::Variable(identifier) => {
                 let parsed_identifier = self.parse_identifier(&Some(identifier.clone()));
-                let is_storage = self.fields_map.contains_key(&parsed_identifier);
-                Expression::Variable(parsed_identifier, is_storage)
+                let member_type = self
+                    .members_map
+                    .get(&parsed_identifier)
+                    .unwrap_or(&MemberType::None);
+                Expression::Variable(parsed_identifier, member_type.clone())
             }
             SolangExpression::List(_, _) => todo!(),
             SolangExpression::ArrayLiteral(_, _) => todo!(),
