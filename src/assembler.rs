@@ -1112,12 +1112,92 @@ impl ToTokens for Type {
 
 impl ToTokens for Statement {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        todo!()
+        tokens.extend(match self {
+            Statement::Assembly(_) => todo!(),
+            Statement::Block(body) => quote!(#(#body)*),
+            Statement::Break => quote!(break),
+            Statement::Continue => quote!(continue),
+            Statement::DoWhile(body, condition) => {
+                quote!(
+                    loop {
+                        #body
+                        if ! #condition {
+                            break
+                        }
+                    }
+                )
+            }
+            Statement::Emit(expression) => {
+                println!("{expression:?}");
+                quote!(
+                    // Emit not implemented :(
+                )
+            }
+            Statement::Error => todo!(),
+            Statement::Expression(expression) => quote!(#expression),
+            Statement::For(body, declaration, condition, on_pass) => {
+                quote!(
+                    #declaration
+                    loop {
+                        #body
+                        if ! #condition {
+                            break
+                        }
+                    }
+                )
+            }
+            Statement::If(condition, if_true, if_false) => {
+                let else_block = if let Some(statement) = if_false {
+                    quote!(else {#statement})
+                } else {
+                    quote!()
+                };
+                quote!(
+                    if #condition {
+                        #if_true
+                    }
+                    #else_block
+                )
+            }
+            Statement::Return(expression) => quote!(return #expression),
+            Statement::Revert(_, _) => todo!(),
+            Statement::RevertNamedArgs => todo!(),
+            Statement::Try(expression) => {
+                println!("TRY: {expression:?}");
+                quote!(
+                    // Try not implemented yet
+                )
+            }
+            Statement::UncheckedBlock(statements) => {
+                quote!(
+                    // <<< Please handle unchecked blocks manually
+                    #(#statements)*
+                    // >>> Please handle unchecked blocks manually
+                )
+            }
+            Statement::VariableDefinition(definition, initial_value) => {
+                if let Some(initial_value) = initial_value {
+                    quote!( #definition = #initial_value )
+                } else {
+                    quote!(#initial_value)
+                }
+            }
+            Statement::While(condition, body) => {
+                quote!(
+                    loop {
+                        if ! #condition {
+                            break
+                        }
+                        #body
+                    }
+                )
+            }
+        });
     }
 }
 
 impl ToTokens for Expression {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        todo!()
+        // todo!()
     }
 }
