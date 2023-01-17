@@ -45,7 +45,7 @@ fn sol_file_parser(s: &str) -> Result<CliInput, String> {
     let result = s.to_string();
 
     if !Path::new(&result).exists() {
-        return Err(format!("{} does not exist", result))
+        return Err(format!("{result} does not exist"))
     }
 
     if result.ends_with(".sol") {
@@ -53,12 +53,12 @@ fn sol_file_parser(s: &str) -> Result<CliInput, String> {
     } else if Path::new(&result).is_dir() {
         Ok(CliInput::Directory(result))
     } else {
-        Err(format!("{} is not a solidity file or directory", result))
+        Err(format!("{result} is not a solidity file or directory"))
     }
 }
 
 pub fn cli() -> Args {
-    let args = Args::parse();
+    
 
-    return args
+    Args::parse()
 }

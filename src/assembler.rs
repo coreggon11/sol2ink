@@ -309,7 +309,7 @@ fn assemble_imports(imports: &HashSet<String>) -> TokenStream {
     let output_vec = Vec::from_iter(imports);
 
     for import in output_vec {
-        output.extend(TokenStream::from_str(&import).unwrap());
+        output.extend(TokenStream::from_str(import).unwrap());
     }
 
     output
@@ -1061,7 +1061,7 @@ fn assemble_function_headers(function_headers: &Vec<FunctionHeader>) -> TokenStr
 /// Adds a signature to the beginning of the file :)
 fn signature() -> TokenStream {
     const VERSION: &str = env!("CARGO_PKG_VERSION");
-    let version = &format!("Generated with Sol2Ink v{}\n", VERSION);
+    let version = &format!("Generated with Sol2Ink v{VERSION}\n");
     let link = "https://github.com/Supercolony-net/sol2ink\n";
     quote! {
         _comment_!(#version);
@@ -1077,9 +1077,9 @@ fn format_expression(expression_raw: &String) -> String {
         expression_raw.to_string()
     };
     if &output == "_" {
-        return output
+        output
     } else {
-        return output.to_case(Snake)
+        output.to_case(Snake)
     }
 }
 

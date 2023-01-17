@@ -93,7 +93,7 @@ impl From<std::io::Error> for ParserError {
 }
 
 pub fn parse_file(content: &String) -> Result<Vec<ParserOutput>, ParserError> {
-    let token_tree = parse(&content, 0).map_err(|_| ParserError::FileCorrupted)?;
+    let token_tree = parse(content, 0).map_err(|_| ParserError::FileCorrupted)?;
 
     let mut output = Vec::new();
     let source_unit = token_tree.0;
@@ -198,18 +198,16 @@ fn parse_struct(struct_definition: &StructDefinition) -> Result<Struct, ParserEr
     let fields: Vec<StructField> = struct_definition
         .fields
         .iter()
-        .map(|variable_declaration| {
+        .filter_map(|variable_declaration| {
             Some(StructField {
                 name: parse_identifier(&variable_declaration.name),
                 field_type: parse_type(&variable_declaration.ty).ok()?,
                 comments: Default::default(),
             })
         })
-        .filter(|maybe| maybe.is_some())
-        .map(|option| option.unwrap())
         .collect();
     Ok(Struct {
-        name: name.to_string(),
+        name,
         fields,
         comments: Default::default(),
     })
@@ -221,7 +219,7 @@ fn parse_event(event_definition: &EventDefinition) -> Result<Event, ParserError>
     let fields: Vec<EventField> = event_definition
         .fields
         .iter()
-        .map(|variable_declaration| {
+        .filter_map(|variable_declaration| {
             Some(EventField {
                 name: parse_identifier(&variable_declaration.name),
                 field_type: parse_type(&variable_declaration.ty).ok()?,
@@ -229,11 +227,9 @@ fn parse_event(event_definition: &EventDefinition) -> Result<Event, ParserError>
                 comments: Default::default(),
             })
         })
-        .filter(|maybe| maybe.is_some())
-        .map(|option| option.unwrap())
         .collect();
     Ok(Event {
-        name: name.to_string(),
+        name,
         fields,
         comments: Default::default(),
     })
@@ -245,14 +241,12 @@ fn parse_enum(event_definition: &EnumDefinition) -> Result<Enum, ParserError> {
     let values: Vec<EnumField> = event_definition
         .values
         .iter()
-        .map(|enum_value| {
+        .filter_map(|enum_value| {
             Some(EnumField {
                 name: parse_identifier(enum_value),
                 comments: Default::default(),
             })
         })
-        .filter(|maybe| maybe.is_some())
-        .map(|option| option.unwrap())
         .collect();
     Ok(Enum {
         name,
@@ -297,13 +291,11 @@ fn parse_function(function_definition: &FunctionDefinition) -> Result<Function, 
         .params
         .iter()
         .map(|item| item.1.clone().unwrap())
-        .map(|param| {
+        .filter_map(|param| {
             let name = parse_identifier(&param.name);
             let param_type = parse_type(&param.ty).ok()?;
             Some(FunctionParam { name, param_type })
         })
-        .filter(|maybe| maybe.is_some())
-        .map(|option| option.unwrap())
         .collect();
     let external = function_definition.attributes.iter().any(|attribute| {
         match attribute {
@@ -329,13 +321,11 @@ fn parse_function(function_definition: &FunctionDefinition) -> Result<Function, 
         .returns
         .iter()
         .map(|item| item.1.clone().unwrap())
-        .map(|param| {
+        .filter_map(|param| {
             let name = parse_identifier(&param.name);
             let param_type = parse_type(&param.ty).ok()?;
             Some(FunctionParam { name, param_type })
         })
-        .filter(|maybe| maybe.is_some())
-        .map(|option| option.unwrap())
         .collect();
     // TODO
     let _modifiers = function_definition
@@ -350,7 +340,7 @@ fn parse_function(function_definition: &FunctionDefinition) -> Result<Function, 
         .map(|modifier| {
             if let FunctionAttribute::BaseOrModifier(_, base) = modifier {
                 let _name = parse_identifier_path(&base.name);
-                let _args = ();
+                ();
                 // TODO
             } else {
                 unreachable!("The vec was filtered before");
@@ -358,7 +348,7 @@ fn parse_function(function_definition: &FunctionDefinition) -> Result<Function, 
         });
 
     let header = FunctionHeader {
-        name: name.clone(),
+        name,
         params,
         external,
         view,
@@ -373,7 +363,7 @@ fn parse_function(function_definition: &FunctionDefinition) -> Result<Function, 
         None
     };
 
-    return Ok(Function { header, body })
+    Ok(Function { header, body })
 }
 
 fn parse_statement(statement: &SolangStatement) -> Result<Statement, ParserError> {
@@ -385,7 +375,7 @@ fn parse_statement(statement: &SolangStatement) -> Result<Statement, ParserError
         } => {
             let parsed_statements = statements
                 .iter()
-                .map(|statement| Ok::<Statement, ParserError>(parse_statement(statement)?))
+                .map(parse_statement)
                 .map(|result| result.unwrap())
                 .collect::<Vec<_>>();
             if *unchecked {
@@ -412,7 +402,7 @@ fn parse_statement(statement: &SolangStatement) -> Result<Statement, ParserError
             let parsed_if_true = Box::new(parse_statement(if_true)?);
             let parsed_if_false = if_false
                 .as_ref()
-                .map(|statement| Ok::<Statement, ParserError>(parse_statement(statement)?))
+                .map(|statement| parse_statement(statement))
                 .map(|result| Box::new(result.unwrap()));
             Statement::If(parsed_expression, parsed_if_true, parsed_if_false)
         }
@@ -429,24 +419,24 @@ fn parse_statement(statement: &SolangStatement) -> Result<Statement, ParserError
             let parsed_declaration = parse_variable_declaration(declaration)?;
             let parsed_initial_value = initial_value_maybe
                 .as_ref()
-                .map(|initial_value| parse_expression(&initial_value));
+                .map(parse_expression);
             Statement::VariableDefinition(parsed_declaration, parsed_initial_value)
         }
         SolangStatement::For(_, variable_definition, condition, on_pass, body) => {
             let parsed_variable_definition = variable_definition
                 .as_ref()
-                .map(|statement| Ok::<Statement, ParserError>(parse_statement(&statement)?))
+                .map(|statement| parse_statement(statement))
                 .map(|result| Box::new(result.unwrap()));
             let parsed_condition = condition
                 .as_ref()
-                .map(|expression| parse_expression(&expression));
+                .map(|expression| parse_expression(expression));
             let parsed_on_pass = on_pass
                 .as_ref()
-                .map(|statement| Ok::<Statement, ParserError>(parse_statement(&statement)?))
+                .map(|statement| parse_statement(statement))
                 .map(|result| Box::new(result.unwrap()));
             let parsed_body = body
                 .as_ref()
-                .map(|statement| Ok::<Statement, ParserError>(parse_statement(&statement)?))
+                .map(|statement| parse_statement(statement))
                 .map(|result| Box::new(result.unwrap()));
             Statement::For(
                 parsed_variable_definition,
@@ -465,7 +455,7 @@ fn parse_statement(statement: &SolangStatement) -> Result<Statement, ParserError
         SolangStatement::Return(_, expression) => {
             let parsed_expression = expression
                 .as_ref()
-                .map(|expression| parse_expression(expression));
+                .map(parse_expression);
             Statement::Return(parsed_expression)
         }
         SolangStatement::Revert(_, identifier_path, args) => {
