@@ -92,7 +92,7 @@ impl From<std::io::Error> for ParserError {
     }
 }
 
-pub fn parse_file(content: &String) -> Result<Vec<ParserOutput>, ParserError> {
+pub fn parse_file(content: &str) -> Result<Vec<ParserOutput>, ParserError> {
     let token_tree = parse(content, 0).map_err(|_| ParserError::FileCorrupted)?;
 
     let mut output = Vec::new();
@@ -241,11 +241,11 @@ fn parse_enum(event_definition: &EnumDefinition) -> Result<Enum, ParserError> {
     let values: Vec<EnumField> = event_definition
         .values
         .iter()
-        .filter_map(|enum_value| {
-            Some(EnumField {
+        .map(|enum_value| {
+            EnumField {
                 name: parse_identifier(enum_value),
                 comments: Default::default(),
-            })
+            }
         })
         .collect();
     Ok(Enum {
@@ -260,18 +260,16 @@ fn parse_storage_field(
 ) -> Result<ContractField, ParserError> {
     let field_type = parse_type(&variable_definition.ty)?;
     let name = parse_identifier(&variable_definition.name);
-    let constant = variable_definition.attrs.iter().any(|item| {
-        match item {
-            VariableAttribute::Constant(_) => true,
-            _ => false,
-        }
-    });
+    let constant = variable_definition
+        .attrs
+        .iter()
+        .any(|item| matches!(item, VariableAttribute::Constant(_)));
     let public = variable_definition.attrs.iter().any(|item| {
-        match item {
+        matches!(
+            item,
             VariableAttribute::Visibility(Visibility::External(_))
-            | VariableAttribute::Visibility(Visibility::Public(_)) => true,
-            _ => false,
-        }
+                | VariableAttribute::Visibility(Visibility::Public(_))
+        )
     });
     let initial_value = None; // TODO
     let comments = Vec::default();
@@ -298,24 +296,24 @@ fn parse_function(function_definition: &FunctionDefinition) -> Result<Function, 
         })
         .collect();
     let external = function_definition.attributes.iter().any(|attribute| {
-        match attribute {
+        matches!(
+            attribute,
             FunctionAttribute::Visibility(Visibility::External(_))
-            | FunctionAttribute::Visibility(Visibility::Public(_)) => true,
-            _ => false,
-        }
+                | FunctionAttribute::Visibility(Visibility::Public(_))
+        )
     });
     let view = function_definition.attributes.iter().any(|attribute| {
-        match attribute {
+        matches!(
+            attribute,
             FunctionAttribute::Mutability(Mutability::Pure(_))
-            | FunctionAttribute::Mutability(Mutability::View(_)) => true,
-            _ => false,
-        }
+                | FunctionAttribute::Mutability(Mutability::View(_))
+        )
     });
     let payable = function_definition.attributes.iter().any(|attribute| {
-        match attribute {
-            FunctionAttribute::Mutability(Mutability::Payable(_)) => true,
-            _ => false,
-        }
+        matches!(
+            attribute,
+            FunctionAttribute::Mutability(Mutability::Payable(_))
+        )
     });
     let return_params = function_definition
         .returns
@@ -331,16 +329,10 @@ fn parse_function(function_definition: &FunctionDefinition) -> Result<Function, 
     let _modifiers = function_definition
         .attributes
         .iter()
-        .filter(|&attribute| {
-            match attribute {
-                FunctionAttribute::BaseOrModifier(..) => true,
-                _ => false,
-            }
-        })
+        .filter(|&attribute| matches!(attribute, FunctionAttribute::BaseOrModifier(..)))
         .map(|modifier| {
             if let FunctionAttribute::BaseOrModifier(_, base) = modifier {
                 let _name = parse_identifier_path(&base.name);
-                ();
                 // TODO
             } else {
                 unreachable!("The vec was filtered before");
@@ -417,9 +409,7 @@ fn parse_statement(statement: &SolangStatement) -> Result<Statement, ParserError
         }
         SolangStatement::VariableDefinition(_, declaration, initial_value_maybe) => {
             let parsed_declaration = parse_variable_declaration(declaration)?;
-            let parsed_initial_value = initial_value_maybe
-                .as_ref()
-                .map(parse_expression);
+            let parsed_initial_value = initial_value_maybe.as_ref().map(parse_expression);
             Statement::VariableDefinition(parsed_declaration, parsed_initial_value)
         }
         SolangStatement::For(_, variable_definition, condition, on_pass, body) => {
@@ -453,9 +443,7 @@ fn parse_statement(statement: &SolangStatement) -> Result<Statement, ParserError
         SolangStatement::Continue(_) => Statement::Continue,
         SolangStatement::Break(_) => Statement::Break,
         SolangStatement::Return(_, expression) => {
-            let parsed_expression = expression
-                .as_ref()
-                .map(parse_expression);
+            let parsed_expression = expression.as_ref().map(parse_expression);
             Statement::Return(parsed_expression)
         }
         SolangStatement::Revert(_, identifier_path, args) => {

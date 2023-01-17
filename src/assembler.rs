@@ -109,7 +109,7 @@ pub fn assemble_impl(contract: &Contract) -> TokenStream {
             .iter()
             .filter(|f| f.header.external)
             .cloned()
-            .collect(),
+            .collect::<Vec<_>>(),
         false,
     );
     let internal_trait = assemble_function_headers(
@@ -118,7 +118,7 @@ pub fn assemble_impl(contract: &Contract) -> TokenStream {
             .iter()
             .filter(|f| !f.header.external)
             .map(|f| f.clone().header)
-            .collect(),
+            .collect::<Vec<_>>(),
     );
     let internal_functions = assemble_functions(
         &contract
@@ -126,7 +126,7 @@ pub fn assemble_impl(contract: &Contract) -> TokenStream {
             .iter()
             .filter(|f| !f.header.external)
             .cloned()
-            .collect(),
+            .collect::<Vec<_>>(),
         false,
     );
     let (emit_function_headers, impl_emit_functions) = assemble_emit_functions(&contract.events);
@@ -180,7 +180,7 @@ pub fn assemble_trait(contract: &Contract) -> TokenStream {
             .iter()
             .filter(|f| f.header.external)
             .map(|f| f.header.clone())
-            .collect(),
+            .collect::<Vec<_>>(),
     );
 
     quote! {
@@ -290,7 +290,7 @@ pub fn assemble_library(library: Library) -> TokenStream {
     library
 }
 
-fn assemble_contract_doc(comments: &Vec<String>) -> TokenStream {
+fn assemble_contract_doc(comments: &[String]) -> TokenStream {
     let mut output = TokenStream::new();
 
     // assemble comments
@@ -316,7 +316,7 @@ fn assemble_imports(imports: &HashSet<String>) -> TokenStream {
 }
 
 /// Assembles ink! enums from the vec of parsed Enum structs and return them as a vec of Strings
-fn assemble_enums(enums: &Vec<Enum>) -> TokenStream {
+fn assemble_enums(enums: &[Enum]) -> TokenStream {
     let mut output = TokenStream::new();
 
     for enumeration in enums.iter() {
@@ -361,7 +361,7 @@ fn assemble_enums(enums: &Vec<Enum>) -> TokenStream {
 }
 
 /// Assembles ink! events from the vec of parsed Event structs and return them as a vec of Strings
-fn assemble_events(events: &Vec<Event>) -> TokenStream {
+fn assemble_events(events: &[Event]) -> TokenStream {
     let mut output = TokenStream::new();
 
     for event in events.iter() {
@@ -510,7 +510,7 @@ fn assemble_storage(contract_name: &String) -> TokenStream {
 }
 
 /// Assembles constant fields of the contract
-fn assemble_constants(fields: &Vec<ContractField>) -> TokenStream {
+fn assemble_constants(fields: &[ContractField]) -> TokenStream {
     let mut output = TokenStream::new();
 
     // assemble storage fields
@@ -537,7 +537,7 @@ fn assemble_constants(fields: &Vec<ContractField>) -> TokenStream {
 }
 
 /// Assembles ink! structs from the vec of parsed Struct structs and return them as a vec of Strings
-fn assemble_structs(structs: &Vec<Struct>) -> TokenStream {
+fn assemble_structs(structs: &[Struct]) -> TokenStream {
     let mut output = TokenStream::new();
 
     for structure in structs.iter() {
@@ -645,7 +645,7 @@ fn assemble_constructor(constructor: &Function, fields: &[ContractField]) -> Tok
 }
 
 /// Assembles ink! functions from the vec of parsed Function structs and return them as a vec of Strings
-fn assemble_functions(functions: &Vec<Function>, is_library: bool) -> TokenStream {
+fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
     let mut output = TokenStream::new();
 
     for function in functions.iter() {
@@ -830,7 +830,7 @@ fn assemble_functions(functions: &Vec<Function>, is_library: bool) -> TokenStrea
     output
 }
 
-fn assemble_emit_functions(events: &Vec<Event>) -> (TokenStream, TokenStream) {
+fn assemble_emit_functions(events: &[Event]) -> (TokenStream, TokenStream) {
     let mut default_output = TokenStream::new();
     let mut impl_output = TokenStream::new();
 
@@ -867,7 +867,7 @@ fn assemble_emit_functions(events: &Vec<Event>) -> (TokenStream, TokenStream) {
     (default_output, impl_output)
 }
 
-fn assemble_contract_emit_functions(events: &Vec<Event>) -> TokenStream {
+fn assemble_contract_emit_functions(events: &[Event]) -> TokenStream {
     let mut output = TokenStream::new();
 
     for event in events.iter() {
@@ -902,7 +902,7 @@ fn assemble_contract_emit_functions(events: &Vec<Event>) -> TokenStream {
 }
 
 /// Assembles ink! functions from the vec of parsed Function structs and return them as a vec of Strings
-fn assemble_modifiers(modifiers: &Vec<Modifier>, contract_name: &Ident) -> TokenStream {
+fn assemble_modifiers(modifiers: &[Modifier], contract_name: &Ident) -> TokenStream {
     let mut output = TokenStream::new();
 
     for modifier in modifiers.iter() {
@@ -955,7 +955,7 @@ fn assemble_modifiers(modifiers: &Vec<Modifier>, contract_name: &Ident) -> Token
 }
 
 /// Assembles ink! trait function headers from the vec of parsed FunctionHeader structs and return them as a vec of Strings
-fn assemble_function_headers(function_headers: &Vec<FunctionHeader>) -> TokenStream {
+fn assemble_function_headers(function_headers: &[FunctionHeader]) -> TokenStream {
     let mut output = TokenStream::new();
 
     for header in function_headers.iter() {
