@@ -515,18 +515,18 @@ fn assemble_constants(fields: &[ContractField]) -> TokenStream {
 
     // assemble storage fields
     for field in fields.iter().filter(|field| field.constant) {
-        let _field_name = format_ident!("{}", format_expression(&field.name).to_case(UpperSnake));
-        let _field_type = &field.field_type;
-        let _initial_value = field.initial_value.clone().unwrap();
+        let field_name = format_ident!("{}", format_expression(&field.name).to_case(UpperSnake));
+        let field_type = &field.field_type;
+        let initial_value = field.initial_value.clone().unwrap();
 
         for comment in field.comments.iter() {
             output.extend(quote! {
                 #[doc = #comment]
             });
         }
-        // output.extend(quote! {
-        //     pub const #field_name: #field_type = #initial_value;
-        // });
+        output.extend(quote! {
+            pub const #field_name: #field_type = #initial_value;
+        });
     }
 
     output.extend(quote! {
@@ -592,7 +592,7 @@ fn assemble_constructor(constructor: &Function, fields: &[ContractField]) -> Tok
     let mut output = TokenStream::new();
     let mut params = TokenStream::new();
     let mut comments = TokenStream::new();
-    let _constructor_functions = &constructor.body;
+    let constructor_functions = &constructor.body;
 
     // assemble comments
     for comment in constructor.header.comments.iter() {
@@ -611,23 +611,23 @@ fn assemble_constructor(constructor: &Function, fields: &[ContractField]) -> Tok
         });
     }
 
-    let body = TokenStream::new();
+    let mut body = TokenStream::new();
 
     // assemble body
-    // body.extend(quote! {
-    //     #constructor_functions
-    // });
+    body.extend(quote! {
+        #constructor_functions
+    });
 
     for field in fields
         .iter()
         .filter(|field| field.initial_value.is_some() && !field.constant)
     {
-        let _field_name = format_ident!("{}", field.name.to_case(Snake));
-        let _intial_value = field.initial_value.clone();
+        let field_name = format_ident!("{}", field.name.to_case(Snake));
+        let intial_value = field.initial_value.clone();
 
-        // body.extend(quote! {
-        //     self.#field_name = #intial_value;
-        // });
+        body.extend(quote! {
+            self.#field_name = #intial_value;
+        });
     }
 
     output.extend(quote! {
@@ -655,8 +655,8 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
         let mut return_params = TokenStream::new();
         let mut body = TokenStream::new();
         let mut comments = TokenStream::new();
-        let function_modifiers = TokenStream::new();
-        let _statement = function.body.clone();
+        let mut function_modifiers = TokenStream::new();
+        let statement = function.body.clone();
 
         // assemble comments
         for comment in function.header.comments.iter() {
@@ -665,10 +665,10 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
             });
         }
 
-        for _function_modifier in function.header.modifiers.iter() {
-            // function_modifiers.extend(quote! {
-            //     #[modifiers(#function_modifier)]
-            // });
+        for function_modifier in function.header.modifiers.iter() {
+            function_modifiers.extend(quote! {
+                #[modifiers(#function_modifier)]
+            });
         }
 
         // assemble function name
@@ -757,6 +757,7 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
 
         // @notice Rust fmt will panic if a return statement is followed by a statement
         // we will switch the order of the comments and the return statement
+        // TODO: Dear reviewer. Ask me about this because I maybe forgot :)
         // if !function.header.return_params.is_empty() && function.header.return_params[0].name == "_"
         // {
         //     let mut ordered = VecDeque::<Statement>::default();
@@ -780,9 +781,9 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
         // }
 
         // body
-        // body.extend(quote! {
-        //     #statement
-        // });
+        body.extend(quote! {
+            #statement
+        });
 
         if function.header.return_params.is_empty() {
             body.extend(quote! {
@@ -799,6 +800,7 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
                     .join(","),
             )
             .unwrap();
+            // TODO
             // if !statements.iter().any(|s| matches!(s, Statement::Return(_))) {
             //     body.extend(
             //         if function.header.return_params.len() > 1 {
@@ -907,7 +909,7 @@ fn assemble_modifiers(modifiers: &[Modifier], contract_name: &Ident) -> TokenStr
 
     for modifier in modifiers.iter() {
         let modifier_name = format_ident!("{}", format_expression(&modifier.header.name));
-        let body = TokenStream::new();
+        let mut body = TokenStream::new();
         let mut comments = TokenStream::new();
         let mut params = TokenStream::new();
 
@@ -917,7 +919,7 @@ fn assemble_modifiers(modifiers: &[Modifier], contract_name: &Ident) -> TokenStr
                 #[doc = #comment]
             });
         }
-        // let statements = &modifier.statements;
+        let statements = &modifier.statements;
 
         // assemble params
         for param in modifier.header.params.iter() {
@@ -930,9 +932,9 @@ fn assemble_modifiers(modifiers: &[Modifier], contract_name: &Ident) -> TokenStr
         }
 
         // body
-        // body.extend(quote! {
-        //     #(#statements)*
-        // });
+        body.extend(quote! {
+            #(#statements)*
+        });
 
         output.extend(quote! {
             #comments
@@ -1105,5 +1107,17 @@ impl ToTokens for Type {
             Type::Array(ty, _) => quote!(Vec< #ty >),
             Type::None => quote!(),
         })
+    }
+}
+
+impl ToTokens for Statement {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        todo!()
+    }
+}
+
+impl ToTokens for Expression {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        todo!()
     }
 }
