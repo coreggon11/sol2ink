@@ -175,8 +175,27 @@ pub enum Statement {
 
 #[derive(Clone, Debug)]
 pub enum Expression {
+    ArraySubscript(Box<Expression>, Option<Box<Expression>>),
+    Assign(Box<Expression>, Box<Expression>),
+    AssignAdd(Box<Expression>, Box<Expression>),
+    FunctionCall(Box<Expression>, Vec<Expression>),
+    Equal(Box<Expression>, Box<Expression>),
+    Less(Box<Expression>, Box<Expression>),
+    MemberAccess(Box<Expression>, String),
+    MoreEqual(Box<Expression>, Box<Expression>),
+    New(Box<Expression>),
+    NotEqual(Box<Expression>, Box<Expression>),
+    NumberLiteral(String),
+    Or(Box<Expression>, Box<Expression>),
+    PostDecrement(Box<Expression>),
+    PostIncrement(Box<Expression>),
+    PreDecrement(Box<Expression>),
+    PreIncrement(Box<Expression>),
+    StringLiteral(Vec<String>),
+    Subtract(Box<Expression>, Box<Expression>),
+    Type(Box<Type>),
+    Variable(String),
     VariableDeclaration(Box<Type>, String),
-    None,
 }
 
 #[derive(Clone, Debug)]

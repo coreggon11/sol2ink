@@ -51,6 +51,20 @@ use solang_parser::{
     },
 };
 
+macro_rules! maybe_boxed_expression {
+    ($to_declare:ident,$to_parse:expr) => {
+        let $to_declare = $to_parse
+            .as_ref()
+            .map(|expression| Box::new(parse_expression(&expression)));
+    };
+}
+
+macro_rules! boxed_expression {
+    ($to_declare:ident,$to_parse:expr) => {
+        let $to_declare = Box::new(parse_expression($to_parse));
+    };
+}
+
 pub enum ParserOutput {
     Contract(Contract),
     Interface(Interface),
@@ -353,6 +367,11 @@ fn parse_function(function_definition: &FunctionDefinition) -> Result<Function, 
         ..Default::default()
     };
 
+    let a = vec![1, 2, 3, 4];
+    for i in 0..a.len() {
+        println!("{}", a[i]);
+    }
+
     let body = if let Some(statement) = &function_definition.body {
         Some(parse_statement(statement)?)
     } else {
@@ -459,10 +478,7 @@ fn parse_statement(statement: &SolangStatement) -> Result<Statement, ParserError
                 .as_ref()
                 .map(|maybe| parse_identifier_path(&maybe))
                 .unwrap_or(String::from("_"));
-            let parsed_args = args
-                .iter()
-                .map(|expression| parse_expression(expression))
-                .collect::<Vec<_>>();
+            let parsed_args = parse_expression_vec(args);
             Statement::Revert(identifier_path, parsed_args)
         }
         SolangStatement::RevertNamedArgs(_, _, _) => todo!(),
@@ -470,7 +486,7 @@ fn parse_statement(statement: &SolangStatement) -> Result<Statement, ParserError
             let parsed_expression = parse_expression(expression);
             Statement::Emit(parsed_expression)
         }
-        SolangStatement::Try(_, expression, params, catch) => {
+        SolangStatement::Try(_, expression, _, _) => {
             let parsed_expression = parse_expression(expression);
             Statement::Try(parsed_expression)
         }
@@ -488,69 +504,153 @@ fn parse_variable_declaration(
 
 fn parse_expression(expression: &SolangExpression) -> Expression {
     match expression {
-        _ => Expression::None
-        // SolangExpression::PostIncrement(_, _) => todo!(),
-        // SolangExpression::PostDecrement(_, _) => todo!(),
-        // SolangExpression::New(_, _) => todo!(),
-        // SolangExpression::ArraySubscript(_, _, _) => todo!(),
-        // SolangExpression::ArraySlice(_, _, _, _) => todo!(),
-        // SolangExpression::Parenthesis(_, _) => todo!(),
-        // SolangExpression::MemberAccess(_, _, _) => todo!(),
-        // SolangExpression::FunctionCall(_, _, _) => todo!(),
-        // SolangExpression::FunctionCallBlock(_, _, _) => todo!(),
-        // SolangExpression::NamedFunctionCall(_, _, _) => todo!(),
-        // SolangExpression::Not(_, _) => todo!(),
-        // SolangExpression::Complement(_, _) => todo!(),
-        // SolangExpression::Delete(_, _) => todo!(),
-        // SolangExpression::PreIncrement(_, _) => todo!(),
-        // SolangExpression::PreDecrement(_, _) => todo!(),
-        // SolangExpression::UnaryPlus(_, _) => todo!(),
-        // SolangExpression::UnaryMinus(_, _) => todo!(),
-        // SolangExpression::Power(_, _, _) => todo!(),
-        // SolangExpression::Multiply(_, _, _) => todo!(),
-        // SolangExpression::Divide(_, _, _) => todo!(),
-        // SolangExpression::Modulo(_, _, _) => todo!(),
-        // SolangExpression::Add(_, _, _) => todo!(),
-        // SolangExpression::Subtract(_, _, _) => todo!(),
-        // SolangExpression::ShiftLeft(_, _, _) => todo!(),
-        // SolangExpression::ShiftRight(_, _, _) => todo!(),
-        // SolangExpression::BitwiseAnd(_, _, _) => todo!(),
-        // SolangExpression::BitwiseXor(_, _, _) => todo!(),
-        // SolangExpression::BitwiseOr(_, _, _) => todo!(),
-        // SolangExpression::Less(_, _, _) => todo!(),
-        // SolangExpression::More(_, _, _) => todo!(),
-        // SolangExpression::LessEqual(_, _, _) => todo!(),
-        // SolangExpression::MoreEqual(_, _, _) => todo!(),
-        // SolangExpression::Equal(_, _, _) => todo!(),
-        // SolangExpression::NotEqual(_, _, _) => todo!(),
-        // SolangExpression::And(_, _, _) => todo!(),
-        // SolangExpression::Or(_, _, _) => todo!(),
-        // SolangExpression::ConditionalOperator(_, _, _, _) => todo!(),
-        // SolangExpression::Assign(_, _, _) => todo!(),
-        // SolangExpression::AssignOr(_, _, _) => todo!(),
-        // SolangExpression::AssignAnd(_, _, _) => todo!(),
-        // SolangExpression::AssignXor(_, _, _) => todo!(),
-        // SolangExpression::AssignShiftLeft(_, _, _) => todo!(),
-        // SolangExpression::AssignShiftRight(_, _, _) => todo!(),
-        // SolangExpression::AssignAdd(_, _, _) => todo!(),
-        // SolangExpression::AssignSubtract(_, _, _) => todo!(),
-        // SolangExpression::AssignMultiply(_, _, _) => todo!(),
-        // SolangExpression::AssignDivide(_, _, _) => todo!(),
-        // SolangExpression::AssignModulo(_, _, _) => todo!(),
-        // SolangExpression::BoolLiteral(_, _) => todo!(),
-        // SolangExpression::NumberLiteral(_, _, _) => todo!(),
-        // SolangExpression::RationalNumberLiteral(_, _, _, _) => todo!(),
-        // SolangExpression::HexNumberLiteral(_, _) => todo!(),
-        // SolangExpression::StringLiteral(_) => todo!(),
-        // SolangExpression::Type(_, _) => todo!(),
-        // SolangExpression::HexLiteral(_) => todo!(),
-        // SolangExpression::AddressLiteral(_, _) => todo!(),
-        // SolangExpression::Variable(_) => todo!(),
-        // SolangExpression::List(_, _) => todo!(),
-        // SolangExpression::ArrayLiteral(_, _) => todo!(),
-        // SolangExpression::Unit(_, _, _) => todo!(),
-        // SolangExpression::This(_) => todo!(),
+        SolangExpression::PostIncrement(_, expression) => {
+            boxed_expression!(parsed_expression, expression);
+            Expression::PostIncrement(parsed_expression)
+        }
+        SolangExpression::PostDecrement(_, expression) => {
+            boxed_expression!(parsed_expression, expression);
+            Expression::PostDecrement(parsed_expression)
+        }
+        SolangExpression::New(_, expression) => {
+            boxed_expression!(parsed_expression, expression);
+            Expression::New(parsed_expression)
+        }
+        SolangExpression::ArraySubscript(_, index, index_maybe) => {
+            boxed_expression!(parsed_index, index);
+            maybe_boxed_expression!(parsed_index_maybe, index_maybe);
+            Expression::ArraySubscript(parsed_index, parsed_index_maybe)
+        }
+        SolangExpression::ArraySlice(_, _, _, _) => {
+            todo!()
+        }
+        SolangExpression::Parenthesis(_, _) => todo!(),
+        SolangExpression::MemberAccess(_, expression, identifier) => {
+            boxed_expression!(parsed_expression, expression);
+            let parsed_identifier = parse_identifier(&Some(identifier.clone()));
+            Expression::MemberAccess(parsed_expression, parsed_identifier)
+        }
+        SolangExpression::FunctionCall(_, function, args) => {
+            boxed_expression!(parsed_function, function);
+            let parsed_args = parse_expression_vec(args);
+            Expression::FunctionCall(parsed_function, parsed_args)
+        }
+        SolangExpression::FunctionCallBlock(_, _, _) => todo!(),
+        SolangExpression::NamedFunctionCall(_, _, _) => todo!(),
+        SolangExpression::Not(_, _) => todo!(),
+        SolangExpression::Complement(_, _) => todo!(),
+        SolangExpression::Delete(_, _) => todo!(),
+        SolangExpression::PreIncrement(_, expression) => {
+            boxed_expression!(parsed_expression, expression);
+            Expression::PreIncrement(parsed_expression)
+        }
+        SolangExpression::PreDecrement(_, expression) => {
+            boxed_expression!(parsed_expression, expression);
+            Expression::PreDecrement(parsed_expression)
+        }
+        SolangExpression::UnaryPlus(_, _) => todo!(),
+        SolangExpression::UnaryMinus(_, _) => todo!(),
+        SolangExpression::Power(_, _, _) => todo!(),
+        SolangExpression::Multiply(_, _, _) => todo!(),
+        SolangExpression::Divide(_, _, _) => todo!(),
+        SolangExpression::Modulo(_, _, _) => todo!(),
+        SolangExpression::Add(_, _, _) => todo!(),
+        SolangExpression::Subtract(_, left, right) => {
+            boxed_expression!(parsed_left, left);
+            boxed_expression!(parsed_right, right);
+            Expression::Subtract(parsed_left, parsed_right)
+        }
+        SolangExpression::ShiftLeft(_, _, _) => todo!(),
+        SolangExpression::ShiftRight(_, _, _) => todo!(),
+        SolangExpression::BitwiseAnd(_, _, _) => todo!(),
+        SolangExpression::BitwiseXor(_, _, _) => todo!(),
+        SolangExpression::BitwiseOr(_, _, _) => todo!(),
+        SolangExpression::Less(_, left, right) => {
+            boxed_expression!(parsed_left, left);
+            boxed_expression!(parsed_right, right);
+            Expression::Less(parsed_left, parsed_right)
+        }
+        SolangExpression::More(_, _, _) => todo!(),
+        SolangExpression::LessEqual(_, _, _) => todo!(),
+        SolangExpression::MoreEqual(_, left, right) => {
+            boxed_expression!(parsed_left, left);
+            boxed_expression!(parsed_right, right);
+            Expression::MoreEqual(parsed_left, parsed_right)
+        }
+        SolangExpression::Equal(_, left, right) => {
+            boxed_expression!(parsed_left, left);
+            boxed_expression!(parsed_right, right);
+            Expression::Equal(parsed_left, parsed_right)
+        }
+        SolangExpression::NotEqual(_, left, right) => {
+            boxed_expression!(parsed_left, left);
+            boxed_expression!(parsed_right, right);
+            Expression::NotEqual(parsed_left, parsed_right)
+        }
+        SolangExpression::And(_, _, _) => todo!(),
+        SolangExpression::Or(_, left, right) => {
+            boxed_expression!(parsed_left, left);
+            boxed_expression!(parsed_right, right);
+            Expression::Or(parsed_left, parsed_right)
+        }
+        SolangExpression::ConditionalOperator(_, _, _, _) => todo!(),
+        SolangExpression::Assign(_, left, right) => {
+            boxed_expression!(parsed_left, left);
+            boxed_expression!(parsed_right, right);
+            Expression::Assign(parsed_left, parsed_right)
+        }
+        SolangExpression::AssignOr(_, _, _) => todo!(),
+        SolangExpression::AssignAnd(_, _, _) => todo!(),
+        SolangExpression::AssignXor(_, _, _) => todo!(),
+        SolangExpression::AssignShiftLeft(_, _, _) => todo!(),
+        SolangExpression::AssignShiftRight(_, _, _) => todo!(),
+        SolangExpression::AssignAdd(_, left, right) => {
+            boxed_expression!(parsed_left, left);
+            boxed_expression!(parsed_right, right);
+            Expression::AssignAdd(parsed_left, parsed_right)
+        }
+        SolangExpression::AssignSubtract(_, _, _) => todo!(),
+        SolangExpression::AssignMultiply(_, _, _) => todo!(),
+        SolangExpression::AssignDivide(_, _, _) => todo!(),
+        SolangExpression::AssignModulo(_, _, _) => todo!(),
+        SolangExpression::BoolLiteral(_, _) => todo!(),
+        SolangExpression::NumberLiteral(_, literal, b) => {
+            if !b.is_empty() {
+                println!("Number literal: B was {b}")
+            }
+            Expression::NumberLiteral(literal.clone())
+        }
+        SolangExpression::RationalNumberLiteral(_, _, _, _) => todo!(),
+        SolangExpression::HexNumberLiteral(_, _) => todo!(),
+        SolangExpression::StringLiteral(strings) => {
+            let parsed_strings = strings
+                .iter()
+                .map(|string_literal| string_literal.string.clone())
+                .collect();
+            Expression::StringLiteral(parsed_strings)
+        }
+        SolangExpression::Type(_, solidity_type) => {
+            let parsed_type = Box::new(convert_solidity_type(solidity_type));
+            Expression::Type(parsed_type)
+        }
+        SolangExpression::HexLiteral(_) => todo!(),
+        SolangExpression::AddressLiteral(_, _) => todo!(),
+        SolangExpression::Variable(identifier) => {
+            let parsed_identifier = parse_identifier(&Some(identifier.clone()));
+            Expression::Variable(parsed_identifier)
+        }
+        SolangExpression::List(_, _) => todo!(),
+        SolangExpression::ArrayLiteral(_, _) => todo!(),
+        SolangExpression::Unit(_, _, _) => todo!(),
+        SolangExpression::This(_) => todo!(),
     }
+}
+
+fn parse_expression_vec(expressions: &Vec<SolangExpression>) -> Vec<Expression> {
+    expressions
+        .iter()
+        .map(|expression| parse_expression(expression))
+        .collect()
 }
 
 fn parse_identifier_path(identifier_path: &IdentifierPath) -> String {
