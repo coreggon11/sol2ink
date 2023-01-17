@@ -1128,21 +1128,30 @@ impl ToTokens for Statement {
                 )
             }
             Statement::Emit(expression) => {
-                println!("{expression:?}");
-                quote!(
-                    // Emit not implemented :(
-                )
+                match expression {
+                    Expression::FunctionCall(identifier, args) 
+                    if let Expression::Variable(event_name,_)=*identifier.clone()=> {
+                        let fn_name = TokenStream::from_str(&format!(
+                            "_emit_{}",
+                            &event_name.to_case(Snake)
+                        ))
+                        .unwrap();
+                        quote!( self. #fn_name ( #(#args),* ); )
+                    }
+                    _ => unreachable!("Emit can be only function call"),
+                }
             }
             Statement::Error => todo!(),
             Statement::Expression(expression) => quote!(#expression;),
             Statement::For(body, declaration, condition, on_pass) => {
                 quote!(
-                    #declaration
+                    #declaration;
                     loop {
-                        #body
                         if ! #condition {
                             break
                         }
+                        #body
+                        #on_pass
                     }
                 )
             }
@@ -1163,9 +1172,10 @@ impl ToTokens for Statement {
             Statement::Revert(_, _) => todo!(),
             Statement::RevertNamedArgs => todo!(),
             Statement::Try(expression) => {
-                println!("TRY: {expression:?}");
                 quote!(
-                    // Try not implemented yet
+                    if #expression .is_err() {
+                        return Err(Error::Custom("Try failed"))
+                    }
                 )
             }
             Statement::UncheckedBlock(statements) => {
@@ -1177,9 +1187,9 @@ impl ToTokens for Statement {
             }
             Statement::VariableDefinition(definition, initial_value) => {
                 if let Some(initial_value) = initial_value {
-                    quote!( #definition = #initial_value )
+                    quote!( #definition = #initial_value; )
                 } else {
-                    quote!(#initial_value)
+                    quote!( #initial_value; )
                 }
             }
             Statement::While(condition, body) => {
@@ -1203,6 +1213,7 @@ impl ToTokens for Expression {
                 quote!( #expression [ #index ])
             }
             Expression::Assign(variable, value) => {
+                println!("Assign: {variable:?}");
                 quote!(
                     #variable = #value
                 )
@@ -1213,9 +1224,28 @@ impl ToTokens for Expression {
                 )
             }
             Expression::FunctionCall(function, args) => {
-                quote!(
-                    self. #function ( #(#args)* )
-                )
+                match *function.clone() {
+                    Expression::Variable(name,_) if name == "require" =>{
+                        let condition = &args[0];
+                        if args.len()> 1 {
+                            let error = &args[1];
+                            quote!( 
+                                if ! (#condition) { 
+                                    return Err(Error::Custom( String::from( #error) )) 
+                                } 
+                            )
+                        }else {
+                            quote!( 
+                                if ! (#condition) { 
+                                    return Err(Error::Custom( String::from("No error message provdided :)") )) 
+                                } 
+                            )
+                        }
+                    } ,
+                    _ => quote!(
+                        #function ( #(#args,)* )
+                    )
+                }
             }
             Expression::Equal(left, right) => {
                 quote!(
@@ -1227,8 +1257,9 @@ impl ToTokens for Expression {
                     #left < #right
                 )
             }
-            Expression::MemberAccess(left, right) => {
-                quote!( #left :: #right)
+            Expression::MemberAccess(left, member) => {
+                let ident = TokenStream::from_str(member).unwrap();
+                quote!( #left . #ident)
             }
             Expression::MoreEqual(left, right) => {
                 quote!(
@@ -1236,15 +1267,15 @@ impl ToTokens for Expression {
                 )
             }
             Expression::New(new) => {
-                println!("NEW");
-                println!("X1: {new:?}");
-                println!("-------------------");
-                // match new {
-                //     // new array
-
-                //     _ => todo!()
-                // }
-                quote!( #new )
+                match *new.clone() {
+                    // new array
+                    Expression::FunctionCall(array, values)
+                        if let Expression::ArraySubscript(ty, _) = *array.clone() =>
+                    {
+                        quote!(vec!( #ty ::default(); #(#values)* ))
+                    }
+                    _ => todo!(),
+                }
             }
             Expression::NotEqual(left, right) => {
                 quote!(
@@ -1280,7 +1311,8 @@ impl ToTokens for Expression {
                 )
             }
             Expression::StringLiteral(strings) => {
-                TokenStream::from_str(&strings.join(" ")).unwrap()
+                let joined = &strings.join(" ");
+                quote!(#joined)
             }
             Expression::Subtract(left, right) => {
                 quote!(
@@ -1288,10 +1320,12 @@ impl ToTokens for Expression {
                 )
             }
             Expression::Type(ty) => quote!( #ty ),
-            Expression::Variable(name) => TokenStream::from_str(name).unwrap(),
+            Expression::Variable(name,is_storage) => {
+                TokenStream::from_str(&format!("{}{}",if *is_storage {"self.data()."}else{""},name.to_case(Snake))).unwrap()
+            },
             Expression::VariableDeclaration(ty, name) => {
                 let name = TokenStream::from_str(name).unwrap();
-                quote!(let #name : #ty)
+                quote!(let mut #name : #ty)
             }
         })
     }

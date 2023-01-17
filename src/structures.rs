@@ -20,7 +20,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::collections::HashSet;
+use std::collections::{
+    HashMap,
+    HashSet,
+};
 
 #[derive(Clone, Debug)]
 pub enum ArrayType {
@@ -41,6 +44,7 @@ pub struct Contract {
     pub imports: HashSet<String>,
     pub contract_doc: Vec<String>,
     pub modifiers: Vec<Modifier>,
+    pub fields_map: HashMap<String, Type>,
 }
 
 pub struct Library {
@@ -194,7 +198,7 @@ pub enum Expression {
     StringLiteral(Vec<String>),
     Subtract(Box<Expression>, Box<Expression>),
     Type(Box<Type>),
-    Variable(String),
+    Variable(String, bool),
     VariableDeclaration(Box<Type>, String),
 }
 

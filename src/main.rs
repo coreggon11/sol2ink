@@ -23,6 +23,7 @@
 #![feature(once_cell)]
 #![feature(string_remove_matches)]
 #![feature(exclusive_range_pattern)]
+#![feature(if_let_guard)]
 
 extern crate core;
 
@@ -32,6 +33,8 @@ pub mod file_utils;
 pub mod parser2;
 pub mod structures;
 pub mod toml_builder;
+
+use parser2::Parser;
 
 use crate::{
     cli::{
@@ -102,7 +105,8 @@ fn main() {
 
 fn run_new(path: &String) -> Result<(), ParserError> {
     let content = file_utils::read_file(path)?;
-    let output = parser2::parse_file(&content)?;
+    let parser = Parser::new();
+    let output = parser.parse_file(&content)?;
     for output in output {
         match output {
             ParserOutput::Contract(contract) => {
