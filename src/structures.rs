@@ -181,6 +181,7 @@ pub enum Expression {
     FunctionCall(Box<Expression>, Vec<Expression>),
     Equal(Box<Expression>, Box<Expression>),
     Less(Box<Expression>, Box<Expression>),
+    MappingSubscript(Box<Expression>, Vec<Expression>),
     MemberAccess(Box<Expression>, String),
     MoreEqual(Box<Expression>, Box<Expression>),
     New(Box<Expression>),

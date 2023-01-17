@@ -1194,10 +1194,7 @@ impl ToTokens for Statement {
             }
             Statement::While(condition, body) => {
                 quote!(
-                    loop {
-                        if ! #condition {
-                            break
-                        }
+                    while #condition {
                         #body
                     }
                 )
@@ -1214,9 +1211,13 @@ impl ToTokens for Expression {
             }
             Expression::Assign(variable, value) => {
                 println!("Assign: {variable:?}");
-                quote!(
-                    #variable = #value
-                )
+                match *variable.clone() {
+                    Expression::MappingSubscript(mapping, indices) => {
+                        // means assigning to mapping
+                        quote! (#mapping .insert(&(#(#indices),*), & #value) )
+                    }
+                    _ => quote!( #variable = #value )
+                }
             }
             Expression::AssignAdd(variable, value) => {
                 quote!(
@@ -1257,6 +1258,10 @@ impl ToTokens for Expression {
                     #left < #right
                 )
             }
+            Expression::MappingSubscript(array, indices) => {
+                // TODO : remove this
+                quote! (#array [#(#indices)+*])
+            },
             Expression::MemberAccess(left, member) => {
                 let ident = TokenStream::from_str(member).unwrap();
                 quote!( #left . #ident)
@@ -1283,7 +1288,7 @@ impl ToTokens for Expression {
                 )
             }
             Expression::NumberLiteral(value) => {
-                TokenStream::from_str(&format!("{}", value)).unwrap()
+                TokenStream::from_str(value).unwrap()
             }
             Expression::Or(left, right) => {
                 quote!(

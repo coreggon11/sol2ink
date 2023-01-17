@@ -161,15 +161,12 @@ impl<'a> Parser<'a> {
                 }
                 ContractPart::ErrorDefinition(_) => {}
                 ContractPart::VariableDefinition(variable_definition) => {
-                    println!("variable");
                     let parsed_field = self.parse_storage_field(variable_definition)?;
-                    println!("field:{}", parsed_field.name.clone());
                     self.fields_map
                         .insert(parsed_field.name.clone(), parsed_field.field_type.clone());
                     fields.push(parsed_field);
                 }
                 ContractPart::FunctionDefinition(function_definition) => {
-                    println!("function");
                     let parsed_function = self.parse_function(function_definition)?;
                     match function_definition.ty {
                         FunctionTy::Constructor => constructor = parsed_function,
@@ -524,10 +521,27 @@ impl<'a> Parser<'a> {
                 boxed_expression!(parsed_expression, expression);
                 Expression::New(parsed_expression)
             }
-            SolangExpression::ArraySubscript(_, index, index_maybe) => {
-                boxed_expression!(parsed_index, index);
-                maybe_boxed_expression!(parsed_index_maybe, index_maybe);
-                Expression::ArraySubscript(parsed_index, parsed_index_maybe)
+            SolangExpression::ArraySubscript(_, array, index_maybe) => {
+                match *array.clone() {
+                    SolangExpression::ArraySubscript(..) => {
+                        let mut parsed_indices =
+                            vec![self.parse_expression(&*index_maybe.as_ref().unwrap().clone())];
+                        let mut array_now = array.clone();
+                        while let SolangExpression::ArraySubscript(_, array, index_maybe) =
+                            *array_now.clone()
+                        {
+                            parsed_indices.push(self.parse_expression(&index_maybe.unwrap()));
+                            array_now = array.clone();
+                        }
+                        boxed_expression!(parsed_array, &array_now);
+                        Expression::MappingSubscript(parsed_array, parsed_indices)
+                    }
+                    _ => {
+                        boxed_expression!(parsed_array, array);
+                        maybe_boxed_expression!(parsed_index_maybe, index_maybe);
+                        Expression::ArraySubscript(parsed_array, parsed_index_maybe)
+                    }
+                }
             }
             SolangExpression::ArraySlice(_, _, _, _) => {
                 todo!()
@@ -646,7 +660,6 @@ impl<'a> Parser<'a> {
             SolangExpression::Variable(identifier) => {
                 let parsed_identifier = self.parse_identifier(&Some(identifier.clone()));
                 let is_storage = self.fields_map.contains_key(&parsed_identifier);
-                println!("{parsed_identifier} is storage: {is_storage}");
                 Expression::Variable(parsed_identifier, is_storage)
             }
             SolangExpression::List(_, _) => todo!(),
