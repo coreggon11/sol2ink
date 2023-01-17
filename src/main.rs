@@ -67,10 +67,10 @@ fn main() {
             CliInput::SolidityFile(file) => {
                 match run_new(&file) {
                     Ok(_) => {
-                        println!("Successfully parsed {}", file);
+                        println!("Successfully parsed {file}");
                     }
                     Err(err) => {
-                        eprintln!("error: {:?}", err);
+                        eprintln!("error: {err:?}");
                         std::process::exit(1);
                     }
                 }
@@ -86,10 +86,10 @@ fn main() {
                     if file.ends_with(".sol") {
                         match run_new(&file.to_string()) {
                             Ok(_) => {
-                                println!("Successfully parsed {}", file);
+                                println!("Successfully parsed {file}");
                             }
                             Err(err) => {
-                                eprintln!("error: {:?}", err);
+                                eprintln!("error: {err:?}");
                                 std::process::exit(1);
                             }
                         }

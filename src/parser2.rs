@@ -367,11 +367,6 @@ fn parse_function(function_definition: &FunctionDefinition) -> Result<Function, 
         ..Default::default()
     };
 
-    let a = vec![1, 2, 3, 4];
-    for i in 0..a.len() {
-        println!("{}", a[i]);
-    }
-
     let body = if let Some(statement) = &function_definition.body {
         Some(parse_statement(statement)?)
     } else {
@@ -470,13 +465,13 @@ fn parse_statement(statement: &SolangStatement) -> Result<Statement, ParserError
         SolangStatement::Return(_, expression) => {
             let parsed_expression = expression
                 .as_ref()
-                .map(|expression| parse_expression(&expression));
+                .map(|expression| parse_expression(expression));
             Statement::Return(parsed_expression)
         }
         SolangStatement::Revert(_, identifier_path, args) => {
             let identifier_path = identifier_path
                 .as_ref()
-                .map(|maybe| parse_identifier_path(&maybe))
+                .map(parse_identifier_path)
                 .unwrap_or(String::from("_"));
             let parsed_args = parse_expression_vec(args);
             Statement::Revert(identifier_path, parsed_args)
@@ -646,11 +641,8 @@ fn parse_expression(expression: &SolangExpression) -> Expression {
     }
 }
 
-fn parse_expression_vec(expressions: &Vec<SolangExpression>) -> Vec<Expression> {
-    expressions
-        .iter()
-        .map(|expression| parse_expression(expression))
-        .collect()
+fn parse_expression_vec(expressions: &[SolangExpression]) -> Vec<Expression> {
+    expressions.iter().map(parse_expression).collect()
 }
 
 fn parse_identifier_path(identifier_path: &IdentifierPath) -> String {
@@ -660,7 +652,6 @@ fn parse_identifier_path(identifier_path: &IdentifierPath) -> String {
         .map(|identifier| identifier.name.clone())
         .collect::<Vec<String>>()
         .join("::")
-        .to_string()
 }
 
 fn parse_type(ty: &SolangExpression) -> Result<Type, ParserError> {
@@ -673,16 +664,16 @@ fn parse_type(ty: &SolangExpression) -> Result<Type, ParserError> {
                 SolangType::Mapping(_, key_type_value, value_type_value),
             ) = value_type_now
             {
-                parsed_key_types.push(parse_type(&key_type_value)?);
+                parsed_key_types.push(parse_type(key_type_value)?);
                 value_type_now = value_type_value;
             }
-            let parsed_value_type = parse_type(&value_type_now)?;
+            let parsed_value_type = parse_type(value_type_now)?;
             Ok(Type::Mapping(parsed_key_types, Box::new(parsed_value_type)))
         }
         SolangExpression::Type(_, solidity_type) => Ok(convert_solidity_type(solidity_type)),
         SolangExpression::Variable(identifier) => Ok(Type::Variable(identifier.name.clone())),
         SolangExpression::ArraySubscript(_, ty, expression_maybe) => {
-            let parsed_type = Box::new(parse_type(&ty)?);
+            let parsed_type = Box::new(parse_type(ty)?);
             if expression_maybe.is_some() {
                 println!("expression maybe in array is some {expression_maybe:?}");
             }
