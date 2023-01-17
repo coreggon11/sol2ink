@@ -1134,7 +1134,7 @@ impl ToTokens for Statement {
                 )
             }
             Statement::Error => todo!(),
-            Statement::Expression(expression) => quote!(#expression),
+            Statement::Expression(expression) => quote!(#expression;),
             Statement::For(body, declaration, condition, on_pass) => {
                 quote!(
                     #declaration
@@ -1159,7 +1159,7 @@ impl ToTokens for Statement {
                     #else_block
                 )
             }
-            Statement::Return(expression) => quote!(return #expression),
+            Statement::Return(expression) => quote!(return Ok(#expression)),
             Statement::Revert(_, _) => todo!(),
             Statement::RevertNamedArgs => todo!(),
             Statement::Try(expression) => {
@@ -1198,6 +1198,101 @@ impl ToTokens for Statement {
 
 impl ToTokens for Expression {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        // todo!()
+        tokens.extend(match self {
+            Expression::ArraySubscript(expression, index) => {
+                quote!( #expression [ #index ])
+            }
+            Expression::Assign(variable, value) => {
+                quote!(
+                    #variable = #value
+                )
+            }
+            Expression::AssignAdd(variable, value) => {
+                quote!(
+                    #variable += #value
+                )
+            }
+            Expression::FunctionCall(function, args) => {
+                quote!(
+                    self. #function ( #(#args)* )
+                )
+            }
+            Expression::Equal(left, right) => {
+                quote!(
+                    #left == #right
+                )
+            }
+            Expression::Less(left, right) => {
+                quote!(
+                    #left < #right
+                )
+            }
+            Expression::MemberAccess(left, right) => {
+                quote!( #left :: #right)
+            }
+            Expression::MoreEqual(left, right) => {
+                quote!(
+                    #left >= #right
+                )
+            }
+            Expression::New(new) => {
+                println!("NEW");
+                println!("X1: {new:?}");
+                println!("-------------------");
+                // match new {
+                //     // new array
+
+                //     _ => todo!()
+                // }
+                quote!( #new )
+            }
+            Expression::NotEqual(left, right) => {
+                quote!(
+                    #left != #right
+                )
+            }
+            Expression::NumberLiteral(value) => {
+                TokenStream::from_str(&format!("{}", value)).unwrap()
+            }
+            Expression::Or(left, right) => {
+                quote!(
+                    #left || #right
+                )
+            }
+            Expression::PostDecrement(expression) => {
+                quote!(
+                    #expression -= 1
+                )
+            }
+            Expression::PostIncrement(expression) => {
+                quote!(
+                    #expression += 1
+                )
+            }
+            Expression::PreDecrement(expression) => {
+                quote!(
+                    #expression -= 1
+                )
+            }
+            Expression::PreIncrement(expression) => {
+                quote!(
+                    #expression += 1
+                )
+            }
+            Expression::StringLiteral(strings) => {
+                TokenStream::from_str(&strings.join(" ")).unwrap()
+            }
+            Expression::Subtract(left, right) => {
+                quote!(
+                    #left -= #right
+                )
+            }
+            Expression::Type(ty) => quote!( #ty ),
+            Expression::Variable(name) => TokenStream::from_str(name).unwrap(),
+            Expression::VariableDeclaration(ty, name) => {
+                let name = TokenStream::from_str(name).unwrap();
+                quote!(let #name : #ty)
+            }
+        })
     }
 }

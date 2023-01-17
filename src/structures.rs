@@ -147,7 +147,7 @@ pub struct FunctionParam {
     pub param_type: Type,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Statement {
     Assembly(Vec<String>),
     Block(Vec<Statement>),
