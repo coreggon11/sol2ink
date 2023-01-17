@@ -80,17 +80,16 @@ impl From<std::io::Error> for ParserError {
     }
 }
 
-#[derive(Default)]
-pub struct Parser {
-    pub fields_map: HashMap<String, Type>,
+pub struct Parser<'a> {
+    fields_map: &'a mut HashMap<String, Type>,
 }
 
-impl Parser {
-    pub fn new() -> Self {
-        Self::default()
+impl<'a> Parser<'a> {
+    pub fn new(fields_map: &'a mut HashMap<String, Type>) -> Self {
+        Parser { fields_map }
     }
 
-    pub fn parse_file(&self, content: &str) -> Result<Vec<ParserOutput>, ParserError> {
+    pub fn parse_file(&mut self, content: &str) -> Result<Vec<ParserOutput>, ParserError> {
         let token_tree = parse(content, 0).map_err(|_| ParserError::FileCorrupted)?;
 
         let mut output = Vec::new();
@@ -112,7 +111,7 @@ impl Parser {
     }
 
     fn handle_contract_definition(
-        &self,
+        &mut self,
         contract_definition: &ContractDefinition,
     ) -> Result<ParserOutput, ParserError> {
         match contract_definition.ty {
@@ -132,7 +131,7 @@ impl Parser {
     }
 
     fn parse_contract(
-        &self,
+        &mut self,
         contract_definition: &ContractDefinition,
     ) -> Result<Contract, ParserError> {
         let name = self.parse_identifier(&contract_definition.name);
@@ -144,7 +143,6 @@ impl Parser {
         let mut functions: Vec<Function> = Default::default();
         let mut constructor: Function = Default::default();
         let mut modifiers: Vec<Function> = Default::default();
-        let mut fields_map: HashMap<String, Type> = Default::default();
 
         for part in contract_definition.parts.iter() {
             match part {
@@ -163,11 +161,15 @@ impl Parser {
                 }
                 ContractPart::ErrorDefinition(_) => {}
                 ContractPart::VariableDefinition(variable_definition) => {
+                    println!("variable");
                     let parsed_field = self.parse_storage_field(variable_definition)?;
-                    fields_map.insert(parsed_field.name.clone(), parsed_field.field_type.clone());
+                    println!("field:{}", parsed_field.name.clone());
+                    self.fields_map
+                        .insert(parsed_field.name.clone(), parsed_field.field_type.clone());
                     fields.push(parsed_field);
                 }
                 ContractPart::FunctionDefinition(function_definition) => {
+                    println!("function");
                     let parsed_function = self.parse_function(function_definition)?;
                     match function_definition.ty {
                         FunctionTy::Constructor => constructor = parsed_function,
@@ -196,7 +198,6 @@ impl Parser {
             fields,
             functions,
             constructor,
-            fields_map,
             ..Default::default()
         })
     }
@@ -644,7 +645,8 @@ impl Parser {
             SolangExpression::AddressLiteral(_, _) => todo!(),
             SolangExpression::Variable(identifier) => {
                 let parsed_identifier = self.parse_identifier(&Some(identifier.clone()));
-                let is_storage = false;
+                let is_storage = self.fields_map.contains_key(&parsed_identifier);
+                println!("{parsed_identifier} is storage: {is_storage}");
                 Expression::Variable(parsed_identifier, is_storage)
             }
             SolangExpression::List(_, _) => todo!(),

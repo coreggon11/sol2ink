@@ -47,6 +47,7 @@ use crate::{
     },
 };
 use std::{
+    collections::HashMap,
     env,
     path::Path,
 };
@@ -105,8 +106,12 @@ fn main() {
 
 fn run_new(path: &String) -> Result<(), ParserError> {
     let content = file_utils::read_file(path)?;
-    let parser = Parser::new();
+    let mut fields_map = HashMap::new();
+
+    let mut parser = Parser::new(&mut fields_map);
+
     let output = parser.parse_file(&content)?;
+
     for output in output {
         match output {
             ParserOutput::Contract(contract) => {
