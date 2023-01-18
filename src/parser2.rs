@@ -162,9 +162,14 @@ impl<'a> Parser<'a> {
             match part {
                 ContractPart::VariableDefinition(variable_definition) => {
                     let parsed_field = self.parse_storage_field(variable_definition)?;
+                    let constant = parsed_field.constant;
                     self.members_map.insert(
                         parsed_field.name.clone(),
-                        MemberType::Variable(Box::new(parsed_field.field_type.clone())),
+                        if constant {
+                            MemberType::Constant
+                        } else {
+                            MemberType::Variable(Box::new(parsed_field.field_type.clone()))
+                        },
                     );
                     fields.push(parsed_field);
                 }
@@ -444,7 +449,10 @@ impl<'a> Parser<'a> {
                     | VariableAttribute::Visibility(Visibility::Public(_))
             )
         });
-        let initial_value = None; // TODO
+        let initial_value = variable_definition
+            .initializer
+            .as_ref()
+            .map(|expression| self.parse_expression(&expression)); // TODO
         let comments = Vec::default();
         Ok(ContractField {
             field_type,
@@ -762,7 +770,18 @@ impl<'a> Parser<'a> {
                 Expression::FunctionCall(parsed_function, parsed_args)
             }
             SolangExpression::FunctionCallBlock(_, _, _) => todo!(),
-            SolangExpression::NamedFunctionCall(_, _, _) => todo!(),
+            SolangExpression::NamedFunctionCall(_, expression, arguments) => {
+                boxed_expression!(parsed_expression, expression);
+                let parsed_arguments = arguments
+                    .iter()
+                    .map(|argument| {
+                        let parsed_argument = self.parse_expression(&argument.expr);
+                        let parsed_name = self.parse_identifier(&Some(argument.name.clone()));
+                        (parsed_name, parsed_argument)
+                    })
+                    .collect();
+                Expression::NamedFunctionCall(parsed_expression, parsed_arguments)
+            }
             SolangExpression::Not(_, expression) => {
                 boxed_expression!(parsed_expression, expression);
                 Expression::Not(parsed_expression)
@@ -812,11 +831,31 @@ impl<'a> Parser<'a> {
                 boxed_expression!(parsed_right, right);
                 Expression::Subtract(parsed_left, parsed_right)
             }
-            SolangExpression::ShiftLeft(_, _, _) => todo!(),
-            SolangExpression::ShiftRight(_, _, _) => todo!(),
-            SolangExpression::BitwiseAnd(_, _, _) => todo!(),
-            SolangExpression::BitwiseXor(_, _, _) => todo!(),
-            SolangExpression::BitwiseOr(_, _, _) => todo!(),
+            SolangExpression::ShiftLeft(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::ShiftLeft(parsed_left, parsed_right)
+            }
+            SolangExpression::ShiftRight(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::ShiftRight(parsed_left, parsed_right)
+            }
+            SolangExpression::BitwiseAnd(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::BitwiseAnd(parsed_left, parsed_right)
+            }
+            SolangExpression::BitwiseXor(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::BitwiseXor(parsed_left, parsed_right)
+            }
+            SolangExpression::BitwiseOr(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::BitwiseOr(parsed_left, parsed_right)
+            }
             SolangExpression::Less(_, left, right) => {
                 boxed_expression!(parsed_left, left);
                 boxed_expression!(parsed_right, right);
@@ -850,7 +889,7 @@ impl<'a> Parser<'a> {
             SolangExpression::And(_, left, right) => {
                 boxed_expression!(parsed_left, left);
                 boxed_expression!(parsed_right, right);
-                Expression::Add(parsed_left, parsed_right)
+                Expression::And(parsed_left, parsed_right)
             }
             SolangExpression::Or(_, left, right) => {
                 boxed_expression!(parsed_left, left);
@@ -868,11 +907,31 @@ impl<'a> Parser<'a> {
                 boxed_expression!(parsed_right, right);
                 Expression::Assign(parsed_left, parsed_right)
             }
-            SolangExpression::AssignOr(_, _, _) => todo!(),
-            SolangExpression::AssignAnd(_, _, _) => todo!(),
-            SolangExpression::AssignXor(_, _, _) => todo!(),
-            SolangExpression::AssignShiftLeft(_, _, _) => todo!(),
-            SolangExpression::AssignShiftRight(_, _, _) => todo!(),
+            SolangExpression::AssignOr(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::AssignOr(parsed_left, parsed_right)
+            }
+            SolangExpression::AssignAnd(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::AssignAnd(parsed_left, parsed_right)
+            }
+            SolangExpression::AssignXor(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::AssignXor(parsed_left, parsed_right)
+            }
+            SolangExpression::AssignShiftLeft(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::AssignShiftLeft(parsed_left, parsed_right)
+            }
+            SolangExpression::AssignShiftRight(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::AssignShiftRight(parsed_left, parsed_right)
+            }
             SolangExpression::AssignAdd(_, left, right) => {
                 boxed_expression!(parsed_left, left);
                 boxed_expression!(parsed_right, right);
@@ -918,7 +977,14 @@ impl<'a> Parser<'a> {
                 let parsed_type = Box::new(self.convert_solidity_type(solidity_type));
                 Expression::Type(parsed_type)
             }
-            SolangExpression::HexLiteral(_) => todo!(),
+            SolangExpression::HexLiteral(hex_vec) => {
+                let literal = hex_vec
+                    .iter()
+                    .map(|hex| hex.hex.clone())
+                    .collect::<Vec<_>>()
+                    .join("");
+                Expression::HexLiteral(literal)
+            }
             SolangExpression::AddressLiteral(_, _) => todo!(),
             SolangExpression::Variable(identifier) => {
                 let parsed_identifier = self.parse_identifier(&Some(identifier.clone()));

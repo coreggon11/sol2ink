@@ -32,6 +32,7 @@ pub enum ArrayType {
 #[derive(Debug, Clone)]
 pub enum MemberType {
     Variable(Box<Type>),
+    Constant,
     Function,
     FunctionPrivate,
     None,
@@ -186,6 +187,7 @@ pub enum Statement {
 #[derive(Clone, Debug)]
 pub enum Expression {
     Add(Box<Expression>, Box<Expression>),
+    And(Box<Expression>, Box<Expression>),
     ArraySubscript(Box<Expression>, Option<Box<Expression>>),
     Assign(Box<Expression>, Box<Expression>),
     AssignAdd(Box<Expression>, Box<Expression>),
@@ -224,6 +226,18 @@ pub enum Expression {
     Type(Box<Type>),
     Variable(String, MemberType),
     VariableDeclaration(Box<Type>, String),
+    ShiftLeft(Box<Expression>, Box<Expression>),
+    ShiftRight(Box<Expression>, Box<Expression>),
+    BitwiseAnd(Box<Expression>, Box<Expression>),
+    BitwiseXor(Box<Expression>, Box<Expression>),
+    BitwiseOr(Box<Expression>, Box<Expression>),
+    AssignOr(Box<Expression>, Box<Expression>),
+    AssignAnd(Box<Expression>, Box<Expression>),
+    AssignXor(Box<Expression>, Box<Expression>),
+    AssignShiftLeft(Box<Expression>, Box<Expression>),
+    AssignShiftRight(Box<Expression>, Box<Expression>),
+    HexLiteral(String),
+    NamedFunctionCall(Box<Expression>, Vec<(String, Expression)>),
 }
 
 #[derive(Clone, Debug)]

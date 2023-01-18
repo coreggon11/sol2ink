@@ -754,31 +754,6 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
             });
         }
 
-        // @notice Rust fmt will panic if a return statement is followed by a statement
-        // we will switch the order of the comments and the return statement
-        // TODO: Dear reviewer. Ask me about this because I maybe forgot :)
-        // if !function.header.return_params.is_empty() && function.header.return_params[0].name == "_"
-        // {
-        //     let mut ordered = VecDeque::<Statement>::default();
-        //     while let Some(Statement::Comment(_)) = statements.iter().last() {
-        //         ordered.push_front(statements.pop().unwrap());
-        //     }
-        //     // the last statement now is the return statement
-        //     if !ordered.is_empty() {
-        //         let return_statement = statements.pop().unwrap();
-        //         // we insert a comment that we reordered
-        //         statements.push(Statement::Comment(
-        //             "Following statements were found after the return statement >>>".to_string(),
-        //         ));
-        //         // append ordered to statements
-        //         statements.append(&mut ordered.into_iter().collect());
-        //         statements.push(Statement::Comment(
-        //             "<<< Following statements were found after the return statement".to_string(),
-        //         ));
-        //         statements.push(return_statement);
-        //     }
-        // }
-
         // body
         body.extend(quote! {
             #statement
@@ -789,7 +764,7 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
                 Ok(())
             });
         } else if function.header.return_params[0].name != "_" {
-            let _out = TokenStream::from_str(
+            let out = TokenStream::from_str(
                 &function
                     .header
                     .return_params
@@ -799,20 +774,19 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
                     .join(","),
             )
             .unwrap();
-            // TODO
-            // if !statements.iter().any(|s| matches!(s, Statement::Return(_))) {
-            //     body.extend(
-            //         if function.header.return_params.len() > 1 {
-            //             quote! {
-            //                 Ok((#out))
-            //             }
-            //         } else {
-            //             quote! {
-            //                 Ok(#out)
-            //             }
-            //         },
-            //     );
-            // }
+            if !has_return_statement(&statement) {
+                body.extend(
+                    if function.header.return_params.len() > 1 {
+                        quote! {
+                            Ok((#out))
+                        }
+                    } else {
+                        quote! {
+                            Ok(#out)
+                        }
+                    },
+                );
+            }
         }
 
         output.extend(quote! {
@@ -829,6 +803,26 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
     }
 
     output
+}
+
+fn has_return_statement(statement: &Option<Statement>) -> bool{
+    match statement {
+        Some(statement) => {
+            match statement {
+                Statement::Block(statements) | Statement::UncheckedBlock(statements)=> {
+                    if statements.is_empty() {
+                        return false
+                    }
+                    match statements.last().unwrap() {
+                        Statement::Return(..) => true,
+                        _=>false
+                    }
+                }
+                _ => false
+            }
+        },
+        None => false,
+    }
 }
 
 fn assemble_emit_functions(events: &[Event]) -> (TokenStream, TokenStream) {
@@ -1455,6 +1449,10 @@ impl ToTokens for Expression {
                         TokenStream::from_str(&format!("{}_{}", "self.", name.to_case(Snake)))
                             .unwrap()
                     }
+                    MemberType::Constant => {
+                        TokenStream::from_str(&format!("{}", name.to_case(UpperSnake)))
+                            .unwrap()
+                    }
                     MemberType::None => TokenStream::from_str(&name.to_case(Snake)).unwrap(),
                 }
             }
@@ -1462,6 +1460,74 @@ impl ToTokens for Expression {
                 let name = TokenStream::from_str(name).unwrap();
                 quote!(let mut #name : #ty)
             }
+            Expression::ShiftLeft(left, right) => {
+                quote!(
+                   #left << #right
+                )
+            },
+            Expression::ShiftRight(left, right) => {
+                quote!(
+                   #left >> #right
+                )
+            }
+            Expression::BitwiseAnd(left, right) => {
+                quote!(
+                   #left & #right
+                )
+            }
+            Expression::BitwiseXor(left, right) => {
+                quote!(
+                   #left ^ #right
+                )
+            }
+            Expression::BitwiseOr(left, right) => {
+                quote!(
+                   #left | #right
+                )
+            }
+            Expression::AssignOr(left, right) => {
+                quote!(
+                   #left |= #right
+                )
+            }
+            Expression::AssignAnd(left, right) => {
+                quote!(
+                   #left &= #right
+                )
+            }
+            Expression::AssignXor(left, right) => {
+                quote!(
+                   #left ^= #right
+                )
+            }
+            Expression::AssignShiftLeft(left, right) => {
+                quote!(
+                   #left <<= #right
+                )
+            }
+            Expression::AssignShiftRight(left, right) => {
+                quote!(
+                   #left >>= #right
+                )
+            }
+            Expression::HexLiteral(hex) => {
+                quote!( &hex::decode(#hex) )
+            }
+            Expression::NamedFunctionCall(function, args) => {
+                let names = args.iter()
+                .map(|arg| {let parsed =format_expression(&arg.0, Snake);
+                format_ident!("{parsed}")} )
+                .collect::<Vec<_>>();
+                let values = args.iter()
+                .map(|arg| &arg.1 )
+                .collect::<Vec<_>>();
+                quote!( #function { #( #names : #values ),*  } )
+            },
+            Expression::And(left, right) => {
+                quote!(
+                   #left && #right
+                )
+            },
         })
     }
 }
