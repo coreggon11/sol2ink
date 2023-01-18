@@ -675,23 +675,19 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
         function_name.extend(
             TokenStream::from_str(&format!(
                 "{}fn {}{}",
-                if !function.header.external {
-                    String::from("default ")
-                } else if is_library {
+                if is_library {
                     String::from("pub ")
+                } else if !function.header.external {
+                    String::from("default ")
                 } else {
                     String::new()
                 },
-                if !function.header.external {
+                if !function.header.external && !is_library {
                     String::from("_")
                 } else {
                     String::new()
                 },
-                if function.header.external {
-                    format_expression(&function.header.name)
-                } else {
-                    function.header.name.to_case(Snake)
-                }
+                format_expression(&function.header.name.to_case(Snake))
             ))
             .unwrap(),
         );
@@ -1064,7 +1060,7 @@ fn assemble_function_headers(function_headers: &[FunctionHeader]) -> TokenStream
 fn signature() -> TokenStream {
     const VERSION: &str = env!("CARGO_PKG_VERSION");
     let version = &format!("Generated with Sol2Ink v{VERSION}\n");
-    let link = "https://github.com/Supercolony-net/sol2ink\n";
+    let link = "https://github.com/727-Ventures/sol2ink\n";
     quote! {
         _comment_!(#version);
         _comment_!(#link);
@@ -1296,11 +1292,18 @@ impl ToTokens for Expression {
                         let condition = &args[0];
                         if args.len() > 1 {
                             let error = &args[1];
-                            quote!(
-                                if ! (#condition) {
-                                    return Err(Error::Custom( String::from( #error) ))
-                                }
-                            )
+                            match error {
+                                Expression::Variable(..) => quote!(
+                                    if ! (#condition) {
+                                        return Err(Error::Custom( #error ))
+                                    }
+                                ),
+                                _=>quote!(
+                                    if ! (#condition) {
+                                        return Err(Error::Custom( String::from( #error) ))
+                                    }
+                                )
+                            }
                         } else {
                             quote!(
                                 if ! (#condition) {
