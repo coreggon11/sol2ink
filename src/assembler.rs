@@ -23,6 +23,7 @@
 use crate::structures::*;
 use convert_case::{
     Case::{
+        self,
         Pascal,
         Snake,
         UpperSnake,
@@ -321,7 +322,7 @@ fn assemble_enums(enums: &[Enum]) -> TokenStream {
 
     for enumeration in enums.iter() {
         let enum_name =
-            TokenStream::from_str(&format_expression(&enumeration.name).to_case(Pascal)).unwrap();
+            TokenStream::from_str(&format_expression(&enumeration.name, Pascal)).unwrap();
         let mut enum_comments = TokenStream::new();
         let mut values = TokenStream::new();
 
@@ -394,7 +395,7 @@ fn assemble_events(events: &[Event]) -> TokenStream {
                 });
             }
 
-            let event_field_name = format_ident!("{}", format_expression(&event_field.name));
+            let event_field_name = format_ident!("{}", format_expression(&event_field.name, Snake));
             let event_field_type = &event_field.field_type;
 
             event_fields.extend(quote! {
@@ -515,7 +516,7 @@ fn assemble_constants(fields: &[ContractField]) -> TokenStream {
 
     // assemble storage fields
     for field in fields.iter().filter(|field| field.constant) {
-        let field_name = format_ident!("{}", format_expression(&field.name).to_case(UpperSnake));
+        let field_name = format_ident!("{}", format_expression(&field.name, UpperSnake));
         let field_type = &field.field_type;
         let initial_value = field.initial_value.clone().unwrap();
 
@@ -541,7 +542,8 @@ fn assemble_structs(structs: &[Struct]) -> TokenStream {
     let mut output = TokenStream::new();
 
     for structure in structs.iter() {
-        let struct_name = TokenStream::from_str(&format_expression(&structure.name)).unwrap();
+        let struct_name =
+            TokenStream::from_str(&format_expression(&structure.name, Pascal)).unwrap();
         let mut struct_comments = TokenStream::new();
         let mut struct_fields = TokenStream::new();
 
@@ -560,7 +562,8 @@ fn assemble_structs(structs: &[Struct]) -> TokenStream {
                     #[doc = #comment]
                 })
             }
-            let struct_field_name = format_ident!("{}", &format_expression(&struct_field.name));
+            let struct_field_name =
+                format_ident!("{}", &format_expression(&struct_field.name, Snake));
 
             let struct_field_type = &struct_field.field_type;
 
@@ -687,7 +690,7 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
                 } else {
                     String::new()
                 },
-                format_expression(&function.header.name.to_case(Snake))
+                format_expression(&function.header.name, Snake)
             ))
             .unwrap(),
         );
@@ -703,7 +706,7 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
 
         // assemble params
         for param in function.header.params.iter() {
-            let param_name = format_ident!("{}", &format_expression(&param.name));
+            let param_name = format_ident!("{}", &format_expression(&param.name, Snake));
             let param_type = &param.param_type;
 
             params.extend(quote! {
@@ -729,7 +732,7 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
 
                 if param.name != "_" {
                     let param_name =
-                        TokenStream::from_str(&format_expression(&param.name)).unwrap();
+                        TokenStream::from_str(&format_expression(&param.name, Snake)).unwrap();
                     body.extend(quote! {
                         let mut #param_name = Default::default();
                     })
@@ -791,7 +794,7 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
                     .header
                     .return_params
                     .iter()
-                    .map(|param| format_expression(&param.name))
+                    .map(|param| format_expression(&param.name, Snake))
                     .collect::<Vec<String>>()
                     .join(","),
             )
@@ -840,7 +843,7 @@ fn assemble_emit_functions(events: &[Event]) -> (TokenStream, TokenStream) {
 
         // assemble event fields
         for event_field in event.fields.iter() {
-            let event_field_name = format_ident!("{}", format_expression(&event_field.name));
+            let event_field_name = format_ident!("{}", format_expression(&event_field.name, Snake));
             let event_field_type = &event_field.field_type;
 
             event_args.extend(quote! {
@@ -877,7 +880,7 @@ fn assemble_contract_emit_functions(events: &[Event]) -> TokenStream {
 
         // assemble event fields
         for event_field in event.fields.iter() {
-            let event_field_name = format_ident!("{}", format_expression(&event_field.name));
+            let event_field_name = format_ident!("{}", format_expression(&event_field.name, Snake));
             let event_field_type = &event_field.field_type;
 
             event_params.extend(quote! {
@@ -904,7 +907,7 @@ fn assemble_modifiers(modifiers: &[Modifier], contract_name: &Ident) -> TokenStr
     let mut output = TokenStream::new();
 
     for modifier in modifiers.iter() {
-        let modifier_name = format_ident!("{}", format_expression(&modifier.header.name));
+        let modifier_name = format_ident!("{}", format_expression(&modifier.header.name, Snake));
         let mut body = TokenStream::new();
         let mut comments = TokenStream::new();
         let mut params = TokenStream::new();
@@ -989,7 +992,7 @@ fn assemble_function_headers(function_headers: &[FunctionHeader]) -> TokenStream
             TokenStream::from_str(&format!(
                 "fn {}{}",
                 if header.external { "" } else { "_" },
-                format_expression(&header.name)
+                format_expression(&header.name, Snake)
             ))
             .unwrap(),
         );
@@ -1005,7 +1008,7 @@ fn assemble_function_headers(function_headers: &[FunctionHeader]) -> TokenStream
 
         // assemble params
         for param in header.params.iter() {
-            let param_name = format_ident!("{}", format_expression(&param.name));
+            let param_name = format_ident!("{}", format_expression(&param.name, Snake));
             let param_type = &param.param_type;
 
             params.extend(quote! {
@@ -1068,16 +1071,15 @@ fn signature() -> TokenStream {
     }
 }
 
-fn format_expression(expression_raw: &String) -> String {
-    let output = if RUST_KEYWORDS.contains(&expression_raw.as_str()) {
-        format!("{}_is_rust_keyword", &expression_raw)
+fn format_expression(expression_raw: &String, case: Case) -> String {
+    if expression_raw == "_" {
+        return expression_raw.clone()
+    }
+    let desired_name = expression_raw.to_case(case);
+    if RUST_KEYWORDS.contains(&desired_name.as_str()) {
+        format!("{}_is_rust_keyword", &desired_name)
     } else {
-        expression_raw.to_string()
-    };
-    if &output == "_" {
-        output
-    } else {
-        output.to_case(Snake)
+        desired_name.to_string()
     }
 }
 
@@ -1091,7 +1093,7 @@ impl ToTokens for Type {
             Type::Uint(size) => TokenStream::from_str(&format!("u{size}")).unwrap(),
             Type::Bytes(size) => TokenStream::from_str(&format!("[u8; {size}]")).unwrap(),
             Type::DynamicBytes => quote!(Vec<u8>),
-            Type::Variable(name) => TokenStream::from_str(&format_expression(name)).unwrap(),
+            Type::Variable(name) => TokenStream::from_str(&format_expression(name, Snake)).unwrap(),
             Type::Mapping(keys, value) => {
                 if keys.len() == 1 {
                     let key = &keys[0];
