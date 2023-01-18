@@ -1457,7 +1457,7 @@ impl ToTokens for Expression {
                     MemberType::Constant => {
                         TokenStream::from_str(&name.to_case(UpperSnake)).unwrap()
                     }
-                    MemberType::None => TokenStream::from_str(&name.to_case(Snake)).unwrap(),
+                    MemberType::None(_) => TokenStream::from_str(&name.to_case(Snake)).unwrap(),
                 }
             }
             Expression::VariableDeclaration(ty, name) => {

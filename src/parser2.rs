@@ -120,12 +120,7 @@ impl<'a> Parser<'a> {
         contract_definition: &ContractDefinition,
     ) -> Result<ParserOutput, ParserError> {
         match contract_definition.ty {
-            ContractTy::Abstract(_) => {
-                unimplemented!(
-                    "Abstract contract can not be instantiated so we only create impl and trait for it"
-                )
-            }
-            ContractTy::Contract(_) => {
+            ContractTy::Abstract(_) | ContractTy::Contract(_) => {
                 Ok(ParserOutput::Contract(
                     self.parse_contract(contract_definition)?,
                 ))
@@ -369,16 +364,23 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_struct(&self, struct_definition: &StructDefinition) -> Result<Struct, ParserError> {
+    fn parse_struct(
+        &mut self,
+        struct_definition: &StructDefinition,
+    ) -> Result<Struct, ParserError> {
         let name = self.parse_identifier(&struct_definition.name);
 
         let fields: Vec<StructField> = struct_definition
             .fields
             .iter()
             .filter_map(|variable_declaration| {
+                let name = self.parse_identifier(&variable_declaration.name);
+                let ty = self.parse_type(&variable_declaration.ty).ok()?;
+                self.members_map
+                    .insert(name.clone(), MemberType::None(Box::new(ty.clone())));
                 Some(StructField {
-                    name: self.parse_identifier(&variable_declaration.name),
-                    field_type: self.parse_type(&variable_declaration.ty).ok()?,
+                    name,
+                    field_type: ty,
                     comments: Default::default(),
                 })
             })
@@ -704,13 +706,24 @@ impl<'a> Parser<'a> {
                     SolangExpression::ArraySubscript(..) => {
                         self.array_subscript_to_mapping_subscript(array, index_maybe)
                     }
+                    SolangExpression::MemberAccess(_, expression, _) => {
+                        let parsed_expresion = self.parse_expression(&expression);
+                        match parsed_expresion {
+                            Expression::MappingSubscript(..) => self.array_subscript_to_mapping_subscript(array, index_maybe),
+                            _ => {
+                                boxed_expression!(parsed_array, array);
+                                maybe_boxed_expression!(parsed_index_maybe, index_maybe);
+                                Expression::ArraySubscript(parsed_array, parsed_index_maybe)
+                            }
+                        }
+                    }
                     SolangExpression::Variable(identifier) => {
                         let parsed_identifier = self.parse_identifier(&Some(identifier));
                         match self.members_map.get(&parsed_identifier) {
                             Some(ty) => {
                                 match ty {
-                                    // if let MemberType::Variable(variable_type) = ty
-                                    MemberType::Variable(variable_type) => {
+                                    MemberType::Variable(variable_type)
+                                    | MemberType::None(variable_type) => {
                                         match *variable_type.clone() {
                                             Type::Mapping(_, _) => {
                                                 self.array_subscript_to_mapping_subscript(
@@ -965,7 +978,9 @@ impl<'a> Parser<'a> {
                 Expression::NumberLiteral(literal.clone())
             }
             SolangExpression::RationalNumberLiteral(_, _, _, _) => todo!(),
-            SolangExpression::HexNumberLiteral(_, _) => todo!(),
+            SolangExpression::HexNumberLiteral(_, hex_number) => {
+                Expression::HexLiteral(hex_number.clone())
+            }
             SolangExpression::StringLiteral(strings) => {
                 let parsed_strings = strings
                     .iter()
@@ -988,10 +1003,8 @@ impl<'a> Parser<'a> {
             SolangExpression::AddressLiteral(_, _) => todo!(),
             SolangExpression::Variable(identifier) => {
                 let parsed_identifier = self.parse_identifier(&Some(identifier.clone()));
-                let member_type = self
-                    .members_map
-                    .get(&parsed_identifier)
-                    .unwrap_or(&MemberType::None);
+                let none = MemberType::None(Box::new(Type::None));
+                let member_type = self.members_map.get(&parsed_identifier).unwrap_or(&none);
                 Expression::Variable(parsed_identifier, member_type.clone())
             }
             SolangExpression::List(_, parameters) => {

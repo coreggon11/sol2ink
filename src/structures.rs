@@ -35,7 +35,7 @@ pub enum MemberType {
     Constant,
     Function,
     FunctionPrivate,
-    None,
+    None(Box<Type>),
 }
 
 #[derive(Clone, Default)]
