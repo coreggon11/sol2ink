@@ -295,26 +295,23 @@ impl<'a> Parser<'a> {
 
         // first we register all members of the contract
         for part in contract_definition.parts.iter() {
-            match part {
-                ContractPart::FunctionDefinition(function_definition) => {
-                    let fn_name = self.parse_identifier(&function_definition.name);
-                    let external = function_definition.attributes.iter().any(|attribute| {
-                        matches!(
-                            attribute,
-                            FunctionAttribute::Visibility(Visibility::External(_))
-                                | FunctionAttribute::Visibility(Visibility::Public(_))
-                        )
-                    });
-                    self.members_map.insert(
-                        fn_name.clone(),
-                        if external {
-                            MemberType::Function
-                        } else {
-                            MemberType::FunctionPrivate
-                        },
-                    );
-                }
-                _ => (),
+            if let ContractPart::FunctionDefinition(function_definition) = part {
+                let fn_name = self.parse_identifier(&function_definition.name);
+                let external = function_definition.attributes.iter().any(|attribute| {
+                    matches!(
+                        attribute,
+                        FunctionAttribute::Visibility(Visibility::External(_))
+                            | FunctionAttribute::Visibility(Visibility::Public(_))
+                    )
+                });
+                self.members_map.insert(
+                    fn_name.clone(),
+                    if external {
+                        MemberType::Function
+                    } else {
+                        MemberType::FunctionPrivate
+                    },
+                );
             }
         }
 
