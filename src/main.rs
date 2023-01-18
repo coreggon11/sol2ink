@@ -136,11 +136,11 @@ fn run(path: &String) -> Result<(), ParserError> {
                 file_utils::write_file(ink_trait, Some(file_name))?;
                 println!("File saved!");
             }
-            ParserOutput::Library(_library) => {
-                // let ink_trait = assembler::assemble_library(library);
-                // let file_name = path.replace(".sol", ".rs");
-                // file_utils::write_file(ink_trait, Some(file_name))?;
-                // println!("File saved!");
+            ParserOutput::Library(library) => {
+                let ink_trait = assembler::assemble_library(library);
+                let file_name = path.replace(".sol", ".rs");
+                file_utils::write_file(ink_trait, Some(file_name))?;
+                println!("File saved!");
             }
             _ => {}
         }

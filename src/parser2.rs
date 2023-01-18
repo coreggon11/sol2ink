@@ -130,7 +130,11 @@ impl<'a> Parser<'a> {
                     self.parse_contract(contract_definition)?,
                 ))
             }
-            ContractTy::Library(_) => unimplemented!(),
+            ContractTy::Library(_) => {
+                Ok(ParserOutput::Library(
+                    self.parse_library(contract_definition)?,
+                ))
+            }
             ContractTy::Interface(_) => {
                 Ok(ParserOutput::Interface(
                     self.parse_interface(contract_definition)?,
@@ -273,6 +277,88 @@ impl<'a> Parser<'a> {
             enums,
             structs,
             function_headers,
+            ..Default::default()
+        })
+    }
+
+    fn parse_library(
+        &mut self,
+        contract_definition: &ContractDefinition,
+    ) -> Result<Library, ParserError> {
+        let name = self.parse_identifier(&contract_definition.name);
+
+        let mut fields: Vec<ContractField> = Default::default();
+        let mut events: Vec<Event> = Default::default();
+        let mut enums: Vec<Enum> = Default::default();
+        let mut structs: Vec<Struct> = Default::default();
+        let mut functions: Vec<Function> = Default::default();
+
+        // first we register all members of the contract
+        for part in contract_definition.parts.iter() {
+            match part {
+                ContractPart::FunctionDefinition(function_definition) => {
+                    let fn_name = self.parse_identifier(&function_definition.name);
+                    let external = function_definition.attributes.iter().any(|attribute| {
+                        matches!(
+                            attribute,
+                            FunctionAttribute::Visibility(Visibility::External(_))
+                                | FunctionAttribute::Visibility(Visibility::Public(_))
+                        )
+                    });
+                    self.members_map.insert(
+                        fn_name.clone(),
+                        if external {
+                            MemberType::Function
+                        } else {
+                            MemberType::FunctionPrivate
+                        },
+                    );
+                }
+                _ => (),
+            }
+        }
+
+        for part in contract_definition.parts.iter() {
+            match part {
+                ContractPart::Annotation(_) => println!("Anottation: {part:?}"),
+                ContractPart::StructDefinition(struct_definition) => {
+                    let parsed_struct = self.parse_struct(struct_definition)?;
+                    structs.push(parsed_struct);
+                }
+                ContractPart::EventDefinition(event_definition) => {
+                    let parsed_event = self.parse_event(event_definition)?;
+                    events.push(parsed_event);
+                }
+                ContractPart::EnumDefinition(enum_definition) => {
+                    let parsed_enum = self.parse_enum(enum_definition)?;
+                    enums.push(parsed_enum);
+                }
+                ContractPart::ErrorDefinition(_) => {}
+                ContractPart::FunctionDefinition(function_definition) => {
+                    if function_definition.ty == FunctionTy::Function {
+                        let parsed_function = self.parse_function(function_definition)?;
+                        functions.push(parsed_function)
+                    }
+                }
+                ContractPart::TypeDefinition(_) => {}
+                ContractPart::Using(_) => {}
+                ContractPart::StraySemicolon(_) => {}
+                ContractPart::VariableDefinition(variable_definition) => {
+                    let parsed_field = self.parse_storage_field(variable_definition)?;
+                    self.members_map
+                        .insert(parsed_field.name.clone(), MemberType::Variable);
+                    fields.push(parsed_field);
+                }
+            }
+        }
+
+        Ok(Library {
+            name,
+            fields,
+            events,
+            enums,
+            structs,
+            functions,
             ..Default::default()
         })
     }
