@@ -1145,20 +1145,28 @@ impl ToTokens for Statement {
                 )
             }
             Statement::If(condition, if_true, if_false) => {
-                let else_block = if let Some(statement) = if_false {
-                    quote!(else {#statement})
-                } else {
-                    quote!()
-                };
-                quote!(
-                    if #condition {
+                match if_false {
+                    Some(statement) => {
+                        match *statement.clone() {
+                            Statement::If(..)=> quote!(
+                                if #condition {
+                                    #if_true
+                                } else #if_false
+                            ),
+                            _ => quote!(if #condition {
+                                #if_true
+                            }else { #if_false}
+                        )
+                        }
+                    },
+                    None => quote!(if #condition {
                         #if_true
-                    }
-                    #else_block
-                )
+                    }),
+                }
             }
             Statement::Return(expression) => quote!(return Ok(#expression)),
-            Statement::Revert(_, _) => todo!(),
+            Statement::Revert(reason, _) => {
+                quote!( return Err( Error::Custom(String::from(#reason) )) )},
             Statement::RevertNamedArgs => todo!(),
             Statement::Try(expression) => {
                 quote!(
