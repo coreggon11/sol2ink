@@ -48,13 +48,11 @@ use crate::{
 };
 use std::{
     collections::HashMap,
-    env,
     path::Path,
 };
 
 fn main() {
     let args = cli();
-    env::set_var("RUST_BACKTRACE", "1");
 
     let files = args.files.unwrap_or_else(|| {
         eprintln!("No files provided");

@@ -748,7 +748,11 @@ impl<'a> Parser<'a> {
             SolangExpression::Multiply(_, _, _) => todo!(),
             SolangExpression::Divide(_, _, _) => todo!(),
             SolangExpression::Modulo(_, _, _) => todo!(),
-            SolangExpression::Add(_, _, _) => todo!(),
+            SolangExpression::Add(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::Add(parsed_left, parsed_right)
+            }
             SolangExpression::Subtract(_, left, right) => {
                 boxed_expression!(parsed_left, left);
                 boxed_expression!(parsed_right, right);
@@ -764,7 +768,11 @@ impl<'a> Parser<'a> {
                 boxed_expression!(parsed_right, right);
                 Expression::Less(parsed_left, parsed_right)
             }
-            SolangExpression::More(_, _, _) => todo!(),
+            SolangExpression::More(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::More(parsed_left, parsed_right)
+            }
             SolangExpression::LessEqual(_, _, _) => todo!(),
             SolangExpression::MoreEqual(_, left, right) => {
                 boxed_expression!(parsed_left, left);
@@ -807,7 +815,7 @@ impl<'a> Parser<'a> {
             SolangExpression::AssignMultiply(_, _, _) => todo!(),
             SolangExpression::AssignDivide(_, _, _) => todo!(),
             SolangExpression::AssignModulo(_, _, _) => todo!(),
-            SolangExpression::BoolLiteral(_, _) => todo!(),
+            SolangExpression::BoolLiteral(_, value) => Expression::BoolLiteral(*value),
             SolangExpression::NumberLiteral(_, literal, b) => {
                 if !b.is_empty() {
                     println!("Number literal: B was {b}")
@@ -837,7 +845,16 @@ impl<'a> Parser<'a> {
                     .unwrap_or(&MemberType::None);
                 Expression::Variable(parsed_identifier, member_type.clone())
             }
-            SolangExpression::List(_, _) => todo!(),
+            SolangExpression::List(_, parameters) => {
+                let list = parameters
+                    .iter()
+                    .map(|tuple| tuple.1.clone())
+                    .filter(|option| option.is_some())
+                    .map(|parameter| parameter.unwrap().ty)
+                    .map(|expression| self.parse_expression(&expression))
+                    .collect();
+                Expression::List(list)
+            }
             SolangExpression::ArrayLiteral(_, _) => todo!(),
             SolangExpression::Unit(_, _, _) => todo!(),
             SolangExpression::This(_) => todo!(),

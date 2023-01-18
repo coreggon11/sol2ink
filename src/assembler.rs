@@ -1129,7 +1129,7 @@ impl ToTokens for Statement {
             }
             Statement::Emit(expression) => {
                 match expression {
-                    Expression::FunctionCall(identifier, args) 
+                    Expression::FunctionCall(identifier, args)
                     if let Expression::Variable(event_name,_)=*identifier.clone()=> {
                         let fn_name = TokenStream::from_str(&format!(
                             "_emit_{}",
@@ -1203,6 +1203,7 @@ impl ToTokens for Statement {
 impl ToTokens for Expression {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         tokens.extend(match self {
+            Expression::Add(left, right) => quote!( #left + #right),
             Expression::ArraySubscript(expression, index) => {
                 quote!( #expression [ #index ])
             }
@@ -1211,11 +1212,13 @@ impl ToTokens for Expression {
                     Expression::MappingSubscript(mapping, indices) => {
                         // means assigning to mapping
                         match *value.clone() {
-                            Expression::Subtract(_, _) => quote! (#mapping .insert(&(#(#indices),*), & (#value)) ),
-                            _ => quote! (#mapping .insert(&(#(#indices),*), & #value) )
+                            Expression::Subtract(_, _) => {
+                                quote! (#mapping .insert(&(#(#indices),*), & (#value)) )
+                            }
+                            _ => quote! (#mapping .insert(&(#(#indices),*), & #value) ),
                         }
                     }
-                    _ => quote!( #variable = #value )
+                    _ => quote!( #variable = #value ),
                 }
             }
             Expression::AssignAdd(variable, value) => {
@@ -1224,36 +1227,40 @@ impl ToTokens for Expression {
                         // means assigning to mapping
                         quote! (
                             let new_value = #mapping .get(&(#(#indices),*)).unwrap_or_default();
-                            #mapping .insert(&(#(#indices),*), & new_value) 
+                            #mapping .insert(&(#(#indices),*), & new_value)
                         )
                     }
-                    _ => quote!( #variable += #value )
+                    _ => quote!( #variable += #value ),
                 }
+            }
+            Expression::BoolLiteral(value) => {
+                quote!(#value)
+            }
+            Expression::Divide(left, right) => quote!( #left / #right ),
+            Expression::Equal(left, right) => {
+                quote!(
+                    #left == #right
+                )
             }
             Expression::FunctionCall(function, args) => {
                 match *function.clone() {
-                    Expression::Variable(name,_) if name == "require" =>{
+                    Expression::Variable(name, _) if name == "require" => {
                         let condition = &args[0];
-                        if args.len()> 1 {
+                        if args.len() > 1 {
                             let error = &args[1];
-                            quote!( 
-                                if ! (#condition) { 
-                                    return Err(Error::Custom( String::from( #error) )) 
-                                } 
+                            quote!(
+                                if ! (#condition) {
+                                    return Err(Error::Custom( String::from( #error) ))
+                                }
                             )
-                        }else {
-                            quote!( 
-                                if ! (#condition) { 
-                                    return Err(Error::Custom( String::from("No error message provdided :)") )) 
-                                } 
+                        } else {
+                            quote!(
+                                if ! (#condition) {
+                                    return Err(Error::Custom( String::from("No error message provdided :)") ))
+                                }
                             )
                         }
-                    } ,
-                    Expression::Variable(name,_) if name == "type" =>{
-                        quote!(
-                            type_of ( #(#args,)* )?
-                        )
-                    } ,
+                    }
                     Expression::Type(ty) if let Type::AccountId = *ty.clone() => {
                         if args.len() > 1 {
                             unreachable!("Multiple parameters were provided to `address` call")
@@ -1261,39 +1268,40 @@ impl ToTokens for Expression {
                         let account_id = &args[0];
                         match account_id {
                             Expression::NumberLiteral(number) if number == "0" => {
-                                quote!( ZERO_ADDRESS.into() )
+                                quote!(ZERO_ADDRESS.into())
                             }
-                            _ => quote!( AccountId::from(#account_id) )
+                            _ => quote!( AccountId::from(#account_id) ),
                         }
                     }
-                    _ => quote!(
-                        #function ( #(#args,)* )?
-                    )
+                    Expression::Variable(name, _) if name == "type" => {
+                        quote!(
+                            type_of ( #(#args,)* )?
+                        )
+                    }
+                    _ => {
+                        quote!(
+                            #function ( #(#args,)* )?
+                        )
+                    }
                 }
             }
-            Expression::Equal(left, right) => {
-                quote!(
-                    #left == #right
-                )
-            }
             Expression::Less(left, right) => {
-                quote!(
-                    #left < #right
-                )
+                quote!( #left < #right )
             }
+            Expression::List(list) => quote!( #(#list),* ),
             Expression::MappingSubscript(array, indices) => {
                 if indices.len() > 1 {
                     quote! (#array.get(&(#(#indices),*)).unwrap_or_default())
-                }else {
+                } else {
                     quote! (#array.get(&#(#indices),*).unwrap_or_default())
                 }
-            },
+            }
             Expression::MemberAccess(left, member) => {
                 match *left.clone() {
                     Expression::Variable(name, _) if name == "msg" => {
                         match member.as_str() {
-                            "sender" => quote!( Self::env().caller() ),
-                            _ => panic!("msg.{member} is not implemented!")
+                            "sender" => quote!(Self::env().caller()),
+                            _ => panic!("msg.{member} is not implemented!"),
                         }
                     }
                     _ => {
@@ -1302,11 +1310,14 @@ impl ToTokens for Expression {
                     }
                 }
             }
-            Expression::MoreEqual(left, right) => {
-                quote!(
-                    #left >= #right
-                )
+            Expression::Modulo(left, right) => quote!( #left % #right ),
+            Expression::More(left, right) => {
+                quote!( #left > #right )
             }
+            Expression::MoreEqual(left, right) => {
+                quote!( #left >= #right )
+            }
+            Expression::Multiply(left, right) => quote!( #left * #right ),
             Expression::New(new) => {
                 match *new.clone() {
                     // new array
@@ -1319,16 +1330,12 @@ impl ToTokens for Expression {
                 }
             }
             Expression::NotEqual(left, right) => {
-                quote!(
-                    #left != #right
-                )
+                quote!( #left != #right )
             }
-            Expression::NumberLiteral(value) => {
-                TokenStream::from_str(value).unwrap()
-            }
+            Expression::NumberLiteral(value) => TokenStream::from_str(value).unwrap(),
             Expression::Or(left, right) => {
                 quote!(
-                    #left || #right
+                   #left || #right
                 )
             }
             Expression::PostDecrement(expression) => {
@@ -1341,6 +1348,7 @@ impl ToTokens for Expression {
                     #expression += 1
                 )
             }
+            Expression::Power(left, right) => quote!( #left .pow( #right ) ),
             Expression::PreDecrement(expression) => {
                 quote!(
                     #expression -= 1
@@ -1361,14 +1369,23 @@ impl ToTokens for Expression {
                 )
             }
             Expression::Type(ty) => quote!( #ty ),
-            Expression::Variable(name,member_type) => {
+            Expression::Variable(name, member_type) => {
                 match member_type {
-                    MemberType::Variable => TokenStream::from_str(&format!("{}{}","self.data().",name.to_case(Snake))).unwrap(),
-                    MemberType::Function => TokenStream::from_str(&format!("{}{}","self.",name.to_case(Snake))).unwrap(),
-                    MemberType::FunctionPrivate => TokenStream::from_str(&format!("{}_{}","self.",name.to_case(Snake))).unwrap(),
+                    MemberType::Variable => {
+                        TokenStream::from_str(&format!("{}{}", "self.data().", name.to_case(Snake)))
+                            .unwrap()
+                    }
+                    MemberType::Function => {
+                        TokenStream::from_str(&format!("{}{}", "self.", name.to_case(Snake)))
+                            .unwrap()
+                    }
+                    MemberType::FunctionPrivate => {
+                        TokenStream::from_str(&format!("{}_{}", "self.", name.to_case(Snake)))
+                            .unwrap()
+                    }
                     MemberType::None => TokenStream::from_str(&name.to_case(Snake)).unwrap(),
                 }
-            },
+            }
             Expression::VariableDeclaration(ty, name) => {
                 let name = TokenStream::from_str(name).unwrap();
                 quote!(let mut #name : #ty)
