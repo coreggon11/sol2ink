@@ -27,14 +27,20 @@
 extern crate core;
 
 pub mod assembler;
+pub mod cli;
 pub mod file_utils;
 pub mod formatter;
 pub mod parser;
 pub mod structures;
 pub mod toml_builder;
-pub mod cli;
 
-use crate::parser::ParserError;
+use crate::{
+    cli::{
+        cli,
+        CliInput,
+    },
+    parser::ParserError,
+};
 use parser::ParserOutput;
 use std::{
     collections::{
@@ -42,9 +48,8 @@ use std::{
         HashSet,
     },
     env,
+    path::Path,
 };
-use std::path::Path;
-use crate::cli::{cli, CliInput};
 
 fn main() {
     let args = cli();
@@ -65,7 +70,7 @@ fn main() {
                 match run(&file) {
                     Ok(_) => {
                         println!("Successfully parsed {}", file);
-                    },
+                    }
                     Err(err) => {
                         eprintln!("error: {:?}", err);
                         std::process::exit(1);
@@ -84,7 +89,7 @@ fn main() {
                         match run(&file.to_string()) {
                             Ok(_) => {
                                 println!("Successfully parsed {}", file);
-                            },
+                            }
                             Err(err) => {
                                 eprintln!("error: {:?}", err);
                                 std::process::exit(1);
@@ -94,7 +99,6 @@ fn main() {
                 }
             }
         }
-
     }
 }
 
