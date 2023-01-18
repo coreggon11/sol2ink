@@ -51,6 +51,7 @@ pub struct Contract {
     pub modifiers: Vec<Modifier>,
 }
 
+#[derive(Clone, Default)]
 pub struct Library {
     pub name: String,
     pub fields: Vec<ContractField>,
@@ -62,6 +63,7 @@ pub struct Library {
     pub libraray_doc: Vec<String>,
 }
 
+#[derive(Clone, Default)]
 pub struct Interface {
     pub name: String,
     pub events: Vec<Event>,

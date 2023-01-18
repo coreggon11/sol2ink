@@ -1366,7 +1366,7 @@ impl ToTokens for Expression {
                     MemberType::Variable => TokenStream::from_str(&format!("{}{}","self.data().",name.to_case(Snake))).unwrap(),
                     MemberType::Function => TokenStream::from_str(&format!("{}{}","self.",name.to_case(Snake))).unwrap(),
                     MemberType::FunctionPrivate => TokenStream::from_str(&format!("{}_{}","self.",name.to_case(Snake))).unwrap(),
-                    MemberType::None => TokenStream::from_str(&format!("{}",name.to_case(Snake))).unwrap(),
+                    MemberType::None => TokenStream::from_str(&name.to_case(Snake)).unwrap(),
                 }
             },
             Expression::VariableDeclaration(ty, name) => {

@@ -131,7 +131,11 @@ impl<'a> Parser<'a> {
                 ))
             }
             ContractTy::Library(_) => unimplemented!(),
-            ContractTy::Interface(_) => unimplemented!(),
+            ContractTy::Interface(_) => {
+                Ok(ParserOutput::Interface(
+                    self.parse_interface(contract_definition)?,
+                ))
+            }
         }
     }
 
@@ -210,13 +214,6 @@ impl<'a> Parser<'a> {
                 _ => {}
             }
         }
-        // TODO
-        // parent = contract_definition.base
-        // pub constructor: Function,
-        // pub functions: Vec<Function>,
-        // pub imports: HashSet<String>,
-        // pub contract_doc: Vec<String>,
-        // pub modifiers: Vec<Modifier>,
 
         Ok(Contract {
             name,
@@ -226,6 +223,56 @@ impl<'a> Parser<'a> {
             fields,
             functions,
             constructor,
+            ..Default::default()
+        })
+    }
+
+    fn parse_interface(
+        &mut self,
+        contract_definition: &ContractDefinition,
+    ) -> Result<Interface, ParserError> {
+        let name = self.parse_identifier(&contract_definition.name);
+
+        let mut structs: Vec<Struct> = Default::default();
+        let mut events: Vec<Event> = Default::default();
+        let mut enums: Vec<Enum> = Default::default();
+        let mut function_headers: Vec<FunctionHeader> = Default::default();
+
+        for part in contract_definition.parts.iter() {
+            match part {
+                ContractPart::Annotation(_) => println!("Anottation: {part:?}"),
+                ContractPart::StructDefinition(struct_definition) => {
+                    let parsed_struct = self.parse_struct(struct_definition)?;
+                    structs.push(parsed_struct);
+                }
+                ContractPart::EventDefinition(event_definition) => {
+                    let parsed_event = self.parse_event(event_definition)?;
+                    events.push(parsed_event);
+                }
+                ContractPart::EnumDefinition(enum_definition) => {
+                    let parsed_enum = self.parse_enum(enum_definition)?;
+                    enums.push(parsed_enum);
+                }
+                ContractPart::ErrorDefinition(_) => {}
+                ContractPart::FunctionDefinition(function_definition) => {
+                    if function_definition.ty == FunctionTy::Function {
+                        let header = self.parse_function_header(function_definition);
+                        function_headers.push(header);
+                    }
+                }
+                ContractPart::TypeDefinition(_) => {}
+                ContractPart::Using(_) => {}
+                ContractPart::StraySemicolon(_) => {}
+                _ => {}
+            }
+        }
+
+        Ok(Interface {
+            name,
+            events,
+            enums,
+            structs,
+            function_headers,
             ..Default::default()
         })
     }
@@ -326,6 +373,32 @@ impl<'a> Parser<'a> {
         &self,
         function_definition: &FunctionDefinition,
     ) -> Result<Function, ParserError> {
+        let header = self.parse_function_header(function_definition);
+
+        // TODO
+        let _modifiers = function_definition
+            .attributes
+            .iter()
+            .filter(|&attribute| matches!(attribute, FunctionAttribute::BaseOrModifier(..)))
+            .map(|modifier| {
+                if let FunctionAttribute::BaseOrModifier(_, base) = modifier {
+                    let _name = self.parse_identifier_path(&base.name);
+                    // TODO
+                } else {
+                    unreachable!("The vec was filtered before");
+                }
+            });
+
+        let body = if let Some(statement) = &function_definition.body {
+            Some(self.parse_statement(statement)?)
+        } else {
+            None
+        };
+
+        Ok(Function { header, body })
+    }
+
+    fn parse_function_header(&self, function_definition: &FunctionDefinition) -> FunctionHeader {
         let name = self.parse_identifier(&function_definition.name);
         let params = function_definition
             .params
@@ -367,21 +440,8 @@ impl<'a> Parser<'a> {
                 Some(FunctionParam { name, param_type })
             })
             .collect();
-        // TODO
-        let _modifiers = function_definition
-            .attributes
-            .iter()
-            .filter(|&attribute| matches!(attribute, FunctionAttribute::BaseOrModifier(..)))
-            .map(|modifier| {
-                if let FunctionAttribute::BaseOrModifier(_, base) = modifier {
-                    let _name = self.parse_identifier_path(&base.name);
-                    // TODO
-                } else {
-                    unreachable!("The vec was filtered before");
-                }
-            });
 
-        let header = FunctionHeader {
+        FunctionHeader {
             name,
             params,
             external,
@@ -389,15 +449,7 @@ impl<'a> Parser<'a> {
             payable,
             return_params,
             ..Default::default()
-        };
-
-        let body = if let Some(statement) = &function_definition.body {
-            Some(self.parse_statement(statement)?)
-        } else {
-            None
-        };
-
-        Ok(Function { header, body })
+        }
     }
 
     fn parse_statement(&self, statement: &SolangStatement) -> Result<Statement, ParserError> {
@@ -557,7 +609,7 @@ impl<'a> Parser<'a> {
                     SolangExpression::ArraySubscript(..) => {
                         let mut parsed_indices = VecDeque::default();
                         parsed_indices.push_back(
-                            self.parse_expression(&*index_maybe.as_ref().unwrap().clone()),
+                            self.parse_expression(&index_maybe.as_ref().unwrap().clone()),
                         );
                         let mut array_now = array.clone();
                         while let SolangExpression::ArraySubscript(_, array, index_maybe) =
