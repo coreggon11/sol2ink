@@ -1177,9 +1177,9 @@ impl ToTokens for Statement {
             }
             Statement::UncheckedBlock(statements) => {
                 quote!(
-                    _comment_!("Please handle unchecked blocks manually >>>");
+                    // _comment_!("Please handle unchecked blocks manually >>>");
                     #(#statements)*
-                    _comment_!("<<< Please handle unchecked blocks manually");
+                    // _comment_!("<<< Please handle unchecked blocks manually");
                 )
             }
             Statement::VariableDefinition(definition, initial_value) => {
@@ -1226,11 +1226,59 @@ impl ToTokens for Expression {
                     Expression::MappingSubscript(mapping, indices) => {
                         // means assigning to mapping
                         quote! (
-                            let new_value = #mapping .get(&(#(#indices),*)).unwrap_or_default();
+                            let new_value = #mapping .get(&(#(#indices),*)).unwrap_or_default() + value;
                             #mapping .insert(&(#(#indices),*), & new_value)
                         )
                     }
                     _ => quote!( #variable += #value ),
+                }
+            }
+            Expression::AssignDivide(variable, value) => {
+                match *variable.clone() {
+                    Expression::MappingSubscript(mapping, indices) => {
+                        // means assigning to mapping
+                        quote! (
+                            let new_value = #mapping .get(&(#(#indices),*)).unwrap_or_default() / value;
+                            #mapping .insert(&(#(#indices),*), & new_value)
+                        )
+                    }
+                    _ => quote!( #variable /= #value ),
+                }
+            }
+            Expression::AssignModulo(variable, value) => {
+                match *variable.clone() {
+                    Expression::MappingSubscript(mapping, indices) => {
+                        // means assigning to mapping
+                        quote! (
+                            let new_value = #mapping .get(&(#(#indices),*)).unwrap_or_default() % value;
+                            #mapping .insert(&(#(#indices),*), & new_value)
+                        )
+                    }
+                    _ => quote!( #variable %= #value ),
+                }
+            }
+            Expression::AssignMultiply(variable, value) => {
+                match *variable.clone() {
+                    Expression::MappingSubscript(mapping, indices) => {
+                        // means assigning to mapping
+                        quote! (
+                            let new_value = #mapping .get(&(#(#indices),*)).unwrap_or_default() * value;
+                            #mapping .insert(&(#(#indices),*), & new_value)
+                        )
+                    }
+                    _ => quote!( #variable *= #value ),
+                }
+            }
+            Expression::AssignSubtract(variable, value) => {
+                match *variable.clone() {
+                    Expression::MappingSubscript(mapping, indices) => {
+                        // means assigning to mapping
+                        quote! (
+                            let new_value = #mapping .get(&(#(#indices),*)).unwrap_or_default() - value;
+                            #mapping .insert(&(#(#indices),*), & new_value)
+                        )
+                    }
+                    _ => quote!( #variable -= #value ),
                 }
             }
             Expression::BoolLiteral(value) => {
@@ -1288,7 +1336,10 @@ impl ToTokens for Expression {
             Expression::Less(left, right) => {
                 quote!( #left < #right )
             }
-            Expression::List(list) => quote!( #(#list),* ),
+            Expression::LessEqual(left, right) => {
+                quote!( #left <= #right )
+            }
+            Expression::List(list) => quote!( (#(#list),*) ),
             Expression::MappingSubscript(array, indices) => {
                 if indices.len() > 1 {
                     quote! (#array.get(&(#(#indices),*)).unwrap_or_default())

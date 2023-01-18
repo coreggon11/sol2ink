@@ -744,10 +744,26 @@ impl<'a> Parser<'a> {
             }
             SolangExpression::UnaryPlus(_, _) => todo!(),
             SolangExpression::UnaryMinus(_, _) => todo!(),
-            SolangExpression::Power(_, _, _) => todo!(),
-            SolangExpression::Multiply(_, _, _) => todo!(),
-            SolangExpression::Divide(_, _, _) => todo!(),
-            SolangExpression::Modulo(_, _, _) => todo!(),
+            SolangExpression::Power(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::Power(parsed_left, parsed_right)
+            }
+            SolangExpression::Multiply(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::Multiply(parsed_left, parsed_right)
+            }
+            SolangExpression::Divide(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::Divide(parsed_left, parsed_right)
+            }
+            SolangExpression::Modulo(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::Modulo(parsed_left, parsed_right)
+            }
             SolangExpression::Add(_, left, right) => {
                 boxed_expression!(parsed_left, left);
                 boxed_expression!(parsed_right, right);
@@ -773,7 +789,11 @@ impl<'a> Parser<'a> {
                 boxed_expression!(parsed_right, right);
                 Expression::More(parsed_left, parsed_right)
             }
-            SolangExpression::LessEqual(_, _, _) => todo!(),
+            SolangExpression::LessEqual(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::LessEqual(parsed_left, parsed_right)
+            }
             SolangExpression::MoreEqual(_, left, right) => {
                 boxed_expression!(parsed_left, left);
                 boxed_expression!(parsed_right, right);
@@ -789,7 +809,11 @@ impl<'a> Parser<'a> {
                 boxed_expression!(parsed_right, right);
                 Expression::NotEqual(parsed_left, parsed_right)
             }
-            SolangExpression::And(_, _, _) => todo!(),
+            SolangExpression::And(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::Add(parsed_left, parsed_right)
+            }
             SolangExpression::Or(_, left, right) => {
                 boxed_expression!(parsed_left, left);
                 boxed_expression!(parsed_right, right);
@@ -811,10 +835,26 @@ impl<'a> Parser<'a> {
                 boxed_expression!(parsed_right, right);
                 Expression::AssignAdd(parsed_left, parsed_right)
             }
-            SolangExpression::AssignSubtract(_, _, _) => todo!(),
-            SolangExpression::AssignMultiply(_, _, _) => todo!(),
-            SolangExpression::AssignDivide(_, _, _) => todo!(),
-            SolangExpression::AssignModulo(_, _, _) => todo!(),
+            SolangExpression::AssignSubtract(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::AssignSubtract(parsed_left, parsed_right)
+            }
+            SolangExpression::AssignMultiply(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::AssignMultiply(parsed_left, parsed_right)
+            }
+            SolangExpression::AssignDivide(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::AssignDivide(parsed_left, parsed_right)
+            }
+            SolangExpression::AssignModulo(_, left, right) => {
+                boxed_expression!(parsed_left, left);
+                boxed_expression!(parsed_right, right);
+                Expression::AssignModulo(parsed_left, parsed_right)
+            }
             SolangExpression::BoolLiteral(_, value) => Expression::BoolLiteral(*value),
             SolangExpression::NumberLiteral(_, literal, b) => {
                 if !b.is_empty() {
