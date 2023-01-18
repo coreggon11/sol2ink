@@ -162,8 +162,10 @@ impl<'a> Parser<'a> {
             match part {
                 ContractPart::VariableDefinition(variable_definition) => {
                     let parsed_field = self.parse_storage_field(variable_definition)?;
-                    self.members_map
-                        .insert(parsed_field.name.clone(), MemberType::Variable);
+                    self.members_map.insert(
+                        parsed_field.name.clone(),
+                        MemberType::Variable(Box::new(parsed_field.field_type.clone())),
+                    );
                     fields.push(parsed_field);
                 }
                 ContractPart::FunctionDefinition(function_definition) => {
@@ -342,8 +344,10 @@ impl<'a> Parser<'a> {
                 ContractPart::StraySemicolon(_) => {}
                 ContractPart::VariableDefinition(variable_definition) => {
                     let parsed_field = self.parse_storage_field(variable_definition)?;
-                    self.members_map
-                        .insert(parsed_field.name.clone(), MemberType::Variable);
+                    self.members_map.insert(
+                        parsed_field.name.clone(),
+                        MemberType::Variable(Box::new(parsed_field.field_type.clone())),
+                    );
                     fields.push(parsed_field);
                 }
             }
@@ -690,23 +694,48 @@ impl<'a> Parser<'a> {
             SolangExpression::ArraySubscript(_, array, index_maybe) => {
                 match *array.clone() {
                     SolangExpression::ArraySubscript(..) => {
-                        let mut parsed_indices = VecDeque::default();
-                        parsed_indices.push_back(
-                            self.parse_expression(&index_maybe.as_ref().unwrap().clone()),
-                        );
-                        let mut array_now = array.clone();
-                        while let SolangExpression::ArraySubscript(_, array, index_maybe) =
-                            *array_now.clone()
-                        {
-                            parsed_indices.push_back(self.parse_expression(&index_maybe.unwrap()));
-                            array_now = array.clone();
+                        self.array_subscript_to_mapping_subscript(array, index_maybe)
+                    }
+                    SolangExpression::Variable(identifier) => {
+                        let parsed_identifier = self.parse_identifier(&Some(identifier));
+                        match self.members_map.get(&parsed_identifier) {
+                            Some(ty) => {
+                                match ty {
+                                    // if let MemberType::Variable(variable_type) = ty
+                                    MemberType::Variable(variable_type) => {
+                                        match *variable_type.clone() {
+                                            Type::Mapping(_, _) => {
+                                                self.array_subscript_to_mapping_subscript(
+                                                    array,
+                                                    index_maybe,
+                                                )
+                                            }
+                                            _ => {
+                                                boxed_expression!(parsed_array, array);
+                                                maybe_boxed_expression!(
+                                                    parsed_index_maybe,
+                                                    index_maybe
+                                                );
+                                                Expression::ArraySubscript(
+                                                    parsed_array,
+                                                    parsed_index_maybe,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    _ => {
+                                        boxed_expression!(parsed_array, array);
+                                        maybe_boxed_expression!(parsed_index_maybe, index_maybe);
+                                        Expression::ArraySubscript(parsed_array, parsed_index_maybe)
+                                    }
+                                }
+                            }
+                            None => {
+                                boxed_expression!(parsed_array, array);
+                                maybe_boxed_expression!(parsed_index_maybe, index_maybe);
+                                Expression::ArraySubscript(parsed_array, parsed_index_maybe)
+                            }
                         }
-                        let mut vec_indices = Vec::default();
-                        while !parsed_indices.is_empty() {
-                            vec_indices.push(parsed_indices.pop_back().unwrap());
-                        }
-                        boxed_expression!(parsed_array, &array_now);
-                        Expression::MappingSubscript(parsed_array, vec_indices)
                     }
                     _ => {
                         boxed_expression!(parsed_array, array);
@@ -718,7 +747,10 @@ impl<'a> Parser<'a> {
             SolangExpression::ArraySlice(_, _, _, _) => {
                 todo!()
             }
-            SolangExpression::Parenthesis(_, _) => todo!(),
+            SolangExpression::Parenthesis(_, expression) => {
+                boxed_expression!(parsed_expression, expression);
+                Expression::Parenthesis(parsed_expression)
+            }
             SolangExpression::MemberAccess(_, expression, identifier) => {
                 boxed_expression!(parsed_expression, expression);
                 let parsed_identifier = self.parse_identifier(&Some(identifier.clone()));
@@ -731,9 +763,15 @@ impl<'a> Parser<'a> {
             }
             SolangExpression::FunctionCallBlock(_, _, _) => todo!(),
             SolangExpression::NamedFunctionCall(_, _, _) => todo!(),
-            SolangExpression::Not(_, _) => todo!(),
+            SolangExpression::Not(_, expression) => {
+                boxed_expression!(parsed_expression, expression);
+                Expression::Not(parsed_expression)
+            }
             SolangExpression::Complement(_, _) => todo!(),
-            SolangExpression::Delete(_, _) => todo!(),
+            SolangExpression::Delete(_, expression) => {
+                boxed_expression!(parsed_expression, expression);
+                Expression::Delete(parsed_expression)
+            }
             SolangExpression::PreIncrement(_, expression) => {
                 boxed_expression!(parsed_expression, expression);
                 Expression::PreIncrement(parsed_expression)
@@ -819,7 +857,12 @@ impl<'a> Parser<'a> {
                 boxed_expression!(parsed_right, right);
                 Expression::Or(parsed_left, parsed_right)
             }
-            SolangExpression::ConditionalOperator(_, _, _, _) => todo!(),
+            SolangExpression::ConditionalOperator(_, condition, if_true, if_false) => {
+                boxed_expression!(parsed_condition, condition);
+                boxed_expression!(parsed_if_true, if_true);
+                boxed_expression!(parsed_if_false, if_false);
+                Expression::Ternary(parsed_condition, parsed_if_true, parsed_if_false)
+            }
             SolangExpression::Assign(_, left, right) => {
                 boxed_expression!(parsed_left, left);
                 boxed_expression!(parsed_right, right);
@@ -906,6 +949,27 @@ impl<'a> Parser<'a> {
             .iter()
             .map(|expression| self.parse_expression(expression))
             .collect()
+    }
+
+    fn array_subscript_to_mapping_subscript(
+        &self,
+        array: &SolangExpression,
+        index_maybe: &Option<Box<SolangExpression>>,
+    ) -> Expression {
+        let mut parsed_indices = VecDeque::default();
+        parsed_indices.push_back(self.parse_expression(&index_maybe.as_ref().unwrap().clone()));
+        let mut array_now = array.clone();
+        while let SolangExpression::ArraySubscript(_, array, index_maybe) = array_now {
+            parsed_indices.push_back(self.parse_expression(&index_maybe.unwrap()));
+            array_now = *array.clone();
+        }
+        let mut vec_indices = Vec::default();
+        while !parsed_indices.is_empty() {
+            vec_indices.push(parsed_indices.pop_back().unwrap());
+        }
+
+        let parsed_array = Box::new(self.parse_expression(&array_now));
+        Expression::MappingSubscript(parsed_array, vec_indices)
     }
 
     fn parse_identifier_path(&self, identifier_path: &IdentifierPath) -> String {

@@ -31,7 +31,7 @@ pub enum ArrayType {
 
 #[derive(Debug, Clone)]
 pub enum MemberType {
-    Variable,
+    Variable(Box<Type>),
     Function,
     FunctionPrivate,
     None,
@@ -194,6 +194,7 @@ pub enum Expression {
     AssignMultiply(Box<Expression>, Box<Expression>),
     AssignSubtract(Box<Expression>, Box<Expression>),
     BoolLiteral(bool),
+    Delete(Box<Expression>),
     Divide(Box<Expression>, Box<Expression>),
     FunctionCall(Box<Expression>, Vec<Expression>),
     Equal(Box<Expression>, Box<Expression>),
@@ -207,9 +208,11 @@ pub enum Expression {
     MoreEqual(Box<Expression>, Box<Expression>),
     Multiply(Box<Expression>, Box<Expression>),
     New(Box<Expression>),
+    Not(Box<Expression>),
     NotEqual(Box<Expression>, Box<Expression>),
     NumberLiteral(String),
     Or(Box<Expression>, Box<Expression>),
+    Parenthesis(Box<Expression>),
     PostDecrement(Box<Expression>),
     PostIncrement(Box<Expression>),
     Power(Box<Expression>, Box<Expression>),
@@ -217,6 +220,7 @@ pub enum Expression {
     PreIncrement(Box<Expression>),
     StringLiteral(Vec<String>),
     Subtract(Box<Expression>, Box<Expression>),
+    Ternary(Box<Expression>, Box<Expression>, Box<Expression>),
     Type(Box<Type>),
     Variable(String, MemberType),
     VariableDeclaration(Box<Type>, String),

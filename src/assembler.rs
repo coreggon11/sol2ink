@@ -1208,13 +1208,7 @@ impl ToTokens for Expression {
             Expression::Assign(variable, value) => {
                 match *variable.clone() {
                     Expression::MappingSubscript(mapping, indices) => {
-                        // means assigning to mapping
-                        match *value.clone() {
-                            Expression::Subtract(_, _) => {
-                                quote! (#mapping .insert(&(#(#indices),*), & (#value)) )
-                            }
-                            _ => quote! (#mapping .insert(&(#(#indices),*), & #value) ),
-                        }
+                        quote! (#mapping .insert(&(#(#indices),*), & #value) )
                     }
                     _ => quote!( #variable = #value ),
                 }
@@ -1222,9 +1216,8 @@ impl ToTokens for Expression {
             Expression::AssignAdd(variable, value) => {
                 match *variable.clone() {
                     Expression::MappingSubscript(mapping, indices) => {
-                        // means assigning to mapping
-                        quote! (
-                            let new_value = #mapping .get(&(#(#indices),*)).unwrap_or_default() + value;
+                        quote! (  
+                            let new_value = #mapping .get(&( #(#indices),* )).unwrap_or_default() + #value;
                             #mapping .insert(&(#(#indices),*), & new_value)
                         )
                     }
@@ -1234,9 +1227,8 @@ impl ToTokens for Expression {
             Expression::AssignDivide(variable, value) => {
                 match *variable.clone() {
                     Expression::MappingSubscript(mapping, indices) => {
-                        // means assigning to mapping
                         quote! (
-                            let new_value = #mapping .get(&(#(#indices),*)).unwrap_or_default() / value;
+                            let new_value = #mapping .get(&(#(#indices),*)).unwrap_or_default() / #value;
                             #mapping .insert(&(#(#indices),*), & new_value)
                         )
                     }
@@ -1246,9 +1238,8 @@ impl ToTokens for Expression {
             Expression::AssignModulo(variable, value) => {
                 match *variable.clone() {
                     Expression::MappingSubscript(mapping, indices) => {
-                        // means assigning to mapping
                         quote! (
-                            let new_value = #mapping .get(&(#(#indices),*)).unwrap_or_default() % value;
+                            let new_value = #mapping .get(&(#(#indices),*)).unwrap_or_default() % #value;
                             #mapping .insert(&(#(#indices),*), & new_value)
                         )
                     }
@@ -1258,9 +1249,8 @@ impl ToTokens for Expression {
             Expression::AssignMultiply(variable, value) => {
                 match *variable.clone() {
                     Expression::MappingSubscript(mapping, indices) => {
-                        // means assigning to mapping
                         quote! (
-                            let new_value = #mapping .get(&(#(#indices),*)).unwrap_or_default() * value;
+                            let new_value = #mapping .get(&(#(#indices),*)).unwrap_or_default() * #value;
                             #mapping .insert(&(#(#indices),*), & new_value)
                         )
                     }
@@ -1270,9 +1260,8 @@ impl ToTokens for Expression {
             Expression::AssignSubtract(variable, value) => {
                 match *variable.clone() {
                     Expression::MappingSubscript(mapping, indices) => {
-                        // means assigning to mapping
                         quote! (
-                            let new_value = #mapping .get(&(#(#indices),*)).unwrap_or_default() - value;
+                            let new_value = #mapping .get(&(#(#indices),*)).unwrap_or_default() - #value;
                             #mapping .insert(&(#(#indices),*), & new_value)
                         )
                     }
@@ -1281,6 +1270,14 @@ impl ToTokens for Expression {
             }
             Expression::BoolLiteral(value) => {
                 quote!(#value)
+            }
+            Expression::Delete(expression) => {
+                match *expression.clone() {
+                    Expression::MappingSubscript(mapping, indices) => {
+                        quote! (#mapping .remove(&(#(#indices),*)) )
+                    }
+                    _ => quote!(_comment_!("Deletion of storage member")),
+                }
             }
             Expression::Divide(left, right) => quote!( #left / #right ),
             Expression::Equal(left, right) => {
@@ -1295,20 +1292,24 @@ impl ToTokens for Expression {
                         if args.len() > 1 {
                             let error = &args[1];
                             match error {
-                                Expression::Variable(..) => quote!(
-                                    if ! (#condition) {
-                                        return Err(Error::Custom( #error ))
-                                    }
-                                ),
-                                _=>quote!(
-                                    if ! (#condition) {
-                                        return Err(Error::Custom( String::from( #error) ))
-                                    }
-                                )
+                                Expression::Variable(..) => {
+                                    quote!(
+                                        if ! (#condition) {
+                                            return Err(Error::Custom( #error ))
+                                        }
+                                    )
+                                }
+                                _ => {
+                                    quote!(
+                                        if ! (#condition) {
+                                            return Err(Error::Custom( String::from( #error) ))
+                                        }
+                                    )
+                                }
                             }
                         } else {
                             quote!(
-                                if ! (#condition) {
+                                if ! (#condition)   {
                                     return Err(Error::Custom( String::from("No error message provdided :)") ))
                                 }
                             )
@@ -1326,14 +1327,20 @@ impl ToTokens for Expression {
                             _ => quote!( AccountId::from(#account_id) ),
                         }
                     }
+                    Expression::Type(ty) => {
+                        match *ty.clone() {
+                            Type::DynamicBytes => quote!( Vec::<u8>::from ( #(#args),* ) ),
+                            _ => quote!( #ty :: from ( #(#args),* ) )
+                        }
+                    }
                     Expression::Variable(name, _) if name == "type" => {
                         quote!(
-                            type_of ( #(#args,)* )?
+                            type_of ( #(#args),* )?
                         )
                     }
                     _ => {
                         quote!(
-                            #function ( #(#args,)* )?
+                            #function ( #(#args),* )?
                         )
                     }
                 }
@@ -1385,6 +1392,9 @@ impl ToTokens for Expression {
                     _ => todo!(),
                 }
             }
+            Expression::Not(expression) => {
+                quote!( ! #expression )
+            }
             Expression::NotEqual(left, right) => {
                 quote!( #left != #right )
             }
@@ -1393,6 +1403,9 @@ impl ToTokens for Expression {
                 quote!(
                    #left || #right
                 )
+            }
+            Expression::Parenthesis(expression) => {
+                quote! ( (#expression) )
             }
             Expression::PostDecrement(expression) => {
                 quote!(
@@ -1424,10 +1437,13 @@ impl ToTokens for Expression {
                     #left - #right
                 )
             }
+            Expression::Ternary(condition, if_true, if_false) => {
+                quote!( if #condition { #if_true } else { #if_false } )
+            }
             Expression::Type(ty) => quote!( #ty ),
             Expression::Variable(name, member_type) => {
                 match member_type {
-                    MemberType::Variable => {
+                    MemberType::Variable(_) => {
                         TokenStream::from_str(&format!("{}{}", "self.data().", name.to_case(Snake)))
                             .unwrap()
                     }
