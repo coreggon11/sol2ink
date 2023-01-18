@@ -452,7 +452,7 @@ impl<'a> Parser<'a> {
         let initial_value = variable_definition
             .initializer
             .as_ref()
-            .map(|expression| self.parse_expression(&expression)); // TODO
+            .map(|expression| self.parse_expression(expression));
         let comments = Vec::default();
         Ok(ContractField {
             field_type,

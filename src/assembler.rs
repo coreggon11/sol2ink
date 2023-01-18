@@ -805,22 +805,19 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
     output
 }
 
-fn has_return_statement(statement: &Option<Statement>) -> bool{
+fn has_return_statement(statement: &Option<Statement>) -> bool {
     match statement {
         Some(statement) => {
             match statement {
-                Statement::Block(statements) | Statement::UncheckedBlock(statements)=> {
+                Statement::Block(statements) | Statement::UncheckedBlock(statements) => {
                     if statements.is_empty() {
                         return false
                     }
-                    match statements.last().unwrap() {
-                        Statement::Return(..) => true,
-                        _=>false
-                    }
+                    matches!(statements.last().unwrap(), Statement::Return(..))
                 }
-                _ => false
+                _ => false,
             }
-        },
+        }
         None => false,
     }
 }
@@ -1073,7 +1070,7 @@ fn format_expression(expression_raw: &String, case: Case) -> String {
     if RUST_KEYWORDS.contains(&desired_name.as_str()) {
         format!("{}_is_rust_keyword", &desired_name)
     } else {
-        desired_name.to_string()
+        desired_name
     }
 }
 
@@ -1218,7 +1215,7 @@ impl ToTokens for Expression {
             Expression::AssignAdd(variable, value) => {
                 match *variable.clone() {
                     Expression::MappingSubscript(mapping, indices) => {
-                        quote! (  
+                        quote! (
                             let new_value = #mapping .get(&( #(#indices),* )).unwrap_or_default() + #value;
                             #mapping .insert(&(#(#indices),*), & new_value)
                         )
@@ -1330,9 +1327,9 @@ impl ToTokens for Expression {
                         }
                     }
                     Expression::Type(ty) => {
-                        match *ty.clone() {
+                        match *ty {
                             Type::DynamicBytes => quote!( Vec::<u8>::from ( #(#args),* ) ),
-                            _ => quote!( #ty :: from ( #(#args),* ) )
+                            _ => quote!( #ty :: from ( #(#args),* ) ),
                         }
                     }
                     Expression::Variable(name, _) if name == "type" => {
@@ -1458,8 +1455,7 @@ impl ToTokens for Expression {
                             .unwrap()
                     }
                     MemberType::Constant => {
-                        TokenStream::from_str(&format!("{}", name.to_case(UpperSnake)))
-                            .unwrap()
+                        TokenStream::from_str(&name.to_case(UpperSnake)).unwrap()
                     }
                     MemberType::None => TokenStream::from_str(&name.to_case(Snake)).unwrap(),
                 }
@@ -1472,7 +1468,7 @@ impl ToTokens for Expression {
                 quote!(
                    #left << #right
                 )
-            },
+            }
             Expression::ShiftRight(left, right) => {
                 quote!(
                    #left >> #right
@@ -1522,20 +1518,21 @@ impl ToTokens for Expression {
                 quote!( &hex::decode(#hex) )
             }
             Expression::NamedFunctionCall(function, args) => {
-                let names = args.iter()
-                .map(|arg| {let parsed =format_expression(&arg.0, Snake);
-                format_ident!("{parsed}")} )
-                .collect::<Vec<_>>();
-                let values = args.iter()
-                .map(|arg| &arg.1 )
-                .collect::<Vec<_>>();
+                let names = args
+                    .iter()
+                    .map(|arg| {
+                        let parsed = format_expression(&arg.0, Snake);
+                        format_ident!("{parsed}")
+                    })
+                    .collect::<Vec<_>>();
+                let values = args.iter().map(|arg| &arg.1).collect::<Vec<_>>();
                 quote!( #function { #( #names : #values ),*  } )
-            },
+            }
             Expression::And(left, right) => {
                 quote!(
                    #left && #right
                 )
-            },
+            }
         })
     }
 }
