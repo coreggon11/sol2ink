@@ -1,6 +1,8 @@
+use clap::{
+    command,
+    Parser,
+};
 use std::path::Path;
-use clap::Parser;
-use clap::command;
 
 #[derive(Debug, Clone)]
 pub enum CliInput {
@@ -21,7 +23,7 @@ fn sol_file_parser(s: &str) -> Result<CliInput, String> {
     let result = s.to_string();
 
     if !Path::new(&result).exists() {
-        return Err(format!("{} does not exist", result));
+        return Err(format!("{} does not exist", result))
     }
 
     if result.ends_with(".sol") {
@@ -36,5 +38,5 @@ fn sol_file_parser(s: &str) -> Result<CliInput, String> {
 pub fn cli() -> Args {
     let args = Args::parse();
 
-    return args;
+    return args
 }
