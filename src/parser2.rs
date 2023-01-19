@@ -210,7 +210,6 @@ impl<'a> Parser<'a> {
                     match function_definition.ty {
                         FunctionTy::Constructor => constructor = parsed_function,
                         FunctionTy::Modifier => {
-                            println!("modifier: {parsed_function:?}");
                             modifiers.push(parsed_function);
                         }
                         _ => functions.push(parsed_function),
@@ -504,7 +503,7 @@ impl<'a> Parser<'a> {
                 if let FunctionAttribute::BaseOrModifier(_, base) = modifier {
                     let parsed_name = self.parse_identifier_path(&base.name);
                     let parsed_args = if let Some(args) = &base.args {
-                        self.parse_expression_vec(&args)
+                        self.parse_expression_vec(args)
                     } else {
                         Vec::default()
                     };

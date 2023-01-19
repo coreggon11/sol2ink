@@ -813,37 +813,19 @@ fn assemble_functions(
             if let Some(modifier_map) = modifier_map {
                 if let Expression::Modifier(name, _) = modifier {
                     let modifier_body = modifier_map.get(name).map(|option| option.body.clone());
-                    match modifier_body.clone() {
-                        Some(statement) => {
-                            match statement {
-                                Some(statement) => {
-                                    match statement {
-                                        Statement::Block(statements)
-                                        | Statement::UncheckedBlock(statements) => {
-                                            for statement in statements {
-                                                match statement.clone() {
-                                                    Statement::Expression(expression) => {
-                                                        match expression {
-                                                            Expression::ModifierBody => {}
-                                                            _ => {
-                                                                forgot_modifiers
-                                                                    .extend(quote!(#statement))
-                                                            }
-                                                        }
-                                                    }
-                                                    _ => {
-                                                        forgot_modifiers.extend(quote!(#statement))
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        _ => forgot_modifiers.extend(quote!(#modifier_body)),
+                    if let Some(Some(statement)) = modifier_body.clone() {
+                        match statement {
+                            Statement::Block(statements)
+                            | Statement::UncheckedBlock(statements) => {
+                                for statement in statements {
+                                    match statement.clone() {
+                                        Statement::Expression(Expression::ModifierBody) => {}
+                                        _ => forgot_modifiers.extend(quote!(#statement)),
                                     }
                                 }
-                                None => {}
                             }
+                            _ => forgot_modifiers.extend(quote!(#modifier_body)),
                         }
-                        _ => {}
                     }
                 }
             }
@@ -1171,7 +1153,7 @@ fn function_call_in_expression(expresion: &Expression) -> bool {
             function_call_in_expression(expr1)
                 || expr2
                     .as_ref()
-                    .map_or(false, |expression| function_call_in_expression(&expression))
+                    .map_or(false, |expression| function_call_in_expression(expression))
         }
         Expression::MemberAccess(expr, _) => function_call_in_expression(expr),
         Expression::New(expr)
@@ -1497,7 +1479,7 @@ impl ToTokens for Expression {
                 }
             }
             Expression::Modifier(name,args) => {
-                let parsed_name = TokenStream::from_str( &format_expression(&name, Snake)).unwrap();
+                let parsed_name = TokenStream::from_str( &format_expression(name, Snake)).unwrap();
                 quote!( #[modifiers( #parsed_name ( #(#args),* ) )] )
             }
             Expression::ModifierBody => { quote!( body(instance) ) }
