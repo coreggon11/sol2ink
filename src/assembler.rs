@@ -36,7 +36,10 @@ use proc_macro2::{
 };
 use quote::*;
 use std::{
-    collections::HashSet,
+    collections::{
+        HashMap,
+        HashSet,
+    },
     str::FromStr,
 };
 
@@ -104,6 +107,11 @@ pub fn assemble_impl(contract: &Contract) -> TokenStream {
     let imports = assemble_imports(&contract.imports);
     let data = assemble_data_struct(&contract.fields);
     let getters = assemble_getters(&contract.fields);
+    let mut modifiers_map = HashMap::new();
+    contract.modifiers.iter().for_each(|function| {
+        modifiers_map.insert(function.header.name.clone(), function.clone());
+    });
+
     let functions = assemble_functions(
         &contract
             .functions
@@ -112,6 +120,7 @@ pub fn assemble_impl(contract: &Contract) -> TokenStream {
             .cloned()
             .collect::<Vec<_>>(),
         false,
+        Some(&modifiers_map),
     );
     let internal_trait = assemble_function_headers(
         &contract
@@ -129,6 +138,7 @@ pub fn assemble_impl(contract: &Contract) -> TokenStream {
             .cloned()
             .collect::<Vec<_>>(),
         false,
+        Some(&modifiers_map),
     );
     let (emit_function_headers, impl_emit_functions) = assemble_emit_functions(&contract.events);
     let modifiers = assemble_modifiers(&contract.modifiers, &trait_name);
@@ -265,7 +275,7 @@ pub fn assemble_library(library: Library) -> TokenStream {
     let enums = assemble_enums(&library.enums);
     let structs = assemble_structs(&library.structs);
     let constants = assemble_constants(&library.fields);
-    let functions = assemble_functions(&library.functions, true);
+    let functions = assemble_functions(&library.functions, true, None);
     let comments = assemble_contract_doc(&library.libraray_doc);
 
     let library = quote! {
@@ -648,7 +658,11 @@ fn assemble_constructor(constructor: &Function, fields: &[ContractField]) -> Tok
 }
 
 /// Assembles ink! functions from the vec of parsed Function structs and return them as a vec of Strings
-fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
+fn assemble_functions(
+    functions: &[Function],
+    is_library: bool,
+    modifier_map: Option<&HashMap<String, Function>>,
+) -> TokenStream {
     let mut output = TokenStream::new();
 
     for function in functions.iter() {
@@ -668,10 +682,15 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
             });
         }
 
+        let mut invalid_modifiers = Vec::default();
         for function_modifier in function.header.modifiers.iter() {
-            function_modifiers.extend(quote! {
-                #[modifiers(#function_modifier)]
-            });
+            if function_call_in_expression(function_modifier) {
+                invalid_modifiers.push(function_modifier);
+            } else {
+                function_modifiers.extend(quote! {
+                    #function_modifier
+                });
+            }
         }
 
         // assemble function name
@@ -789,10 +808,52 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
             }
         }
 
+        let mut forgot_modifiers = TokenStream::new();
+        for modifier in invalid_modifiers {
+            if let Some(modifier_map) = modifier_map {
+                if let Expression::Modifier(name, _) = modifier {
+                    let modifier_body = modifier_map.get(name).map(|option| option.body.clone());
+                    match modifier_body.clone() {
+                        Some(statement) => {
+                            match statement {
+                                Some(statement) => {
+                                    match statement {
+                                        Statement::Block(statements)
+                                        | Statement::UncheckedBlock(statements) => {
+                                            for statement in statements {
+                                                match statement.clone() {
+                                                    Statement::Expression(expression) => {
+                                                        match expression {
+                                                            Expression::ModifierBody => {}
+                                                            _ => {
+                                                                forgot_modifiers
+                                                                    .extend(quote!(#statement))
+                                                            }
+                                                        }
+                                                    }
+                                                    _ => {
+                                                        forgot_modifiers.extend(quote!(#statement))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        _ => forgot_modifiers.extend(quote!(#modifier_body)),
+                                    }
+                                }
+                                None => {}
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+
         output.extend(quote! {
             #comments
             #function_modifiers
             #function_name(#view #params) -> Result<#return_params, Error> {
+                #forgot_modifiers
                 #body
             }
         });
@@ -894,22 +955,15 @@ fn assemble_contract_emit_functions(events: &[Event]) -> TokenStream {
 }
 
 /// Assembles ink! functions from the vec of parsed Function structs and return them as a vec of Strings
-fn assemble_modifiers(modifiers: &[Modifier], contract_name: &Ident) -> TokenStream {
+fn assemble_modifiers(modifiers: &[Function], contract_name: &Ident) -> TokenStream {
     let mut output = TokenStream::new();
 
     for modifier in modifiers.iter() {
         let modifier_name = format_ident!("{}", format_expression(&modifier.header.name, Snake));
-        let mut body = TokenStream::new();
-        let mut comments = TokenStream::new();
         let mut params = TokenStream::new();
 
         // assemble comments
-        for comment in modifier.comments.iter() {
-            comments.extend(quote! {
-                #[doc = #comment]
-            });
-        }
-        let statements = &modifier.statements;
+        let body = &modifier.body;
 
         // assemble params
         for param in modifier.header.params.iter() {
@@ -921,13 +975,7 @@ fn assemble_modifiers(modifiers: &[Modifier], contract_name: &Ident) -> TokenStr
             });
         }
 
-        // body
-        body.extend(quote! {
-            #(#statements)*
-        });
-
         output.extend(quote! {
-            #comments
             #[modifier_definition]
             pub fn #modifier_name<T, F, R>(instance: &mut T, body: F #params) -> Result<R, Error>
             where
@@ -1074,6 +1122,80 @@ fn format_expression(expression_raw: &String, case: Case) -> String {
     }
 }
 
+fn function_call_in_expression(expresion: &Expression) -> bool {
+    match expresion {
+        Expression::Add(expr1, expr2)
+        | Expression::And(expr1, expr2)
+        | Expression::Assign(expr1, expr2)
+        | Expression::AssignAdd(expr1, expr2)
+        | Expression::AssignDivide(expr1, expr2)
+        | Expression::AssignModulo(expr1, expr2)
+        | Expression::AssignMultiply(expr1, expr2)
+        | Expression::AssignSubtract(expr1, expr2)
+        | Expression::Divide(expr1, expr2)
+        | Expression::Equal(expr1, expr2)
+        | Expression::Less(expr1, expr2)
+        | Expression::LessEqual(expr1, expr2)
+        | Expression::Modulo(expr1, expr2)
+        | Expression::More(expr1, expr2)
+        | Expression::MoreEqual(expr1, expr2)
+        | Expression::Multiply(expr1, expr2)
+        | Expression::NotEqual(expr1, expr2)
+        | Expression::Or(expr1, expr2)
+        | Expression::Subtract(expr1, expr2)
+        | Expression::ShiftLeft(expr1, expr2)
+        | Expression::ShiftRight(expr1, expr2)
+        | Expression::BitwiseAnd(expr1, expr2)
+        | Expression::BitwiseXor(expr1, expr2)
+        | Expression::BitwiseOr(expr1, expr2)
+        | Expression::AssignOr(expr1, expr2)
+        | Expression::AssignAnd(expr1, expr2)
+        | Expression::AssignXor(expr1, expr2)
+        | Expression::AssignShiftLeft(expr1, expr2)
+        | Expression::AssignShiftRight(expr1, expr2)
+        | Expression::Power(expr1, expr2) => {
+            function_call_in_expression(expr1) || function_call_in_expression(expr2)
+        }
+        Expression::List(list) => {
+            list.iter()
+                .map(function_call_in_expression)
+                .any(|output| output)
+        }
+        Expression::MappingSubscript(expr, list) => {
+            list.iter()
+                .map(function_call_in_expression)
+                .any(|output| output)
+                || function_call_in_expression(expr)
+        }
+        Expression::ArraySubscript(expr1, expr2) => {
+            function_call_in_expression(expr1)
+                || expr2
+                    .as_ref()
+                    .map_or(false, |expression| function_call_in_expression(&expression))
+        }
+        Expression::MemberAccess(expr, _) => function_call_in_expression(expr),
+        Expression::New(expr)
+        | Expression::Not(expr)
+        | Expression::Parenthesis(expr)
+        | Expression::PostDecrement(expr)
+        | Expression::PostIncrement(expr)
+        | Expression::PreDecrement(expr)
+        | Expression::PreIncrement(expr) => function_call_in_expression(expr),
+        Expression::Ternary(expr1, expr2, expr3) => {
+            function_call_in_expression(expr1)
+                || function_call_in_expression(expr2)
+                || function_call_in_expression(expr3)
+        }
+        Expression::NamedFunctionCall(..) | Expression::FunctionCall(..) => true,
+        Expression::Modifier(_, list) => {
+            list.iter()
+                .map(function_call_in_expression)
+                .any(|output| output)
+        }
+        _ => false,
+    }
+}
+
 impl ToTokens for Type {
     fn to_tokens(&self, stream: &mut TokenStream) {
         stream.extend(match self {
@@ -1084,7 +1206,9 @@ impl ToTokens for Type {
             Type::Uint(size) => TokenStream::from_str(&format!("u{size}")).unwrap(),
             Type::Bytes(size) => TokenStream::from_str(&format!("[u8; {size}]")).unwrap(),
             Type::DynamicBytes => quote!(Vec<u8>),
-            Type::Variable(name) => TokenStream::from_str(&format_expression(name, Snake)).unwrap(),
+            Type::Variable(name) => {
+                TokenStream::from_str(&format_expression(name, Pascal)).unwrap()
+            }
             Type::Mapping(keys, value) => {
                 if keys.len() == 1 {
                     let key = &keys[0];
@@ -1372,6 +1496,11 @@ impl ToTokens for Expression {
                     }
                 }
             }
+            Expression::Modifier(name,args) => {
+                let parsed_name = TokenStream::from_str( &format_expression(&name, Snake)).unwrap();
+                quote!( #[modifiers( #parsed_name ( #(#args),* ) )] )
+            }
+            Expression::ModifierBody => { quote!( body(instance) ) }
             Expression::Modulo(left, right) => quote!( #left % #right ),
             Expression::More(left, right) => {
                 quote!( #left > #right )

@@ -49,7 +49,7 @@ pub struct Contract {
     pub functions: Vec<Function>,
     pub imports: HashSet<String>,
     pub contract_doc: Vec<String>,
-    pub modifiers: Vec<Modifier>,
+    pub modifiers: Vec<Function>,
 }
 
 #[derive(Clone, Default)]
@@ -134,13 +134,13 @@ pub struct StructField {
     pub comments: Vec<String>,
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct Function {
     pub header: FunctionHeader,
     pub body: Option<Statement>,
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct FunctionHeader {
     pub name: String,
     pub params: Vec<FunctionParam>,
@@ -205,6 +205,8 @@ pub enum Expression {
     List(Vec<Expression>),
     MappingSubscript(Box<Expression>, Vec<Expression>),
     MemberAccess(Box<Expression>, String),
+    Modifier(String, Vec<Expression>),
+    ModifierBody,
     Modulo(Box<Expression>, Box<Expression>),
     More(Box<Expression>, Box<Expression>),
     MoreEqual(Box<Expression>, Box<Expression>),

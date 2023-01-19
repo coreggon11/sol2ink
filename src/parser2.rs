@@ -106,8 +106,7 @@ impl<'a> Parser<'a> {
                 SourceUnitPart::ContractDefinition(contract) => {
                     output.push(self.handle_contract_definition(contract)?);
                 }
-                SourceUnitPart::ImportDirective(_) => println!("import"),
-                SourceUnitPart::PragmaDirective(..) => {}
+                SourceUnitPart::ImportDirective(_) | SourceUnitPart::PragmaDirective(..) => {}
                 _ => println!("Found a source unit outside of contract"),
             }
         }
@@ -210,7 +209,10 @@ impl<'a> Parser<'a> {
                     let parsed_function = self.parse_function(function_definition)?;
                     match function_definition.ty {
                         FunctionTy::Constructor => constructor = parsed_function,
-                        FunctionTy::Modifier => modifiers.push(parsed_function),
+                        FunctionTy::Modifier => {
+                            println!("modifier: {parsed_function:?}");
+                            modifiers.push(parsed_function);
+                        }
                         _ => functions.push(parsed_function),
                     }
                 }
@@ -229,6 +231,7 @@ impl<'a> Parser<'a> {
             fields,
             functions,
             constructor,
+            modifiers,
             ..Default::default()
         })
     }
@@ -472,20 +475,6 @@ impl<'a> Parser<'a> {
     ) -> Result<Function, ParserError> {
         let header = self.parse_function_header(function_definition);
 
-        // TODO
-        let _modifiers = function_definition
-            .attributes
-            .iter()
-            .filter(|&attribute| matches!(attribute, FunctionAttribute::BaseOrModifier(..)))
-            .map(|modifier| {
-                if let FunctionAttribute::BaseOrModifier(_, base) = modifier {
-                    let _name = self.parse_identifier_path(&base.name);
-                    // TODO
-                } else {
-                    unreachable!("The vec was filtered before");
-                }
-            });
-
         let body = if let Some(statement) = &function_definition.body {
             Some(self.parse_statement(statement)?)
         } else {
@@ -505,6 +494,24 @@ impl<'a> Parser<'a> {
                 let name = self.parse_identifier(&param.name);
                 let param_type = self.parse_type(&param.ty).ok()?;
                 Some(FunctionParam { name, param_type })
+            })
+            .collect();
+        let modifiers = function_definition
+            .attributes
+            .iter()
+            .filter(|&attribute| matches!(attribute, FunctionAttribute::BaseOrModifier(..)))
+            .map(|modifier| {
+                if let FunctionAttribute::BaseOrModifier(_, base) = modifier {
+                    let parsed_name = self.parse_identifier_path(&base.name);
+                    let parsed_args = if let Some(args) = &base.args {
+                        self.parse_expression_vec(&args)
+                    } else {
+                        Vec::default()
+                    };
+                    Expression::Modifier(parsed_name, parsed_args)
+                } else {
+                    unreachable!("The vec was filtered before");
+                }
             })
             .collect();
         let external = function_definition.attributes.iter().any(|attribute| {
@@ -545,6 +552,7 @@ impl<'a> Parser<'a> {
             view,
             payable,
             return_params,
+            modifiers,
             ..Default::default()
         }
     }
@@ -709,7 +717,9 @@ impl<'a> Parser<'a> {
                     SolangExpression::MemberAccess(_, expression, _) => {
                         let parsed_expresion = self.parse_expression(&expression);
                         match parsed_expresion {
-                            Expression::MappingSubscript(..) => self.array_subscript_to_mapping_subscript(array, index_maybe),
+                            Expression::MappingSubscript(..) => {
+                                self.array_subscript_to_mapping_subscript(array, index_maybe)
+                            }
                             _ => {
                                 boxed_expression!(parsed_array, array);
                                 maybe_boxed_expression!(parsed_index_maybe, index_maybe);
@@ -1003,6 +1013,9 @@ impl<'a> Parser<'a> {
             SolangExpression::AddressLiteral(_, _) => todo!(),
             SolangExpression::Variable(identifier) => {
                 let parsed_identifier = self.parse_identifier(&Some(identifier.clone()));
+                if parsed_identifier == "_" {
+                    return Expression::ModifierBody
+                }
                 let none = MemberType::None(Box::new(Type::None));
                 let member_type = self.members_map.get(&parsed_identifier).unwrap_or(&none);
                 Expression::Variable(parsed_identifier, member_type.clone())
