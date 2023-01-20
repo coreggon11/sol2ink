@@ -85,12 +85,17 @@ impl From<std::io::Error> for ParserError {
 
 pub struct Parser<'a> {
     members_map: &'a mut HashMap<String, MemberType>,
+    modifiers_map: &'a mut HashMap<String, FunctionDefinition>,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(fields_map: &'a mut HashMap<String, MemberType>) -> Self {
+    pub fn new(
+        members_map: &'a mut HashMap<String, MemberType>,
+        modifiers_map: &'a mut HashMap<String, FunctionDefinition>,
+    ) -> Self {
         Parser {
-            members_map: fields_map,
+            members_map,
+            modifiers_map,
         }
     }
 
@@ -176,14 +181,23 @@ impl<'a> Parser<'a> {
                                 | FunctionAttribute::Visibility(Visibility::Public(_))
                         )
                     });
-                    self.members_map.insert(
-                        fn_name.clone(),
-                        if external {
-                            MemberType::Function
-                        } else {
-                            MemberType::FunctionPrivate
-                        },
-                    );
+                    match function_definition.ty {
+                        FunctionTy::Function => {
+                            self.members_map.insert(
+                                fn_name.clone(),
+                                if external {
+                                    MemberType::Function
+                                } else {
+                                    MemberType::FunctionPrivate
+                                },
+                            );
+                        }
+                        FunctionTy::Modifier => {
+                            self.modifiers_map
+                                .insert(fn_name.clone(), *function_definition.clone());
+                        }
+                        _ => (),
+                    }
                 }
                 _ => (),
             }
@@ -419,11 +433,11 @@ impl<'a> Parser<'a> {
     fn parse_enum(&self, event_definition: &EnumDefinition) -> Result<Enum, ParserError> {
         let name = self.parse_identifier(&event_definition.name);
 
-        let values: Vec<EnumField> = event_definition
+        let values: Vec<EnumValue> = event_definition
             .values
             .iter()
             .map(|enum_value| {
-                EnumField {
+                EnumValue {
                     name: self.parse_identifier(enum_value),
                     comments: Default::default(),
                 }
@@ -453,10 +467,9 @@ impl<'a> Parser<'a> {
                     | VariableAttribute::Visibility(Visibility::Public(_))
             )
         });
-        let initial_value = variable_definition
-            .initializer
-            .as_ref()
-            .map(|expression| self.parse_expression(expression));
+        let initial_value = variable_definition.initializer.as_ref().map(|expression| {
+            self.parse_expression(expression, VariableAccessLocation::Constructor)
+        });
         let comments = Vec::default();
         Ok(ContractField {
             field_type,
@@ -473,14 +486,46 @@ impl<'a> Parser<'a> {
         function_definition: &FunctionDefinition,
     ) -> Result<Function, ParserError> {
         let header = self.parse_function_header(function_definition);
+        let mut invalid_modifiers = HashMap::new();
+        for modifier in header.invalid_modifiers.clone() {
+            match modifier {
+                Expression::InvalidModifier(name, _) => {
+                    if let Some(function) = self.modifiers_map.get(&name) {
+                        invalid_modifiers.insert(
+                            (header.name.clone(), name),
+                            Function {
+                                header: self.parse_function_header(function),
+                                body: if let Some(body) = &function.body {
+                                    Some(self.parse_statement(
+                                        &body,
+                                        self.parse_variable_access_location(function_definition),
+                                    )?)
+                                } else {
+                                    None
+                                },
+                                ..Default::default()
+                            },
+                        );
+                    }
+                }
+                _ => unreachable!("Only invalid modifiers are allowed here"),
+            }
+        }
 
         let body = if let Some(statement) = &function_definition.body {
-            Some(self.parse_statement(statement)?)
+            Some(self.parse_statement(
+                statement,
+                self.parse_variable_access_location(function_definition),
+            )?)
         } else {
             None
         };
 
-        Ok(Function { header, body })
+        Ok(Function {
+            header,
+            body,
+            invalid_modifiers,
+        })
     }
 
     fn parse_function_header(&self, function_definition: &FunctionDefinition) -> FunctionHeader {
@@ -495,7 +540,7 @@ impl<'a> Parser<'a> {
                 Some(FunctionParam { name, param_type })
             })
             .collect();
-        let modifiers = function_definition
+        let all_modifiers: Vec<Expression> = function_definition
             .attributes
             .iter()
             .filter(|&attribute| matches!(attribute, FunctionAttribute::BaseOrModifier(..)))
@@ -503,15 +548,32 @@ impl<'a> Parser<'a> {
                 if let FunctionAttribute::BaseOrModifier(_, base) = modifier {
                     let parsed_name = self.parse_identifier_path(&base.name);
                     let parsed_args = if let Some(args) = &base.args {
-                        self.parse_expression_vec(args)
+                        self.parse_expression_vec(args, VariableAccessLocation::Any)
                     } else {
                         Vec::default()
                     };
-                    Expression::Modifier(parsed_name, parsed_args)
+                    if parsed_args
+                        .iter()
+                        .any(|expression| self.function_call_in_expression(expression))
+                    {
+                        Expression::InvalidModifier(parsed_name, parsed_args)
+                    } else {
+                        Expression::Modifier(parsed_name, parsed_args)
+                    }
                 } else {
                     unreachable!("The vec was filtered before");
                 }
             })
+            .collect();
+        let modifiers = all_modifiers
+            .iter()
+            .filter(|expression| matches!(expression, Expression::Modifier(..)))
+            .map(|expression| expression.clone())
+            .collect();
+        let invalid_modifiers = all_modifiers
+            .iter()
+            .filter(|expression| matches!(expression, Expression::InvalidModifier(..)))
+            .map(|expression| expression.clone())
             .collect();
         let external = function_definition.attributes.iter().any(|attribute| {
             matches!(
@@ -552,11 +614,101 @@ impl<'a> Parser<'a> {
             payable,
             return_params,
             modifiers,
+            invalid_modifiers,
             ..Default::default()
         }
     }
 
-    fn parse_statement(&self, statement: &SolangStatement) -> Result<Statement, ParserError> {
+    fn function_call_in_expression(&self, expresion: &Expression) -> bool {
+        match expresion {
+            Expression::Add(expr1, expr2)
+            | Expression::And(expr1, expr2)
+            | Expression::Assign(expr1, expr2)
+            | Expression::AssignAdd(expr1, expr2)
+            | Expression::AssignDivide(expr1, expr2)
+            | Expression::AssignModulo(expr1, expr2)
+            | Expression::AssignMultiply(expr1, expr2)
+            | Expression::AssignSubtract(expr1, expr2)
+            | Expression::Divide(expr1, expr2)
+            | Expression::Equal(expr1, expr2)
+            | Expression::Less(expr1, expr2)
+            | Expression::LessEqual(expr1, expr2)
+            | Expression::Modulo(expr1, expr2)
+            | Expression::More(expr1, expr2)
+            | Expression::MoreEqual(expr1, expr2)
+            | Expression::Multiply(expr1, expr2)
+            | Expression::NotEqual(expr1, expr2)
+            | Expression::Or(expr1, expr2)
+            | Expression::Subtract(expr1, expr2)
+            | Expression::ShiftLeft(expr1, expr2)
+            | Expression::ShiftRight(expr1, expr2)
+            | Expression::BitwiseAnd(expr1, expr2)
+            | Expression::BitwiseXor(expr1, expr2)
+            | Expression::BitwiseOr(expr1, expr2)
+            | Expression::AssignOr(expr1, expr2)
+            | Expression::AssignAnd(expr1, expr2)
+            | Expression::AssignXor(expr1, expr2)
+            | Expression::AssignShiftLeft(expr1, expr2)
+            | Expression::AssignShiftRight(expr1, expr2)
+            | Expression::Power(expr1, expr2) => {
+                self.function_call_in_expression(expr1) || self.function_call_in_expression(expr2)
+            }
+            Expression::List(list) => {
+                list.iter()
+                    .map(|expression| self.function_call_in_expression(expression))
+                    .any(|output| output)
+            }
+            Expression::MappingSubscript(expr, list) => {
+                list.iter()
+                    .map(|expression| self.function_call_in_expression(expression))
+                    .any(|output| output)
+                    || self.function_call_in_expression(expr)
+            }
+            Expression::ArraySubscript(expr1, expr2) => {
+                self.function_call_in_expression(expr1)
+                    || expr2.as_ref().map_or(false, |expression| {
+                        self.function_call_in_expression(expression)
+                    })
+            }
+            Expression::MemberAccess(expr, _) => self.function_call_in_expression(expr),
+            Expression::New(expr)
+            | Expression::Not(expr)
+            | Expression::Parenthesis(expr)
+            | Expression::PostDecrement(expr)
+            | Expression::PostIncrement(expr)
+            | Expression::PreDecrement(expr)
+            | Expression::PreIncrement(expr) => self.function_call_in_expression(expr),
+            Expression::Ternary(expr1, expr2, expr3) => {
+                self.function_call_in_expression(expr1)
+                    || self.function_call_in_expression(expr2)
+                    || self.function_call_in_expression(expr3)
+            }
+            Expression::NamedFunctionCall(..) | Expression::FunctionCall(..) => true,
+            Expression::Modifier(_, list) => {
+                list.iter()
+                    .map(|expression| self.function_call_in_expression(expression))
+                    .any(|output| output)
+            }
+            _ => false,
+        }
+    }
+
+    fn parse_variable_access_location(
+        &self,
+        function_definition: &FunctionDefinition,
+    ) -> VariableAccessLocation {
+        match function_definition.ty {
+            FunctionTy::Constructor => VariableAccessLocation::Constructor,
+            FunctionTy::Modifier => VariableAccessLocation::Modifier,
+            _ => VariableAccessLocation::Any,
+        }
+    }
+
+    fn parse_statement(
+        &self,
+        statement: &SolangStatement,
+        location: VariableAccessLocation,
+    ) -> Result<Statement, ParserError> {
         Ok(match statement {
             SolangStatement::Block {
                 loc: _,
@@ -565,7 +717,7 @@ impl<'a> Parser<'a> {
             } => {
                 let parsed_statements = statements
                     .iter()
-                    .map(|statement| self.parse_statement(statement))
+                    .map(|statement| self.parse_statement(statement, location.clone()))
                     .map(|result| result.unwrap())
                     .collect::<Vec<_>>();
                 if *unchecked {
@@ -588,45 +740,45 @@ impl<'a> Parser<'a> {
                 todo!()
             }
             SolangStatement::If(_, expression, if_true, if_false) => {
-                let parsed_expression = self.parse_expression(expression);
-                let parsed_if_true = Box::new(self.parse_statement(if_true)?);
+                let parsed_expression = self.parse_expression(expression, location.clone());
+                let parsed_if_true = Box::new(self.parse_statement(if_true, location.clone())?);
                 let parsed_if_false = if_false
                     .as_ref()
-                    .map(|statement| self.parse_statement(statement))
+                    .map(|statement| self.parse_statement(statement, location.clone()))
                     .map(|result| Box::new(result.unwrap()));
                 Statement::If(parsed_expression, parsed_if_true, parsed_if_false)
             }
             SolangStatement::While(_, expression, statement) => {
-                let parsed_expression = self.parse_expression(expression);
-                let parsed_statement = Box::new(self.parse_statement(statement)?);
+                let parsed_expression = self.parse_expression(expression, location.clone());
+                let parsed_statement = Box::new(self.parse_statement(statement, location)?);
                 Statement::While(parsed_expression, parsed_statement)
             }
             SolangStatement::Expression(_, expression) => {
-                let parsed_expression = self.parse_expression(expression);
+                let parsed_expression = self.parse_expression(expression, location);
                 Statement::Expression(parsed_expression)
             }
             SolangStatement::VariableDefinition(_, declaration, initial_value_maybe) => {
                 let parsed_declaration = self.parse_variable_declaration(declaration)?;
                 let parsed_initial_value = initial_value_maybe
                     .as_ref()
-                    .map(|expression| self.parse_expression(expression));
+                    .map(|expression| self.parse_expression(expression, location));
                 Statement::VariableDefinition(parsed_declaration, parsed_initial_value)
             }
             SolangStatement::For(_, variable_definition, condition, on_pass, body) => {
                 let parsed_variable_definition = variable_definition
                     .as_ref()
-                    .map(|statement| self.parse_statement(statement))
+                    .map(|statement| self.parse_statement(statement, location.clone()))
                     .map(|result| Box::new(result.unwrap()));
                 let parsed_condition = condition
                     .as_ref()
-                    .map(|expression| self.parse_expression(expression));
+                    .map(|expression| self.parse_expression(expression, location.clone()));
                 let parsed_on_pass = on_pass
                     .as_ref()
-                    .map(|statement| self.parse_statement(statement))
+                    .map(|statement| self.parse_statement(statement, location.clone()))
                     .map(|result| Box::new(result.unwrap()));
                 let parsed_body = body
                     .as_ref()
-                    .map(|statement| self.parse_statement(statement))
+                    .map(|statement| self.parse_statement(statement, location))
                     .map(|result| Box::new(result.unwrap()));
                 Statement::For(
                     parsed_variable_definition,
@@ -636,8 +788,8 @@ impl<'a> Parser<'a> {
                 )
             }
             SolangStatement::DoWhile(_, body, condition) => {
-                let parsed_condition = self.parse_expression(condition);
-                let parsed_body = Box::new(self.parse_statement(body)?);
+                let parsed_condition = self.parse_expression(condition, location.clone());
+                let parsed_body = Box::new(self.parse_statement(body, location)?);
                 Statement::DoWhile(parsed_body, parsed_condition)
             }
             SolangStatement::Continue(_) => Statement::Continue,
@@ -645,7 +797,7 @@ impl<'a> Parser<'a> {
             SolangStatement::Return(_, expression) => {
                 let parsed_expression = expression
                     .as_ref()
-                    .map(|expression| self.parse_expression(expression));
+                    .map(|expression| self.parse_expression(expression, location));
                 Statement::Return(parsed_expression)
             }
             SolangStatement::Revert(_, identifier_path, args) => {
@@ -653,16 +805,16 @@ impl<'a> Parser<'a> {
                     .as_ref()
                     .map(|identifier_path| self.parse_identifier_path(identifier_path))
                     .unwrap_or(String::from("_"));
-                let parsed_args = self.parse_expression_vec(args);
+                let parsed_args = self.parse_expression_vec(args, location);
                 Statement::Revert(identifier_path, parsed_args)
             }
             SolangStatement::RevertNamedArgs(_, _, _) => todo!(),
             SolangStatement::Emit(_, expression) => {
-                let parsed_expression = self.parse_expression(expression);
+                let parsed_expression = self.parse_expression(expression, location);
                 Statement::Emit(parsed_expression)
             }
             SolangStatement::Try(_, expression, _, _) => {
-                let parsed_expression = self.parse_expression(expression);
+                let parsed_expression = self.parse_expression(expression, location);
                 Statement::Try(parsed_expression)
             }
             SolangStatement::Error(_) => todo!(),
@@ -680,18 +832,22 @@ impl<'a> Parser<'a> {
         Ok(Expression::VariableDeclaration(parsed_type, parsed_name))
     }
 
-    fn parse_expression(&self, expression: &SolangExpression) -> Expression {
+    fn parse_expression(
+        &self,
+        expression: &SolangExpression,
+        location: VariableAccessLocation,
+    ) -> Expression {
         macro_rules! maybe_boxed_expression {
             ($to_declare:ident,$to_parse:expr) => {
-                let $to_declare = $to_parse
-                    .as_ref()
-                    .map(|expression| Box::new(self.parse_expression(&expression)));
+                let $to_declare = $to_parse.as_ref().map(|expression| {
+                    Box::new(self.parse_expression(&expression, location.clone()))
+                });
             };
         }
 
         macro_rules! boxed_expression {
             ($to_declare:ident,$to_parse:expr) => {
-                let $to_declare = Box::new(self.parse_expression($to_parse));
+                let $to_declare = Box::new(self.parse_expression($to_parse, location.clone()));
             };
         }
 
@@ -711,13 +867,17 @@ impl<'a> Parser<'a> {
             SolangExpression::ArraySubscript(_, array, index_maybe) => {
                 match *array.clone() {
                     SolangExpression::ArraySubscript(..) => {
-                        self.array_subscript_to_mapping_subscript(array, index_maybe)
+                        self.array_subscript_to_mapping_subscript(array, index_maybe, location)
                     }
                     SolangExpression::MemberAccess(_, expression, _) => {
-                        let parsed_expresion = self.parse_expression(&expression);
+                        let parsed_expresion = self.parse_expression(&expression, location.clone());
                         match parsed_expresion {
                             Expression::MappingSubscript(..) => {
-                                self.array_subscript_to_mapping_subscript(array, index_maybe)
+                                self.array_subscript_to_mapping_subscript(
+                                    array,
+                                    index_maybe,
+                                    location,
+                                )
                             }
                             _ => {
                                 boxed_expression!(parsed_array, array);
@@ -738,6 +898,7 @@ impl<'a> Parser<'a> {
                                                 self.array_subscript_to_mapping_subscript(
                                                     array,
                                                     index_maybe,
+                                                    location,
                                                 )
                                             }
                                             _ => {
@@ -788,7 +949,7 @@ impl<'a> Parser<'a> {
             }
             SolangExpression::FunctionCall(_, function, args) => {
                 boxed_expression!(parsed_function, function);
-                let parsed_args = self.parse_expression_vec(args);
+                let parsed_args = self.parse_expression_vec(args, location);
                 Expression::FunctionCall(parsed_function, parsed_args)
             }
             SolangExpression::FunctionCallBlock(_, _, _) => todo!(),
@@ -797,7 +958,8 @@ impl<'a> Parser<'a> {
                 let parsed_arguments = arguments
                     .iter()
                     .map(|argument| {
-                        let parsed_argument = self.parse_expression(&argument.expr);
+                        let parsed_argument =
+                            self.parse_expression(&argument.expr, location.clone());
                         let parsed_name = self.parse_identifier(&Some(argument.name.clone()));
                         (parsed_name, parsed_argument)
                     })
@@ -1017,7 +1179,7 @@ impl<'a> Parser<'a> {
                 }
                 let none = MemberType::None(Box::new(Type::None));
                 let member_type = self.members_map.get(&parsed_identifier).unwrap_or(&none);
-                Expression::Variable(parsed_identifier, member_type.clone())
+                Expression::Variable(parsed_identifier, member_type.clone(), location)
             }
             SolangExpression::List(_, parameters) => {
                 let list = parameters
@@ -1025,7 +1187,7 @@ impl<'a> Parser<'a> {
                     .map(|tuple| tuple.1.clone())
                     .filter(|option| option.is_some())
                     .map(|parameter| parameter.unwrap().ty)
-                    .map(|expression| self.parse_expression(&expression))
+                    .map(|expression| self.parse_expression(&expression, location.clone()))
                     .collect();
                 Expression::List(list)
             }
@@ -1035,10 +1197,14 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_expression_vec(&self, expressions: &[SolangExpression]) -> Vec<Expression> {
+    fn parse_expression_vec(
+        &self,
+        expressions: &[SolangExpression],
+        location: VariableAccessLocation,
+    ) -> Vec<Expression> {
         expressions
             .iter()
-            .map(|expression| self.parse_expression(expression))
+            .map(|expression| self.parse_expression(expression, location.clone()))
             .collect()
     }
 
@@ -1046,12 +1212,16 @@ impl<'a> Parser<'a> {
         &self,
         array: &SolangExpression,
         index_maybe: &Option<Box<SolangExpression>>,
+        location: VariableAccessLocation,
     ) -> Expression {
         let mut parsed_indices = VecDeque::default();
-        parsed_indices.push_back(self.parse_expression(&index_maybe.as_ref().unwrap().clone()));
+        parsed_indices.push_back(
+            self.parse_expression(&index_maybe.as_ref().unwrap().clone(), location.clone()),
+        );
         let mut array_now = array.clone();
         while let SolangExpression::ArraySubscript(_, array, index_maybe) = array_now {
-            parsed_indices.push_back(self.parse_expression(&index_maybe.unwrap()));
+            parsed_indices
+                .push_back(self.parse_expression(&index_maybe.unwrap(), location.clone()));
             array_now = *array.clone();
         }
         let mut vec_indices = Vec::default();
@@ -1059,7 +1229,7 @@ impl<'a> Parser<'a> {
             vec_indices.push(parsed_indices.pop_back().unwrap());
         }
 
-        let parsed_array = Box::new(self.parse_expression(&array_now));
+        let parsed_array = Box::new(self.parse_expression(&array_now, location));
         Expression::MappingSubscript(parsed_array, vec_indices)
     }
 

@@ -105,8 +105,9 @@ fn main() {
 fn run(path: &String) -> Result<(), ParserError> {
     let content = file_utils::read_file(path)?;
     let mut fields_map = HashMap::new();
+    let mut modifier_map = HashMap::new();
 
-    let mut parser = Parser::new(&mut fields_map);
+    let mut parser = Parser::new(&mut fields_map, &mut modifier_map);
 
     let output = parser.parse_file(&content)?;
 

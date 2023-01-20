@@ -120,7 +120,6 @@ pub fn assemble_impl(contract: &Contract) -> TokenStream {
             .cloned()
             .collect::<Vec<_>>(),
         false,
-        Some(&modifiers_map),
     );
     let internal_trait = assemble_function_headers(
         &contract
@@ -138,7 +137,6 @@ pub fn assemble_impl(contract: &Contract) -> TokenStream {
             .cloned()
             .collect::<Vec<_>>(),
         false,
-        Some(&modifiers_map),
     );
     let (emit_function_headers, impl_emit_functions) = assemble_emit_functions(&contract.events);
     let modifiers = assemble_modifiers(&contract.modifiers, &trait_name);
@@ -275,7 +273,7 @@ pub fn assemble_library(library: Library) -> TokenStream {
     let enums = assemble_enums(&library.enums);
     let structs = assemble_structs(&library.structs);
     let constants = assemble_constants(&library.fields);
-    let functions = assemble_functions(&library.functions, true, None);
+    let functions = assemble_functions(&library.functions, true);
     let comments = assemble_contract_doc(&library.libraray_doc);
 
     let library = quote! {
@@ -658,11 +656,7 @@ fn assemble_constructor(constructor: &Function, fields: &[ContractField]) -> Tok
 }
 
 /// Assembles ink! functions from the vec of parsed Function structs and return them as a vec of Strings
-fn assemble_functions(
-    functions: &[Function],
-    is_library: bool,
-    modifier_map: Option<&HashMap<String, Function>>,
-) -> TokenStream {
+fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
     let mut output = TokenStream::new();
 
     for function in functions.iter() {
@@ -673,6 +667,8 @@ fn assemble_functions(
         let mut body = TokenStream::new();
         let mut comments = TokenStream::new();
         let mut function_modifiers = TokenStream::new();
+        let invalid_modifiers = &function.invalid_modifiers;
+        let invalid_modifiers_vec = &function.header.invalid_modifiers;
         let statement = function.body.clone();
 
         // assemble comments
@@ -682,15 +678,10 @@ fn assemble_functions(
             });
         }
 
-        let mut invalid_modifiers = Vec::default();
         for function_modifier in function.header.modifiers.iter() {
-            if function_call_in_expression(function_modifier) {
-                invalid_modifiers.push(function_modifier);
-            } else {
-                function_modifiers.extend(quote! {
-                    #function_modifier
-                });
-            }
+            function_modifiers.extend(quote! {
+                #function_modifier
+            });
         }
 
         // assemble function name
@@ -809,23 +800,30 @@ fn assemble_functions(
         }
 
         let mut forgot_modifiers = TokenStream::new();
-        for modifier in invalid_modifiers {
-            if let Some(modifier_map) = modifier_map {
-                if let Expression::Modifier(name, _) = modifier {
-                    let modifier_body = modifier_map.get(name).map(|option| option.body.clone());
-                    if let Some(Some(statement)) = modifier_body.clone() {
-                        match statement {
-                            Statement::Block(statements)
-                            | Statement::UncheckedBlock(statements) => {
-                                for statement in statements {
-                                    match statement.clone() {
-                                        Statement::Expression(Expression::ModifierBody) => {}
-                                        _ => forgot_modifiers.extend(quote!(#statement)),
-                                    }
+        for modifier in invalid_modifiers_vec {
+            let (modifier_name, arguments) = match modifier {
+                Expression::InvalidModifier(name, expressions) => (name, expressions),
+                _ => unreachable!("Only invalid modifiers allowed here"),
+            };
+            // arguments map to modifier params
+            if let Some(function) =
+                invalid_modifiers.get(&(function.header.name.clone(), modifier_name.clone()))
+            {
+                if let Some(statement) = &function.body {
+                    let vars = &function.header.params;
+                    forgot_modifiers.extend(quote!(
+                        #(let #vars = #arguments;)*
+                    ));
+                    match statement {
+                        Statement::Block(statements) | Statement::UncheckedBlock(statements) => {
+                            for statement in statements {
+                                match statement.clone() {
+                                    Statement::Expression(Expression::ModifierBody) => {}
+                                    _ => forgot_modifiers.extend(quote!(#statement)),
                                 }
                             }
-                            _ => forgot_modifiers.extend(quote!(#modifier_body)),
                         }
+                        _ => (),
                     }
                 }
             }
@@ -1104,80 +1102,6 @@ fn format_expression(expression_raw: &String, case: Case) -> String {
     }
 }
 
-fn function_call_in_expression(expresion: &Expression) -> bool {
-    match expresion {
-        Expression::Add(expr1, expr2)
-        | Expression::And(expr1, expr2)
-        | Expression::Assign(expr1, expr2)
-        | Expression::AssignAdd(expr1, expr2)
-        | Expression::AssignDivide(expr1, expr2)
-        | Expression::AssignModulo(expr1, expr2)
-        | Expression::AssignMultiply(expr1, expr2)
-        | Expression::AssignSubtract(expr1, expr2)
-        | Expression::Divide(expr1, expr2)
-        | Expression::Equal(expr1, expr2)
-        | Expression::Less(expr1, expr2)
-        | Expression::LessEqual(expr1, expr2)
-        | Expression::Modulo(expr1, expr2)
-        | Expression::More(expr1, expr2)
-        | Expression::MoreEqual(expr1, expr2)
-        | Expression::Multiply(expr1, expr2)
-        | Expression::NotEqual(expr1, expr2)
-        | Expression::Or(expr1, expr2)
-        | Expression::Subtract(expr1, expr2)
-        | Expression::ShiftLeft(expr1, expr2)
-        | Expression::ShiftRight(expr1, expr2)
-        | Expression::BitwiseAnd(expr1, expr2)
-        | Expression::BitwiseXor(expr1, expr2)
-        | Expression::BitwiseOr(expr1, expr2)
-        | Expression::AssignOr(expr1, expr2)
-        | Expression::AssignAnd(expr1, expr2)
-        | Expression::AssignXor(expr1, expr2)
-        | Expression::AssignShiftLeft(expr1, expr2)
-        | Expression::AssignShiftRight(expr1, expr2)
-        | Expression::Power(expr1, expr2) => {
-            function_call_in_expression(expr1) || function_call_in_expression(expr2)
-        }
-        Expression::List(list) => {
-            list.iter()
-                .map(function_call_in_expression)
-                .any(|output| output)
-        }
-        Expression::MappingSubscript(expr, list) => {
-            list.iter()
-                .map(function_call_in_expression)
-                .any(|output| output)
-                || function_call_in_expression(expr)
-        }
-        Expression::ArraySubscript(expr1, expr2) => {
-            function_call_in_expression(expr1)
-                || expr2
-                    .as_ref()
-                    .map_or(false, |expression| function_call_in_expression(expression))
-        }
-        Expression::MemberAccess(expr, _) => function_call_in_expression(expr),
-        Expression::New(expr)
-        | Expression::Not(expr)
-        | Expression::Parenthesis(expr)
-        | Expression::PostDecrement(expr)
-        | Expression::PostIncrement(expr)
-        | Expression::PreDecrement(expr)
-        | Expression::PreIncrement(expr) => function_call_in_expression(expr),
-        Expression::Ternary(expr1, expr2, expr3) => {
-            function_call_in_expression(expr1)
-                || function_call_in_expression(expr2)
-                || function_call_in_expression(expr3)
-        }
-        Expression::NamedFunctionCall(..) | Expression::FunctionCall(..) => true,
-        Expression::Modifier(_, list) => {
-            list.iter()
-                .map(function_call_in_expression)
-                .any(|output| output)
-        }
-        _ => false,
-    }
-}
-
 impl ToTokens for Type {
     fn to_tokens(&self, stream: &mut TokenStream) {
         stream.extend(match self {
@@ -1225,13 +1149,13 @@ impl ToTokens for Statement {
             Statement::Emit(expression) => {
                 match expression {
                     Expression::FunctionCall(identifier, args)
-                    if let Expression::Variable(event_name,_)=*identifier.clone()=> {
+                    if let Expression::Variable(event_name,_,location)=*identifier.clone()=> {
                         let fn_name = TokenStream::from_str(&format!(
                             "_emit_{}",
                             &event_name.to_case(Snake)
                         ))
                         .unwrap();
-                        quote!( self. #fn_name ( #(#args),* ); )
+                        quote!( #location . #fn_name ( #(#args),* ); )
                     }
                     _ => unreachable!("Emit can be only function call"),
                 }
@@ -1392,7 +1316,7 @@ impl ToTokens for Expression {
             }
             Expression::FunctionCall(function, args) => {
                 match *function.clone() {
-                    Expression::Variable(name, _) if name == "require" => {
+                    Expression::Variable(name, ..) if name == "require" => {
                         let condition = &args[0];
                         if args.len() > 1 {
                             let error = &args[1];
@@ -1438,7 +1362,7 @@ impl ToTokens for Expression {
                             _ => quote!( #ty :: from ( #(#args),* ) ),
                         }
                     }
-                    Expression::Variable(name, _) if name == "type" => {
+                    Expression::Variable(name, ..) if name == "type" => {
                         quote!(
                             type_of ( #(#args),* )?
                         )
@@ -1466,7 +1390,7 @@ impl ToTokens for Expression {
             }
             Expression::MemberAccess(left, member) => {
                 match *left.clone() {
-                    Expression::Variable(name, _) if name == "msg" => {
+                    Expression::Variable(name, ..) if name == "msg" => {
                         match member.as_str() {
                             "sender" => quote!(Self::env().caller()),
                             _ => panic!("msg.{member} is not implemented!"),
@@ -1551,24 +1475,27 @@ impl ToTokens for Expression {
                 quote!( if #condition { #if_true } else { #if_false } )
             }
             Expression::Type(ty) => quote!( #ty ),
-            Expression::Variable(name, member_type) => {
+            Expression::Variable(name, member_type,location) => {
                 match member_type {
                     MemberType::Variable(_) => {
-                        TokenStream::from_str(&format!("{}{}", "self.data().", name.to_case(Snake)))
-                            .unwrap()
+                        let formatted_name =TokenStream::from_str(&format_expression( name,Snake))
+                            .unwrap();
+                        quote!(#location.data(). #formatted_name)
                     }
                     MemberType::Function => {
-                        TokenStream::from_str(&format!("{}{}", "self.", name.to_case(Snake)))
-                            .unwrap()
+                        let formatted_name =TokenStream::from_str(&format_expression(name,Snake))
+                            .unwrap();
+                        quote!(#location.#formatted_name)
                     }
                     MemberType::FunctionPrivate => {
-                        TokenStream::from_str(&format!("{}_{}", "self.", name.to_case(Snake)))
-                            .unwrap()
+                        let formatted_name =TokenStream::from_str(&format!("_{}", name.to_case(Snake)))
+                            .unwrap();
+                        quote!(#location.#formatted_name)
                     }
                     MemberType::Constant => {
-                        TokenStream::from_str(&name.to_case(UpperSnake)).unwrap()
+                        TokenStream::from_str(&format_expression(name, UpperSnake)).unwrap()
                     }
-                    MemberType::None(_) => TokenStream::from_str(&name.to_case(Snake)).unwrap(),
+                    MemberType::None(_) => TokenStream::from_str(&format_expression(name, Snake)).unwrap(),
                 }
             }
             Expression::VariableDeclaration(ty, name) => {
@@ -1644,6 +1571,26 @@ impl ToTokens for Expression {
                    #left && #right
                 )
             }
+            _ => quote!(),
         })
+    }
+}
+
+impl ToTokens for VariableAccessLocation {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.extend(match self {
+            VariableAccessLocation::Constructor => quote!(instance),
+            VariableAccessLocation::Modifier => quote!(instance),
+            VariableAccessLocation::Any => quote!(self),
+        })
+    }
+}
+
+impl ToTokens for FunctionParam {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let name =
+            TokenStream::from_str(&format!("__{}", format_expression(&self.name, Snake))).unwrap();
+        let ty = &self.param_type;
+        tokens.extend(quote!(#name : #ty ))
     }
 }
