@@ -1390,9 +1390,14 @@ impl ToTokens for Expression {
             }
             Expression::MemberAccess(left, member) => {
                 match *left.clone() {
-                    Expression::Variable(name, ..) if name == "msg" => {
+                    Expression::Variable(name, _,location) if name == "msg" => {
+                        let location = match location {
+                            VariableAccessLocation::Constructor => quote!(instance.),
+                            VariableAccessLocation::Modifier => quote!(T::),
+                            VariableAccessLocation::Any => quote!(Self::),
+                        };
                         match member.as_str() {
-                            "sender" => quote!(Self::env().caller()),
+                            "sender" => quote!(#location env().caller()),
                             _ => panic!("msg.{member} is not implemented!"),
                         }
                     }

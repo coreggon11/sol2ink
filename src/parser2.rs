@@ -497,7 +497,7 @@ impl<'a> Parser<'a> {
                                 header: self.parse_function_header(function),
                                 body: if let Some(body) = &function.body {
                                     Some(self.parse_statement(
-                                        &body,
+                                        body,
                                         self.parse_variable_access_location(function_definition),
                                     )?)
                                 } else {
@@ -552,10 +552,7 @@ impl<'a> Parser<'a> {
                     } else {
                         Vec::default()
                     };
-                    if parsed_args
-                        .iter()
-                        .any(|expression| self.function_call_in_expression(expression))
-                    {
+                    if parsed_args.iter().any(function_call_in_expression) {
                         Expression::InvalidModifier(parsed_name, parsed_args)
                     } else {
                         Expression::Modifier(parsed_name, parsed_args)
@@ -568,12 +565,12 @@ impl<'a> Parser<'a> {
         let modifiers = all_modifiers
             .iter()
             .filter(|expression| matches!(expression, Expression::Modifier(..)))
-            .map(|expression| expression.clone())
+            .cloned()
             .collect();
         let invalid_modifiers = all_modifiers
             .iter()
             .filter(|expression| matches!(expression, Expression::InvalidModifier(..)))
-            .map(|expression| expression.clone())
+            .cloned()
             .collect();
         let external = function_definition.attributes.iter().any(|attribute| {
             matches!(
@@ -616,80 +613,6 @@ impl<'a> Parser<'a> {
             modifiers,
             invalid_modifiers,
             ..Default::default()
-        }
-    }
-
-    fn function_call_in_expression(&self, expresion: &Expression) -> bool {
-        match expresion {
-            Expression::Add(expr1, expr2)
-            | Expression::And(expr1, expr2)
-            | Expression::Assign(expr1, expr2)
-            | Expression::AssignAdd(expr1, expr2)
-            | Expression::AssignDivide(expr1, expr2)
-            | Expression::AssignModulo(expr1, expr2)
-            | Expression::AssignMultiply(expr1, expr2)
-            | Expression::AssignSubtract(expr1, expr2)
-            | Expression::Divide(expr1, expr2)
-            | Expression::Equal(expr1, expr2)
-            | Expression::Less(expr1, expr2)
-            | Expression::LessEqual(expr1, expr2)
-            | Expression::Modulo(expr1, expr2)
-            | Expression::More(expr1, expr2)
-            | Expression::MoreEqual(expr1, expr2)
-            | Expression::Multiply(expr1, expr2)
-            | Expression::NotEqual(expr1, expr2)
-            | Expression::Or(expr1, expr2)
-            | Expression::Subtract(expr1, expr2)
-            | Expression::ShiftLeft(expr1, expr2)
-            | Expression::ShiftRight(expr1, expr2)
-            | Expression::BitwiseAnd(expr1, expr2)
-            | Expression::BitwiseXor(expr1, expr2)
-            | Expression::BitwiseOr(expr1, expr2)
-            | Expression::AssignOr(expr1, expr2)
-            | Expression::AssignAnd(expr1, expr2)
-            | Expression::AssignXor(expr1, expr2)
-            | Expression::AssignShiftLeft(expr1, expr2)
-            | Expression::AssignShiftRight(expr1, expr2)
-            | Expression::Power(expr1, expr2) => {
-                self.function_call_in_expression(expr1) || self.function_call_in_expression(expr2)
-            }
-            Expression::List(list) => {
-                list.iter()
-                    .map(|expression| self.function_call_in_expression(expression))
-                    .any(|output| output)
-            }
-            Expression::MappingSubscript(expr, list) => {
-                list.iter()
-                    .map(|expression| self.function_call_in_expression(expression))
-                    .any(|output| output)
-                    || self.function_call_in_expression(expr)
-            }
-            Expression::ArraySubscript(expr1, expr2) => {
-                self.function_call_in_expression(expr1)
-                    || expr2.as_ref().map_or(false, |expression| {
-                        self.function_call_in_expression(expression)
-                    })
-            }
-            Expression::MemberAccess(expr, _) => self.function_call_in_expression(expr),
-            Expression::New(expr)
-            | Expression::Not(expr)
-            | Expression::Parenthesis(expr)
-            | Expression::PostDecrement(expr)
-            | Expression::PostIncrement(expr)
-            | Expression::PreDecrement(expr)
-            | Expression::PreIncrement(expr) => self.function_call_in_expression(expr),
-            Expression::Ternary(expr1, expr2, expr3) => {
-                self.function_call_in_expression(expr1)
-                    || self.function_call_in_expression(expr2)
-                    || self.function_call_in_expression(expr3)
-            }
-            Expression::NamedFunctionCall(..) | Expression::FunctionCall(..) => true,
-            Expression::Modifier(_, list) => {
-                list.iter()
-                    .map(|expression| self.function_call_in_expression(expression))
-                    .any(|output| output)
-            }
-            _ => false,
         }
     }
 
@@ -1301,5 +1224,79 @@ impl<'a> Parser<'a> {
             Some(identifier) => identifier.name.clone(),
             None => String::from("_"),
         }
+    }
+}
+
+fn function_call_in_expression(expresion: &Expression) -> bool {
+    match expresion {
+        Expression::Add(expr1, expr2)
+        | Expression::And(expr1, expr2)
+        | Expression::Assign(expr1, expr2)
+        | Expression::AssignAdd(expr1, expr2)
+        | Expression::AssignDivide(expr1, expr2)
+        | Expression::AssignModulo(expr1, expr2)
+        | Expression::AssignMultiply(expr1, expr2)
+        | Expression::AssignSubtract(expr1, expr2)
+        | Expression::Divide(expr1, expr2)
+        | Expression::Equal(expr1, expr2)
+        | Expression::Less(expr1, expr2)
+        | Expression::LessEqual(expr1, expr2)
+        | Expression::Modulo(expr1, expr2)
+        | Expression::More(expr1, expr2)
+        | Expression::MoreEqual(expr1, expr2)
+        | Expression::Multiply(expr1, expr2)
+        | Expression::NotEqual(expr1, expr2)
+        | Expression::Or(expr1, expr2)
+        | Expression::Subtract(expr1, expr2)
+        | Expression::ShiftLeft(expr1, expr2)
+        | Expression::ShiftRight(expr1, expr2)
+        | Expression::BitwiseAnd(expr1, expr2)
+        | Expression::BitwiseXor(expr1, expr2)
+        | Expression::BitwiseOr(expr1, expr2)
+        | Expression::AssignOr(expr1, expr2)
+        | Expression::AssignAnd(expr1, expr2)
+        | Expression::AssignXor(expr1, expr2)
+        | Expression::AssignShiftLeft(expr1, expr2)
+        | Expression::AssignShiftRight(expr1, expr2)
+        | Expression::Power(expr1, expr2) => {
+            function_call_in_expression(expr1) || function_call_in_expression(expr2)
+        }
+        Expression::List(list) => {
+            list.iter()
+                .map(function_call_in_expression)
+                .any(|output| output)
+        }
+        Expression::MappingSubscript(expr, list) => {
+            list.iter()
+                .map(function_call_in_expression)
+                .any(|output| output)
+                || function_call_in_expression(expr)
+        }
+        Expression::ArraySubscript(expr1, expr2) => {
+            function_call_in_expression(expr1)
+                || expr2
+                    .as_ref()
+                    .map_or(false, |expression| function_call_in_expression(expression))
+        }
+        Expression::MemberAccess(expr, _) => function_call_in_expression(expr),
+        Expression::New(expr)
+        | Expression::Not(expr)
+        | Expression::Parenthesis(expr)
+        | Expression::PostDecrement(expr)
+        | Expression::PostIncrement(expr)
+        | Expression::PreDecrement(expr)
+        | Expression::PreIncrement(expr) => function_call_in_expression(expr),
+        Expression::Ternary(expr1, expr2, expr3) => {
+            function_call_in_expression(expr1)
+                || function_call_in_expression(expr2)
+                || function_call_in_expression(expr3)
+        }
+        Expression::NamedFunctionCall(..) | Expression::FunctionCall(..) => true,
+        Expression::Modifier(_, list) => {
+            list.iter()
+                .map(function_call_in_expression)
+                .any(|output| output)
+        }
+        _ => false,
     }
 }
