@@ -36,10 +36,7 @@ use proc_macro2::{
 };
 use quote::*;
 use std::{
-    collections::{
-        HashMap,
-        HashSet,
-    },
+    collections::HashMap,
     str::FromStr,
 };
 
@@ -56,7 +53,7 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
     let contract_name = format_ident!("{}Contract", contract.name);
     let trait_name = format_ident!("{}", contract.name);
     let signature = signature();
-    let imports = assemble_imports(&contract.imports);
+    let imports = Vec::from_iter(&contract.imports);
     let events = assemble_events(&contract.events);
     let storage = assemble_storage(&contract.name);
     let constructor = assemble_constructor(&contract.constructor, &contract.fields);
@@ -72,7 +69,7 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
         #comments
         #[openbrush::contract]
         pub mod #mod_name {
-            #imports
+            #(#imports)*
             use scale::Encode;
             use scale::Decode;
             use ink_storage::traits::SpreadAllocate;
@@ -104,7 +101,7 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
 pub fn assemble_impl(contract: &Contract) -> TokenStream {
     let trait_name = format_ident!("{}", contract.name);
     let signature = signature();
-    let imports = assemble_imports(&contract.imports);
+    let imports = Vec::from_iter(&contract.imports);
     let data = assemble_data_struct(&contract.fields);
     let getters = assemble_getters(&contract.fields);
     let mut modifiers_map = HashMap::new();
@@ -147,7 +144,7 @@ pub fn assemble_impl(contract: &Contract) -> TokenStream {
             impls,
             traits::*,
         };
-        #imports
+        #(#imports)*
         use openbrush::traits::Storage;
         _blank_!();
         #data
@@ -178,7 +175,7 @@ pub fn assemble_trait(contract: &Contract) -> TokenStream {
     let trait_name = TokenStream::from_str(&contract.name).unwrap();
     let ref_name = TokenStream::from_str(&format!("{}Ref", contract.name)).unwrap();
     let signature = signature();
-    let imports = assemble_imports(&contract.imports);
+    let imports = Vec::from_iter(&contract.imports);
     let enums = assemble_enums(&contract.enums);
     let structs = assemble_structs(&contract.structs);
     let getters_trait = assemble_getters_trait(&contract.fields);
@@ -194,7 +191,7 @@ pub fn assemble_trait(contract: &Contract) -> TokenStream {
 
     quote! {
         #signature
-        #imports
+        #(#imports)*
         use scale::{
             Decode,
             Encode,
@@ -240,7 +237,7 @@ pub fn assemble_interface(interface: Interface) -> TokenStream {
     let interface_name = TokenStream::from_str(&interface.name).unwrap();
     let interface_name_ref = TokenStream::from_str(&format!("{}Ref", interface.name)).unwrap();
     let signature = signature();
-    let imports = assemble_imports(&interface.imports);
+    let imports = Vec::from_iter(&interface.imports);
     let events = assemble_events(&interface.events);
     let enums = assemble_enums(&interface.enums);
     let structs = assemble_structs(&interface.structs);
@@ -248,7 +245,7 @@ pub fn assemble_interface(interface: Interface) -> TokenStream {
 
     let interface = quote! {
         #signature
-        #imports
+        #(#imports)*
         _blank_!();
         #events
         #enums
@@ -268,7 +265,7 @@ pub fn assemble_interface(interface: Interface) -> TokenStream {
 /// Assembles a solidity library as a plain Rust file from the parsed library struct and return it as a TokenStream
 pub fn assemble_library(library: Library) -> TokenStream {
     let signature = signature();
-    let imports = assemble_imports(&library.imports);
+    let imports = Vec::from_iter(&library.imports);
     let events = assemble_events(&library.events);
     let enums = assemble_enums(&library.enums);
     let structs = assemble_structs(&library.structs);
@@ -282,7 +279,7 @@ pub fn assemble_library(library: Library) -> TokenStream {
         _blank_!();
         #signature
         #comments
-        #imports
+        #(#imports)*
         _blank_!();
         pub enum Error {
             Custom(String),
@@ -307,18 +304,6 @@ fn assemble_contract_doc(comments: &[String]) -> TokenStream {
         output.extend(quote! {
             #[doc = #comment]
         });
-    }
-
-    output
-}
-
-/// Sorts the imports inside the HashSet and return it as a Vec of Strings
-fn assemble_imports(imports: &HashSet<String>) -> TokenStream {
-    let mut output = TokenStream::new();
-    let output_vec = Vec::from_iter(imports);
-
-    for import in output_vec {
-        output.extend(TokenStream::from_str(import).unwrap());
     }
 
     output
@@ -1597,5 +1582,48 @@ impl ToTokens for FunctionParam {
             TokenStream::from_str(&format!("__{}", format_expression(&self.name, Snake))).unwrap();
         let ty = &self.param_type;
         tokens.extend(quote!(#name : #ty ))
+    }
+}
+
+impl ToTokens for Import {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.extend(match self {
+            Import::ModifierDefinition => {
+                quote!(
+                    use openbrush::modifier_definition;
+                )
+            }
+            Import::Modifiers => {
+                quote!(
+                    use openbrush::modifiers;
+                )
+            }
+            Import::AccountId => {
+                quote!(
+                    use openbrush::traits::AccountId;
+                )
+            }
+            Import::Mapping => {
+                quote!(
+                    use openbrush::storage::Mapping;
+                )
+            }
+            Import::String => {
+                quote!(
+                    use openbrush::traits::String;
+                )
+            }
+            Import::Vec => {
+                quote!(
+                    use ink_prelude::vec::*;
+                )
+            }
+            Import::ZeroAddress => {
+                quote!(
+                    use openbrush::traits::ZERO_ADDRESS;
+                    use openbrush::traits::AccountIdExt;
+                )
+            }
+        })
     }
 }

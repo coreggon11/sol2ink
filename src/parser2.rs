@@ -20,11 +20,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::collections::{
-    HashMap,
-    VecDeque,
-};
-
 use crate::structures::*;
 use convert_case::{
     Case::Snake,
@@ -54,6 +49,11 @@ use solang_parser::{
         VariableDefinition,
         Visibility,
     },
+};
+use std::collections::{
+    HashMap,
+    HashSet,
+    VecDeque,
 };
 
 pub enum ParserOutput {
@@ -86,16 +86,19 @@ impl From<std::io::Error> for ParserError {
 pub struct Parser<'a> {
     members_map: &'a mut HashMap<String, MemberType>,
     modifiers_map: &'a mut HashMap<String, FunctionDefinition>,
+    imports: &'a mut HashSet<Import>,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(
         members_map: &'a mut HashMap<String, MemberType>,
         modifiers_map: &'a mut HashMap<String, FunctionDefinition>,
+        imports: &'a mut HashSet<Import>,
     ) -> Self {
         Parser {
             members_map,
             modifiers_map,
+            imports,
         }
     }
 
@@ -245,6 +248,7 @@ impl<'a> Parser<'a> {
             functions,
             constructor,
             modifiers,
+            imports: self.imports.clone(),
             ..Default::default()
         })
     }
@@ -295,6 +299,7 @@ impl<'a> Parser<'a> {
             enums,
             structs,
             function_headers,
+            imports: self.imports.clone(),
             ..Default::default()
         })
     }
@@ -376,6 +381,7 @@ impl<'a> Parser<'a> {
             enums,
             structs,
             functions,
+            imports: self.imports.clone(),
             ..Default::default()
         })
     }
@@ -408,7 +414,7 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_event(&self, event_definition: &EventDefinition) -> Result<Event, ParserError> {
+    fn parse_event(&mut self, event_definition: &EventDefinition) -> Result<Event, ParserError> {
         let name = self.parse_identifier(&event_definition.name);
 
         let fields: Vec<EventField> = event_definition
@@ -451,7 +457,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_storage_field(
-        &self,
+        &mut self,
         variable_definition: &VariableDefinition,
     ) -> Result<ContractField, ParserError> {
         let field_type = self.parse_type(&variable_definition.ty)?;
@@ -482,7 +488,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_function(
-        &self,
+        &mut self,
         function_definition: &FunctionDefinition,
     ) -> Result<Function, ParserError> {
         let header = self.parse_function_header(function_definition);
@@ -490,7 +496,7 @@ impl<'a> Parser<'a> {
         for modifier in header.invalid_modifiers.clone() {
             match modifier {
                 Expression::InvalidModifier(name, _) => {
-                    if let Some(function) = self.modifiers_map.get(&name) {
+                    if let Some(function) = self.modifiers_map.clone().get(&name) {
                         invalid_modifiers.insert(
                             (header.name.clone(), name),
                             Function {
@@ -528,7 +534,10 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_function_header(&self, function_definition: &FunctionDefinition) -> FunctionHeader {
+    fn parse_function_header(
+        &mut self,
+        function_definition: &FunctionDefinition,
+    ) -> FunctionHeader {
         let name = self.parse_identifier(&function_definition.name);
         let params = function_definition
             .params
@@ -628,7 +637,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_statement(
-        &self,
+        &mut self,
         statement: &SolangStatement,
         location: VariableAccessLocation,
     ) -> Result<Statement, ParserError> {
@@ -745,7 +754,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_variable_declaration(
-        &self,
+        &mut self,
         variable_declaration: &VariableDeclaration,
     ) -> Result<Expression, ParserError> {
         let parsed_name = self
@@ -756,7 +765,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression(
-        &self,
+        &mut self,
         expression: &SolangExpression,
         location: VariableAccessLocation,
     ) -> Expression {
@@ -873,6 +882,21 @@ impl<'a> Parser<'a> {
             SolangExpression::FunctionCall(_, function, args) => {
                 boxed_expression!(parsed_function, function);
                 let parsed_args = self.parse_expression_vec(args, location);
+                match *parsed_function.clone() {
+                    Expression::Type(ty) if let Type::AccountId = *ty.clone() => {
+                        if parsed_args.len() > 1 {
+                            unreachable!("Multiple parameters were provided to `address` call")
+                        }
+                        let account_id = &parsed_args[0];
+                        match account_id {
+                            Expression::NumberLiteral(number) if number == "0" => {
+                                self.imports.insert(Import::ZeroAddress);
+                            }
+                            _ => (),
+                        }
+                    }
+                    _ => ()
+                }
                 Expression::FunctionCall(parsed_function, parsed_args)
             }
             SolangExpression::FunctionCallBlock(_, _, _) => todo!(),
@@ -1121,7 +1145,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression_vec(
-        &self,
+        &mut self,
         expressions: &[SolangExpression],
         location: VariableAccessLocation,
     ) -> Vec<Expression> {
@@ -1132,7 +1156,7 @@ impl<'a> Parser<'a> {
     }
 
     fn array_subscript_to_mapping_subscript(
-        &self,
+        &mut self,
         array: &SolangExpression,
         index_maybe: &Option<Box<SolangExpression>>,
         location: VariableAccessLocation,
@@ -1165,7 +1189,7 @@ impl<'a> Parser<'a> {
             .join("::")
     }
 
-    fn parse_type(&self, ty: &SolangExpression) -> Result<Type, ParserError> {
+    fn parse_type(&mut self, ty: &SolangExpression) -> Result<Type, ParserError> {
         match &ty {
             SolangExpression::Type(_, SolangType::Mapping(_, key_type, value_type)) => {
                 let mut parsed_key_types = vec![self.parse_type(key_type)?];
@@ -1179,10 +1203,20 @@ impl<'a> Parser<'a> {
                     value_type_now = value_type_value;
                 }
                 let parsed_value_type = self.parse_type(value_type_now)?;
+                self.imports.insert(Import::Mapping);
                 Ok(Type::Mapping(parsed_key_types, Box::new(parsed_value_type)))
             }
             SolangExpression::Type(_, solidity_type) => {
-                Ok(self.convert_solidity_type(solidity_type))
+                let converted_type = self.convert_solidity_type(solidity_type);
+                match converted_type {
+                    Type::Array(..) => self.imports.insert(Import::Vec),
+                    Type::AccountId => self.imports.insert(Import::AccountId),
+                    Type::String => self.imports.insert(Import::String),
+                    Type::DynamicBytes => self.imports.insert(Import::Vec),
+                    Type::Mapping(_, _) => self.imports.insert(Import::Mapping),
+                    _ => true,
+                };
+                Ok(converted_type)
             }
             SolangExpression::Variable(identifier) => Ok(Type::Variable(identifier.name.clone())),
             SolangExpression::ArraySubscript(_, ty, expression_maybe) => {

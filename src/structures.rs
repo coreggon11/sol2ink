@@ -43,7 +43,7 @@ pub struct Contract {
     pub enums: Vec<Enum>,
     pub structs: Vec<Struct>,
     pub functions: Vec<Function>,
-    pub imports: HashSet<String>,
+    pub imports: HashSet<Import>,
     pub contract_doc: Vec<String>,
     pub modifiers: Vec<Function>,
 }
@@ -56,7 +56,7 @@ pub struct Library {
     pub enums: Vec<Enum>,
     pub structs: Vec<Struct>,
     pub functions: Vec<Function>,
-    pub imports: HashSet<String>,
+    pub imports: HashSet<Import>,
     pub libraray_doc: Vec<String>,
 }
 
@@ -67,7 +67,7 @@ pub struct Interface {
     pub enums: Vec<Enum>,
     pub structs: Vec<Struct>,
     pub function_headers: Vec<FunctionHeader>,
-    pub imports: HashSet<String>,
+    pub imports: HashSet<Import>,
     pub comments: Vec<String>,
 }
 
@@ -261,4 +261,15 @@ pub enum Type {
     Variable(String),
     Mapping(Vec<Type>, Box<Type>),
     None,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub enum Import {
+    ModifierDefinition,
+    Modifiers,
+    AccountId,
+    Mapping,
+    String,
+    Vec,
+    ZeroAddress,
 }
