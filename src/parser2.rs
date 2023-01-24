@@ -108,6 +108,7 @@ pub struct Parser<'a> {
     modifiers_map: &'a mut HashMap<String, FunctionDefinition>,
     imports: &'a mut HashSet<Import>,
     rb_tree: &'a mut RBTree<usize, u64>,
+    comments: &'a mut RBTree<usize, String>,
 }
 
 impl<'a> Parser<'a> {
@@ -116,12 +117,37 @@ impl<'a> Parser<'a> {
         modifiers_map: &'a mut HashMap<String, FunctionDefinition>,
         imports: &'a mut HashSet<Import>,
         rb_tree: &'a mut RBTree<usize, u64>,
+        comments: &'a mut RBTree<usize, String>,
     ) -> Self {
         Parser {
             members_map,
             modifiers_map,
             imports,
             rb_tree,
+            comments,
+        }
+    }
+
+    pub fn filter_comment(&self, original: &SolangComment) -> String {
+        match original {
+            SolangComment::Line(_, content) => content.trim()[2..].to_owned(),
+            SolangComment::Block(_, content) => {
+                println!("{content}");
+                content.to_owned()
+            }
+            SolangComment::DocLine(_, content) => {
+                println!("{content}");
+                content.to_owned()
+            }
+            SolangComment::DocBlock(_, content) => {
+                let trimmed = content.trim();
+                trimmed[3..trimmed.len() - 2]
+                    .trim()
+                    .split('\n')
+                    .map(|str| &str.trim()[1..])
+                    .collect::<Vec<&str>>()
+                    .join("\n")
+            }
         }
     }
 
@@ -134,11 +160,13 @@ impl<'a> Parser<'a> {
 
         comments.iter().for_each(|comment| {
             match comment {
-                SolangComment::Line(loc, comment)
-                | SolangComment::Block(loc, comment)
-                | SolangComment::DocLine(loc, comment)
-                | SolangComment::DocBlock(loc, comment) => {
-                    self.rb_tree.insert(loc.start(), hash!(comment));
+                SolangComment::Line(loc, content)
+                | SolangComment::Block(loc, content)
+                | SolangComment::DocLine(loc, content)
+                | SolangComment::DocBlock(loc, content) => {
+                    self.rb_tree.insert(loc.start(), hash!(content));
+                    self.comments
+                        .insert(loc.start(), self.filter_comment(comment));
                 }
             }
         });
@@ -162,7 +190,20 @@ impl<'a> Parser<'a> {
     ) -> Result<ParserOutput, ParserError> {
         match contract_definition.ty {
             ContractTy::Abstract(loc) | ContractTy::Contract(loc) => {
-                let contract = ParserOutput::Contract(self.parse_contract(contract_definition)?);
+                let mut comments = Vec::default();
+                let mut removed = Vec::default();
+                for node in self.comments.iter() {
+                    if *node.0 > loc.start() {
+                        break
+                    }
+                    comments.push(node.1.clone());
+                    removed.push(*node.0);
+                }
+                removed.iter().for_each(|k| {
+                    self.comments.remove(&k);
+                });
+                let contract =
+                    ParserOutput::Contract(self.parse_contract(contract_definition, &comments)?);
                 self.rb_tree.insert(loc.start(), hash!(contract));
                 Ok(contract)
             }
@@ -182,6 +223,7 @@ impl<'a> Parser<'a> {
     fn parse_contract(
         &mut self,
         contract_definition: &ContractDefinition,
+        comments: &[String],
     ) -> Result<Contract, ParserError> {
         let name = self.parse_identifier(&contract_definition.name);
 
@@ -285,7 +327,7 @@ impl<'a> Parser<'a> {
             constructor,
             modifiers,
             imports: self.imports.clone(),
-            ..Default::default()
+            contract_doc: comments.to_vec(),
         })
     }
 

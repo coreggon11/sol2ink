@@ -112,12 +112,14 @@ fn run(path: &String) -> Result<(), ParserError> {
     let mut modifier_map = HashMap::new();
     let mut imports = HashSet::new();
     let mut rb_tree = RBTree::new();
+    let mut comments = RBTree::new();
 
     let mut parser = Parser::new(
         &mut fields_map,
         &mut modifier_map,
         &mut imports,
         &mut rb_tree,
+        &mut comments,
     );
 
     let output = parser.parse_file(&content)?;
