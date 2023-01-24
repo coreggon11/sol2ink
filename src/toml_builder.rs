@@ -82,8 +82,8 @@ pub fn generate_cargo_toml(package_name: &str, mod_name: Option<String>) -> Stri
     out.push_str("\"scale-info\",\n");
     out.push_str("\"scale-info/std\",\n");
     out.push_str("\"openbrush/std\",\n");
-    if let Some(mod_name) = mod_name.clone() {
-        out.push_str("\"");
+    if let Some(mod_name) = mod_name {
+        out.push('"');
         out.push_str(mod_name.as_str());
         out.push_str("/std\"\n");
     }

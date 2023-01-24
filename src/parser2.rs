@@ -154,26 +154,6 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let comments = Vec::new();
-        for (location, value) in self.rb_tree.iter() {
-            match value {
-                Node::Contract(_) => {}
-                Node::ContractField(_) => {}
-                Node::Comment(_) => {}
-                Node::FunctionHeader(_) => {}
-                Node::Enum(_) => {}
-                Node::EnumValue(_) => {}
-                Node::Event(_) => {}
-                Node::EventField(_) => {}
-                Node::Interface(_) => {}
-                Node::Library(_) => {}
-                Node::Modifier(_) => {}
-                Node::Statement(_) => {}
-                Node::Struct(_) => {}
-                Node::StructField(_) => {}
-            }
-        }
-
         Ok(output)
     }
 
