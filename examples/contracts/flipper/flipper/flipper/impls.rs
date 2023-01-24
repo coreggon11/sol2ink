@@ -1,5 +1,5 @@
-// Generated with Sol2Ink v1.1.0
-// https://github.com/Supercolony-net/sol2ink
+// Generated with Sol2Ink v2.0.0-beta
+// https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
     impls,
@@ -22,7 +22,7 @@ impl<T: Storage<Data>> flipper for T {
     ///This one flips the value of the stored `bool` from `true`
     ///to `false` and vice versa.
     fn flip(&mut self) -> Result<(), Error> {
-        self.data().value = !value;
+        self.data().value = !self.data().value;
         Ok(())
     }
 

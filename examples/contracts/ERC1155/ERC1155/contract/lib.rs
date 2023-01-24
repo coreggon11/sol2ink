@@ -1,14 +1,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v1.1.0
-// https://github.com/Supercolony-net/sol2ink
+// Generated with Sol2Ink v2.0.0-beta
+// https://github.com/727-Ventures/sol2ink
 
-///SPDX-License-Identifier: MIT
-///OpenZeppelin Contracts (last updated v4.7.0) (token/ERC1155/ERC1155.sol)
+/// SPDX-License-Identifier: MIT
+/// OpenZeppelin Contracts (last updated v4.7.0) (token/ERC1155/ERC1155.sol)
 /// @dev Implementation of the basic standard multi-token.
 /// See https://eips.ethereum.org/EIPS/eip-1155
 /// Originally based on code by Enjin: https://github.com/enjin/erc-1155
+///
 /// _Available since v3.1._
 #[openbrush::contract]
 pub mod erc_1155 {
@@ -17,7 +18,7 @@ pub mod erc_1155 {
         EmitEvent,
         Env,
     };
-    use ink_prelude::vec::Vec;
+    use ink_prelude::vec::*;
     use ink_storage::traits::SpreadAllocate;
     use openbrush::{
         storage::Mapping,
@@ -74,6 +75,7 @@ pub mod erc_1155 {
     }
 
     /// @dev Emitted when the URI for token type `id` changes to `value`, if it is a non-programmatic URI.
+    ///
     /// If an {URI} event was emitted for `id`, the standard
     /// https://eips.ethereum.org/EIPS/eip-1155#metadata-extensions[guarantees] that `value` will equal the value
     /// returned by {IERC1155MetadataURI-uri}.

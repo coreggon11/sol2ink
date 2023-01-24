@@ -1,37 +1,44 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v1.1.0
-// https://github.com/Supercolony-net/sol2ink
+// Generated with Sol2Ink v2.0.0-beta
+// https://github.com/727-Ventures/sol2ink
 
-///SPDX-License-Identifier: MIT
-///OpenZeppelin Contracts (last updated v4.7.0) (access/AccessControl.sol)
+/// SPDX-License-Identifier: MIT
+/// OpenZeppelin Contracts (last updated v4.7.0) (access/AccessControl.sol)
 /// @dev Contract module that allows children to implement role-based access
 /// control mechanisms. This is a lightweight version that doesn't allow enumerating role
 /// members except through off-chain means by accessing the contract event logs. Some
 /// applications may benefit from on-chain enumerability, for those cases see
 /// {AccessControlEnumerable}.
+///
 /// Roles are referred to by their `bytes32` identifier. These should be exposed
 /// in the external API and be unique. The best way to achieve this is by
 /// using `public constant` hash digests:
+///
 /// ```
 /// bytes32 public constant MY_ROLE = keccak256("MY_ROLE");
 /// ```
+///
 /// Roles can be used to represent a set of permissions. To restrict access to a
 /// function call, use {hasRole}:
+///
 /// ```
 /// function foo() public {
 ///     require(hasRole(MY_ROLE, msg.sender));
 ///     ...
 /// }
 /// ```
+///
 /// Roles can be granted and revoked dynamically via the {grantRole} and
 /// {revokeRole} functions. Each role has an associated admin role, and only
 /// accounts that have a role's admin role can call {grantRole} and {revokeRole}.
+///
 /// By default, the admin role for all roles is `DEFAULT_ADMIN_ROLE`, which means
 /// that only accounts with this role will be able to grant or revoke other
 /// roles. More complex role relationships can be created by using
 /// {_setRoleAdmin}.
+///
 /// WARNING: The `DEFAULT_ADMIN_ROLE` is also its own admin: it has permission to
 /// grant and revoke this role. Extra precautions should be taken to secure
 /// accounts that have been granted it.
@@ -44,13 +51,10 @@ pub mod access_control {
     };
     use ink_storage::traits::SpreadAllocate;
     use openbrush::{
-        modifier_definition,
-        modifiers,
         storage::Mapping,
         traits::{
             AccountId,
             Storage,
-            String,
         },
     };
     use scale::{
@@ -61,8 +65,10 @@ pub mod access_control {
     pub const DEFAULT_ADMIN_ROLE: [u8; 32] = &hex::decode("0x00");
 
     /// @dev Emitted when `newAdminRole` is set as ``role``'s admin role, replacing `previousAdminRole`
+    ///
     /// `DEFAULT_ADMIN_ROLE` is the starting admin for all roles, despite
     /// {RoleAdminChanged} not being emitted signaling this.
+    ///
     /// _Available since v3.1._
     #[ink(event)]
     pub struct RoleAdminChanged {
@@ -75,6 +81,7 @@ pub mod access_control {
     }
 
     /// @dev Emitted when `account` is granted `role`.
+    ///
     /// `sender` is the account that originated the contract call, an admin role
     /// bearer except when using {AccessControl-_setupRole}.
     #[ink(event)]
@@ -88,6 +95,7 @@ pub mod access_control {
     }
 
     /// @dev Emitted when `account` is revoked `role`.
+    ///
     /// `sender` is the account that originated the contract call:
     ///   - if using `revokeRole`, it is the admin role bearer
     ///   - if using `renounceRole`, it is the role bearer (i.e. `account`)

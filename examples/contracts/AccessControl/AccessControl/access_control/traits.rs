@@ -1,14 +1,9 @@
-// Generated with Sol2Ink v1.1.0
-// https://github.com/Supercolony-net/sol2ink
+// Generated with Sol2Ink v2.0.0-beta
+// https://github.com/727-Ventures/sol2ink
 
 use openbrush::{
-    modifier_definition,
-    modifiers,
     storage::Mapping,
-    traits::{
-        AccountId,
-        String,
-    },
+    traits::AccountId,
 };
 use scale::{
     Decode,
@@ -45,35 +40,49 @@ pub trait AccessControl {
 
     /// @dev Returns the admin role that controls `role`. See {grantRole} and
     /// {revokeRole}.
+    ///
     /// To change a role's admin, use {_setRoleAdmin}.
     #[ink(message)]
     fn get_role_admin(&self, role: [u8; 32]) -> Result<[u8; 32], Error>;
 
     /// @dev Grants `role` to `account`.
+    ///
     /// If `account` had not been already granted `role`, emits a {RoleGranted}
     /// event.
+    ///
     /// Requirements:
+    ///
     /// - the caller must have ``role``'s admin role.
+    ///
     /// May emit a {RoleGranted} event.
     #[ink(message)]
     fn grant_role(&mut self, role: [u8; 32], account: AccountId) -> Result<(), Error>;
 
     /// @dev Revokes `role` from `account`.
+    ///
     /// If `account` had been granted `role`, emits a {RoleRevoked} event.
+    ///
     /// Requirements:
+    ///
     /// - the caller must have ``role``'s admin role.
+    ///
     /// May emit a {RoleRevoked} event.
     #[ink(message)]
     fn revoke_role(&mut self, role: [u8; 32], account: AccountId) -> Result<(), Error>;
 
     /// @dev Revokes `role` from the calling account.
+    ///
     /// Roles are often managed via {grantRole} and {revokeRole}: this function's
     /// purpose is to provide a mechanism for accounts to lose their privileges
     /// if they are compromised (such as when a trusted device is misplaced).
+    ///
     /// If the calling account had been revoked `role`, emits a {RoleRevoked}
     /// event.
+    ///
     /// Requirements:
+    ///
     /// - the caller must be `account`.
+    ///
     /// May emit a {RoleRevoked} event.
     #[ink(message)]
     fn renounce_role(&mut self, role: [u8; 32], account: AccountId) -> Result<(), Error>;

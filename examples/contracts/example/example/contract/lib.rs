@@ -4,6 +4,7 @@
 // Generated with Sol2Ink v2.0.0-beta
 // https://github.com/727-Ventures/sol2ink
 
+/// example.sol
 #[openbrush::contract]
 pub mod example {
     use example::*;
@@ -12,13 +13,19 @@ pub mod example {
         Env,
     };
     use ink_storage::traits::SpreadAllocate;
-    use openbrush::traits::Storage;
+    use openbrush::traits::{
+        AccountId,
+        AccountIdExt,
+        Storage,
+        ZERO_ADDRESS,
+    };
     use scale::{
         Decode,
         Encode,
     };
 
-    pub const BAD_STATE: state = state.zombie;
+    /// Constants
+    pub const BAD_STATE: State = state.zombie;
     pub const FIRST_PID: i32 = 1;
 
     #[ink(storage)]
@@ -33,10 +40,11 @@ pub mod example {
     impl example::Internal for exampleContract {}
 
     impl exampleContract {
+        /// Our constructors
         #[ink(constructor)]
         pub fn new(pid: i32) -> Self {
             ink_lang::codegen::initialize_contract(|instance: &mut Self| {
-                self.data().pid = pid;
+                instance.data().pid = pid;
                 self.reaped = 3;
                 self.card_1 = card(value.two, suit.club)?;
                 self.card_2 = card {
