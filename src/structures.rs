@@ -20,12 +20,15 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::collections::{
-    HashMap,
-    HashSet,
+use std::{
+    collections::{
+        HashMap,
+        HashSet,
+    },
+    hash::Hash,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub enum MemberType {
     Variable(Box<Type>),
     Constant,
@@ -48,6 +51,20 @@ pub struct Contract {
     pub modifiers: Vec<Function>,
 }
 
+impl Hash for Contract {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.fields.hash(state);
+        self.constructor.hash(state);
+        self.events.hash(state);
+        self.enums.hash(state);
+        self.structs.hash(state);
+        self.functions.hash(state);
+        self.contract_doc.hash(state);
+        self.modifiers.hash(state);
+    }
+}
+
 #[derive(Clone, Default)]
 pub struct Library {
     pub name: String,
@@ -58,6 +75,18 @@ pub struct Library {
     pub functions: Vec<Function>,
     pub imports: HashSet<Import>,
     pub libraray_doc: Vec<String>,
+}
+
+impl Hash for Library {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.fields.hash(state);
+        self.events.hash(state);
+        self.enums.hash(state);
+        self.structs.hash(state);
+        self.functions.hash(state);
+        self.libraray_doc.hash(state);
+    }
 }
 
 #[derive(Clone, Default)]
@@ -71,7 +100,18 @@ pub struct Interface {
     pub comments: Vec<String>,
 }
 
-#[derive(Clone)]
+impl Hash for Interface {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.events.hash(state);
+        self.enums.hash(state);
+        self.structs.hash(state);
+        self.function_headers.hash(state);
+        self.comments.hash(state);
+    }
+}
+
+#[derive(Clone, Hash)]
 pub struct ContractField {
     pub field_type: Type,
     pub name: String,
@@ -88,14 +128,14 @@ pub struct Modifier {
     pub comments: Vec<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 pub struct Event {
     pub name: String,
     pub fields: Vec<EventField>,
     pub comments: Vec<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 pub struct EventField {
     pub indexed: bool,
     pub field_type: Type,
@@ -103,27 +143,27 @@ pub struct EventField {
     pub comments: Vec<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 pub struct Enum {
     pub name: String,
     pub values: Vec<EnumValue>,
     pub comments: Vec<String>,
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Hash)]
 pub struct EnumValue {
     pub name: String,
     pub comments: Vec<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 pub struct Struct {
     pub name: String,
     pub fields: Vec<StructField>,
     pub comments: Vec<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct StructField {
     pub name: String,
     pub field_type: Type,
@@ -137,7 +177,14 @@ pub struct Function {
     pub invalid_modifiers: HashMap<(String, String), Function>,
 }
 
-#[derive(Default, Clone, Debug)]
+impl Hash for Function {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.header.hash(state);
+        self.body.hash(state);
+    }
+}
+
+#[derive(Default, Clone, Debug, Hash)]
 pub struct FunctionHeader {
     pub name: String,
     pub params: Vec<FunctionParam>,
@@ -150,13 +197,13 @@ pub struct FunctionHeader {
     pub invalid_modifiers: Vec<Expression>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub struct FunctionParam {
     pub name: String,
     pub param_type: Type,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub enum Statement {
     Assembly(Vec<String>),
     Block(Vec<Statement>),
@@ -182,14 +229,14 @@ pub enum Statement {
     While(Expression, Box<Statement>),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub enum VariableAccessLocation {
     Constructor,
     Modifier,
     Any,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub enum Expression {
     Add(Box<Expression>, Box<Expression>),
     And(Box<Expression>, Box<Expression>),
@@ -248,7 +295,7 @@ pub enum Expression {
     NamedFunctionCall(Box<Expression>, Vec<(String, Expression)>),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub enum Type {
     AccountId,
     Array(Box<Type>, Option<Expression>),

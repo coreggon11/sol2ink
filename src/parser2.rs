@@ -52,13 +52,30 @@ use solang_parser::{
         Visibility,
     },
 };
-use std::collections::{
-    HashMap,
-    HashSet,
-    VecDeque,
+use std::{
+    collections::{
+        hash_map::DefaultHasher,
+        HashMap,
+        HashSet,
+        VecDeque,
+    },
+    hash::{
+        Hash,
+        Hasher,
+    },
 };
 
-#[derive(Clone)]
+macro_rules! hash {
+    ($value:expr) => {
+        (|| -> u64 {
+            let mut hasher = DefaultHasher::new();
+            $value.hash(&mut hasher);
+            return hasher.finish()
+        })()
+    };
+}
+
+#[derive(Clone, Hash)]
 pub enum ParserOutput {
     Contract(Contract),
     Interface(Interface),
@@ -80,23 +97,6 @@ pub enum ParserError {
     IncorrectTypeOfVariable,
 }
 
-pub enum Node {
-    Contract(ParserOutput),
-    ContractField(ContractField),
-    Comment(String),
-    FunctionHeader(FunctionHeader),
-    Enum(Enum),
-    EnumValue(EnumValue),
-    Event(Event),
-    EventField(EventField),
-    Interface(ParserOutput),
-    Library(ParserOutput),
-    Modifier(Function),
-    Statement(Statement),
-    Struct(Struct),
-    StructField(StructField),
-}
-
 impl From<std::io::Error> for ParserError {
     fn from(error: std::io::Error) -> Self {
         ParserError::FileError(error.to_string())
@@ -107,7 +107,7 @@ pub struct Parser<'a> {
     members_map: &'a mut HashMap<String, MemberType>,
     modifiers_map: &'a mut HashMap<String, FunctionDefinition>,
     imports: &'a mut HashSet<Import>,
-    rb_tree: &'a mut RBTree<usize, Node>,
+    rb_tree: &'a mut RBTree<usize, u64>,
 }
 
 impl<'a> Parser<'a> {
@@ -115,7 +115,7 @@ impl<'a> Parser<'a> {
         members_map: &'a mut HashMap<String, MemberType>,
         modifiers_map: &'a mut HashMap<String, FunctionDefinition>,
         imports: &'a mut HashSet<Import>,
-        rb_tree: &'a mut RBTree<usize, Node>,
+        rb_tree: &'a mut RBTree<usize, u64>,
     ) -> Self {
         Parser {
             members_map,
@@ -138,8 +138,7 @@ impl<'a> Parser<'a> {
                 | SolangComment::Block(loc, comment)
                 | SolangComment::DocLine(loc, comment)
                 | SolangComment::DocBlock(loc, comment) => {
-                    self.rb_tree
-                        .insert(loc.start(), Node::Comment(comment.clone()));
+                    self.rb_tree.insert(loc.start(), hash!(comment));
                 }
             }
         });
@@ -164,20 +163,17 @@ impl<'a> Parser<'a> {
         match contract_definition.ty {
             ContractTy::Abstract(loc) | ContractTy::Contract(loc) => {
                 let contract = ParserOutput::Contract(self.parse_contract(contract_definition)?);
-                self.rb_tree
-                    .insert(loc.start(), Node::Contract(contract.clone()));
+                self.rb_tree.insert(loc.start(), hash!(contract));
                 Ok(contract)
             }
             ContractTy::Library(loc) => {
                 let library = ParserOutput::Library(self.parse_library(contract_definition)?);
-                self.rb_tree
-                    .insert(loc.start(), Node::Library(library.clone()));
+                self.rb_tree.insert(loc.start(), hash!(library));
                 Ok(library)
             }
             ContractTy::Interface(loc) => {
                 let interface = ParserOutput::Interface(self.parse_interface(contract_definition)?);
-                self.rb_tree
-                    .insert(loc.start(), Node::Interface(interface.clone()));
+                self.rb_tree.insert(loc.start(), hash!(interface));
                 Ok(interface)
             }
         }
@@ -265,10 +261,8 @@ impl<'a> Parser<'a> {
                     match function_definition.ty {
                         FunctionTy::Constructor => constructor = parsed_function,
                         FunctionTy::Modifier => {
-                            self.rb_tree.insert(
-                                function_definition.loc.start(),
-                                Node::Modifier(parsed_function.clone()),
-                            );
+                            self.rb_tree
+                                .insert(function_definition.loc.start(), hash!(parsed_function));
                             modifiers.push(parsed_function);
                         }
                         _ => functions.push(parsed_function),
@@ -447,10 +441,8 @@ impl<'a> Parser<'a> {
                     field_type: ty,
                     comments: Default::default(),
                 };
-                self.rb_tree.insert(
-                    variable_declaration.loc.start(),
-                    Node::StructField(struct_field.clone()),
-                );
+                self.rb_tree
+                    .insert(variable_declaration.loc.start(), hash!(struct_field));
                 Some(struct_field)
             })
             .collect();
@@ -460,10 +452,8 @@ impl<'a> Parser<'a> {
             fields,
             comments: Default::default(),
         };
-        self.rb_tree.insert(
-            struct_definition.loc.start(),
-            Node::Struct(parsed_struct.clone()),
-        );
+        self.rb_tree
+            .insert(struct_definition.loc.start(), hash!(parsed_struct));
 
         Ok(parsed_struct)
     }
@@ -481,10 +471,8 @@ impl<'a> Parser<'a> {
                     indexed: variable_declaration.indexed,
                     comments: Default::default(),
                 };
-                self.rb_tree.insert(
-                    variable_declaration.loc.start(),
-                    Node::EventField(event_field.clone()),
-                );
+                self.rb_tree
+                    .insert(variable_declaration.loc.start(), hash!(event_field));
                 Some(event_field)
             })
             .collect();
@@ -494,10 +482,8 @@ impl<'a> Parser<'a> {
             fields,
             comments: Default::default(),
         };
-        self.rb_tree.insert(
-            event_definition.loc.start(),
-            Node::Event(parsed_event.clone()),
-        );
+        self.rb_tree
+            .insert(event_definition.loc.start(), hash!(parsed_event));
 
         Ok(parsed_event)
     }
@@ -514,8 +500,7 @@ impl<'a> Parser<'a> {
                     comments: Default::default(),
                 };
                 if let Some(value) = enum_value {
-                    self.rb_tree
-                        .insert(value.loc.start(), Node::EnumValue(enum_field.clone()));
+                    self.rb_tree.insert(value.loc.start(), hash!(enum_field));
                 }
                 enum_field
             })
@@ -527,7 +512,7 @@ impl<'a> Parser<'a> {
             comments: Default::default(),
         };
         self.rb_tree
-            .insert(enum_definition.loc.start(), Node::Enum(parsed_enum.clone()));
+            .insert(enum_definition.loc.start(), hash!(parsed_enum));
 
         Ok(parsed_enum)
     }
@@ -561,10 +546,8 @@ impl<'a> Parser<'a> {
             public,
             comments,
         };
-        self.rb_tree.insert(
-            variable_definition.loc.start(),
-            Node::ContractField(contract_field.clone()),
-        );
+        self.rb_tree
+            .insert(variable_definition.loc.start(), hash!(contract_field));
         Ok(contract_field)
     }
 
@@ -704,10 +687,8 @@ impl<'a> Parser<'a> {
             invalid_modifiers,
             ..Default::default()
         };
-        self.rb_tree.insert(
-            function_definition.loc.start(),
-            Node::FunctionHeader(function_header.clone()),
-        );
+        self.rb_tree
+            .insert(function_definition.loc.start(), hash!(function_header));
         function_header
     }
 
@@ -846,10 +827,8 @@ impl<'a> Parser<'a> {
             }
             SolangStatement::Error(_) => todo!(),
         };
-        self.rb_tree.insert(
-            statement_location.start(),
-            Node::Statement(parsed_statement.clone()),
-        );
+        self.rb_tree
+            .insert(statement_location.start(), hash!(parsed_statement));
 
         Ok(parsed_statement)
     }
