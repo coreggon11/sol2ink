@@ -115,13 +115,10 @@ impl<'a> Parser<'a> {
         match original {
             SolangComment::Line(_, content) => content.trim()[2..].to_owned(),
             SolangComment::Block(_, content) => {
-                println!("{content}");
-                content.to_owned()
+                let trimmed = content.trim();
+                trimmed[2..trimmed.len() - 2].trim().to_owned()
             }
-            SolangComment::DocLine(_, content) => {
-                println!("{content}");
-                content.to_owned()
-            }
+            SolangComment::DocLine(_, content) => content[3..].trim().to_owned(),
             SolangComment::DocBlock(_, content) => {
                 let trimmed = content.trim();
                 trimmed[3..trimmed.len() - 2]
@@ -148,7 +145,7 @@ impl<'a> Parser<'a> {
                 | SolangComment::DocLine(loc, _)
                 | SolangComment::DocBlock(loc, _) => {
                     self.comments
-                        .insert(loc.start(), self.filter_comment(comment));
+                        .insert(loc.end(), self.filter_comment(comment));
                 }
             }
         });
@@ -188,19 +185,19 @@ impl<'a> Parser<'a> {
     ) -> Result<ParserOutput, ParserError> {
         match contract_definition.ty {
             ContractTy::Abstract(loc) | ContractTy::Contract(loc) => {
-                let comments = self.get_comments(loc.start());
+                let comments = self.get_comments(loc.end());
                 let contract =
                     ParserOutput::Contract(self.parse_contract(contract_definition, &comments)?);
                 Ok(contract)
             }
             ContractTy::Library(loc) => {
-                let comments = self.get_comments(loc.start());
+                let comments = self.get_comments(loc.end());
                 let library =
                     ParserOutput::Library(self.parse_library(contract_definition, &comments)?);
                 Ok(library)
             }
             ContractTy::Interface(loc) => {
-                let comments = self.get_comments(loc.start());
+                let comments = self.get_comments(loc.end());
                 let interface =
                     ParserOutput::Interface(self.parse_interface(contract_definition, &comments)?);
                 Ok(interface)
@@ -227,17 +224,20 @@ impl<'a> Parser<'a> {
         for part in contract_definition.parts.iter() {
             match part {
                 ContractPart::VariableDefinition(variable_definition) => {
-                    let parsed_field = self.parse_storage_field(variable_definition)?;
-                    let constant = parsed_field.constant;
+                    let field_type = self.parse_type(&variable_definition.ty)?;
+                    let name = self.parse_identifier(&variable_definition.name);
+                    let constant = variable_definition
+                        .attrs
+                        .iter()
+                        .any(|item| matches!(item, VariableAttribute::Constant(_)));
                     self.members_map.insert(
-                        parsed_field.name.clone(),
+                        name,
                         if constant {
                             MemberType::Constant
                         } else {
-                            MemberType::Variable(Box::new(parsed_field.field_type.clone()))
+                            MemberType::Variable(Box::new(field_type))
                         },
                     );
-                    fields.push(parsed_field);
                 }
                 ContractPart::FunctionDefinition(function_definition) => {
                     let fn_name = self.parse_identifier(&function_definition.name);
@@ -266,6 +266,26 @@ impl<'a> Parser<'a> {
                         _ => (),
                     }
                 }
+                _ => (),
+            }
+        }
+
+        for part in contract_definition.parts.iter() {
+            match part {
+                ContractPart::Annotation(_) => println!("Anottation: {part:?}"),
+                ContractPart::VariableDefinition(variable_definition) => {
+                    let parsed_field = self.parse_storage_field(variable_definition)?;
+                    fields.push(parsed_field);
+                }
+                ContractPart::ErrorDefinition(_) => {}
+                ContractPart::FunctionDefinition(function_definition) => {
+                    let parsed_function = self.parse_function(function_definition)?;
+                    match function_definition.ty {
+                        FunctionTy::Constructor => constructor = parsed_function,
+                        FunctionTy::Modifier => modifiers.push(parsed_function),
+                        _ => functions.push(parsed_function),
+                    }
+                }
                 ContractPart::StructDefinition(struct_definition) => {
                     let parsed_struct = self.parse_struct(struct_definition)?;
                     structs.push(parsed_struct);
@@ -278,26 +298,9 @@ impl<'a> Parser<'a> {
                     let parsed_enum = self.parse_enum(enum_definition)?;
                     enums.push(parsed_enum);
                 }
-                _ => (),
-            }
-        }
-
-        for part in contract_definition.parts.iter() {
-            match part {
-                ContractPart::Annotation(_) => println!("Anottation: {part:?}"),
-                ContractPart::ErrorDefinition(_) => {}
-                ContractPart::FunctionDefinition(function_definition) => {
-                    let parsed_function = self.parse_function(function_definition)?;
-                    match function_definition.ty {
-                        FunctionTy::Constructor => constructor = parsed_function,
-                        FunctionTy::Modifier => modifiers.push(parsed_function),
-                        _ => functions.push(parsed_function),
-                    }
-                }
                 ContractPart::TypeDefinition(_) => {}
                 ContractPart::Using(_) => {}
                 ContractPart::StraySemicolon(_) => {}
-                _ => {}
             }
         }
 
@@ -456,7 +459,7 @@ impl<'a> Parser<'a> {
     ) -> Result<Struct, ParserError> {
         let name = self.parse_identifier(&struct_definition.name);
 
-        let comments = self.get_comments(struct_definition.loc.start());
+        let comments = self.get_comments(struct_definition.loc.end());
 
         let fields: Vec<StructField> = struct_definition
             .fields
@@ -487,7 +490,7 @@ impl<'a> Parser<'a> {
     fn parse_event(&mut self, event_definition: &EventDefinition) -> Result<Event, ParserError> {
         let name = self.parse_identifier(&event_definition.name);
 
-        let comments = self.get_comments(event_definition.loc.start());
+        let comments = self.get_comments(event_definition.loc.end());
         let fields: Vec<EventField> = event_definition
             .fields
             .iter()
@@ -496,7 +499,7 @@ impl<'a> Parser<'a> {
                     name: self.parse_identifier(&variable_declaration.name),
                     field_type: self.parse_type(&variable_declaration.ty).ok()?,
                     indexed: variable_declaration.indexed,
-                    comments: self.get_comments(variable_declaration.loc.start()),
+                    comments: self.get_comments(variable_declaration.loc.end()),
                 };
                 Some(event_field)
             })
@@ -514,7 +517,7 @@ impl<'a> Parser<'a> {
     fn parse_enum(&mut self, enum_definition: &EnumDefinition) -> Result<Enum, ParserError> {
         let name = self.parse_identifier(&enum_definition.name);
 
-        let comments = self.get_comments(enum_definition.loc.start());
+        let comments = self.get_comments(enum_definition.loc.end());
         let values: Vec<EnumValue> = enum_definition
             .values
             .iter()
@@ -522,7 +525,7 @@ impl<'a> Parser<'a> {
                 EnumValue {
                     name: self.parse_identifier(enum_value),
                     comments: if let Some(value) = enum_value {
-                        self.get_comments(value.loc.start())
+                        self.get_comments(value.loc.end())
                     } else {
                         Vec::default()
                     },
@@ -559,7 +562,7 @@ impl<'a> Parser<'a> {
         let initial_value = variable_definition.initializer.as_ref().map(|expression| {
             self.parse_expression(expression, VariableAccessLocation::Constructor)
         });
-        let comments = self.get_comments(variable_definition.loc.start());
+        let comments = self.get_comments(variable_definition.loc.end());
         let contract_field = ContractField {
             field_type,
             name,
@@ -706,7 +709,7 @@ impl<'a> Parser<'a> {
             return_params,
             modifiers,
             invalid_modifiers,
-            comments: self.get_comments(function_definition.loc.start()),
+            comments: self.get_comments(function_definition.loc.end()),
         }
     }
 
