@@ -46,6 +46,7 @@ use crate::{
         ParserOutput,
     },
 };
+use rbtree::RBTree;
 use std::{
     collections::{
         HashMap,
@@ -110,8 +111,14 @@ fn run(path: &String) -> Result<(), ParserError> {
     let mut fields_map = HashMap::new();
     let mut modifier_map = HashMap::new();
     let mut imports = HashSet::new();
+    let mut rb_tree = RBTree::new();
 
-    let mut parser = Parser::new(&mut fields_map, &mut modifier_map, &mut imports);
+    let mut parser = Parser::new(
+        &mut fields_map,
+        &mut modifier_map,
+        &mut imports,
+        &mut rb_tree,
+    );
 
     let output = parser.parse_file(&content)?;
 
