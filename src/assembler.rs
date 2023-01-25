@@ -1338,6 +1338,14 @@ impl ToTokens for Expression {
                             Expression::NumberLiteral(number) if number == "0" => {
                                 quote!(ZERO_ADDRESS.into())
                             }
+                            Expression::This(location) => {
+                                let location = match location {
+                                    VariableAccessLocation::Constructor => quote!(instance.),
+                                    VariableAccessLocation::Modifier => quote!(T::),
+                                    VariableAccessLocation::Any => quote!(Self::),
+                                };
+                                quote!( #location env().account_id() )
+                            }
                             _ => quote!( AccountId::from(#account_id) ),
                         }
                     }
@@ -1561,7 +1569,9 @@ impl ToTokens for Expression {
                    #left && #right
                 )
             }
-            _ => quote!(),
+            Expression::ArrayLiteral(expressions) => quote!( [ #(#expressions),* ] ),
+            Expression::InvalidModifier(_, _) => quote!(),
+            Expression::This(_) => quote!()
         })
     }
 }

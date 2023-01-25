@@ -992,16 +992,29 @@ impl<'a> Parser<'a> {
             SolangExpression::FunctionCallBlock(_, _, _) => todo!(),
             SolangExpression::NamedFunctionCall(_, expression, arguments) => {
                 boxed_expression!(parsed_expression, expression);
-                let parsed_arguments = arguments
-                    .iter()
-                    .map(|argument| {
-                        let parsed_argument =
-                            self.parse_expression(&argument.expr, location.clone());
-                        let parsed_name = self.parse_identifier(&Some(argument.name.clone()));
-                        (parsed_name, parsed_argument)
-                    })
-                    .collect();
-                Expression::NamedFunctionCall(parsed_expression, parsed_arguments)
+                if let Expression::Variable(_, MemberType::Function, _) = *parsed_expression.clone()
+                {
+                    let parsed_arguments = arguments
+                        .iter()
+                        .map(|argument| {
+                            let parsed_argument =
+                                self.parse_expression(&argument.expr, location.clone());
+                            parsed_argument
+                        })
+                        .collect();
+                    Expression::FunctionCall(parsed_expression, parsed_arguments)
+                } else {
+                    let parsed_arguments = arguments
+                        .iter()
+                        .map(|argument| {
+                            let parsed_argument =
+                                self.parse_expression(&argument.expr, location.clone());
+                            let parsed_name = self.parse_identifier(&Some(argument.name.clone()));
+                            (parsed_name, parsed_argument)
+                        })
+                        .collect();
+                    Expression::NamedFunctionCall(parsed_expression, parsed_arguments)
+                }
             }
             SolangExpression::Not(_, expression) => {
                 boxed_expression!(parsed_expression, expression);
@@ -1179,11 +1192,15 @@ impl<'a> Parser<'a> {
                 Expression::AssignModulo(parsed_left, parsed_right)
             }
             SolangExpression::BoolLiteral(_, value) => Expression::BoolLiteral(*value),
-            SolangExpression::NumberLiteral(_, literal, b) => {
-                if !b.is_empty() {
-                    println!("Number literal: B was {b}")
+            SolangExpression::NumberLiteral(_, literal, exponent) => {
+                if !exponent.is_empty() {
+                    let literal = literal.parse::<i128>().unwrap();
+                    let exponent = exponent.parse::<u32>().unwrap();
+                    let out = literal * 10_i128.pow(exponent);
+                    Expression::NumberLiteral(out.to_string())
+                } else {
+                    Expression::NumberLiteral(literal.clone())
                 }
-                Expression::NumberLiteral(literal.clone())
             }
             SolangExpression::RationalNumberLiteral(_, _, _, _) => todo!(),
             SolangExpression::HexNumberLiteral(_, hex_number) => {
@@ -1228,9 +1245,12 @@ impl<'a> Parser<'a> {
                     .collect();
                 Expression::List(list)
             }
-            SolangExpression::ArrayLiteral(_, _) => todo!(),
+            SolangExpression::ArrayLiteral(_, content) => {
+                let list = self.parse_expression_vec(&content, location);
+                Expression::ArrayLiteral(list)
+            }
             SolangExpression::Unit(_, _, _) => todo!(),
-            SolangExpression::This(_) => todo!(),
+            SolangExpression::This(_) => Expression::This(location),
         }
     }
 
@@ -1311,10 +1331,10 @@ impl<'a> Parser<'a> {
             SolangExpression::Variable(identifier) => Ok(Type::Variable(identifier.name.clone())),
             SolangExpression::ArraySubscript(_, ty, expression_maybe) => {
                 let parsed_type = Box::new(self.parse_type(ty)?);
-                if expression_maybe.is_some() {
-                    unreachable!("expression maybe in array is some {expression_maybe:?}");
-                }
-                Ok(Type::Array(parsed_type, None))
+                let parsed_expression = expression_maybe
+                    .as_ref()
+                    .map(|option| self.parse_expression(&option, VariableAccessLocation::Any));
+                Ok(Type::Array(parsed_type, parsed_expression))
             }
             _ => Err(ParserError::IncorrectTypeOfVariable),
         }

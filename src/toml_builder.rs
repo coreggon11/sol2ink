@@ -31,7 +31,7 @@ pub fn generate_cargo_toml(package_name: &str, mod_name: Option<String>) -> Stri
     out.push_str("name = \"");
     out.push_str(package_name);
     out.push_str("\"\n");
-    out.push_str("version = ");
+    out.push_str("version = \"");
     out.push_str(SOL_2_INK_VERSION);
     out.push_str("\"\n");
     out.push_str("edition = \"2021\"\n");
