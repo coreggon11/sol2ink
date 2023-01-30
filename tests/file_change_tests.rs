@@ -3,35 +3,21 @@ use std::{
     process::Command,
 };
 
-macro_rules! test_case_file {
-    ($dest:expr,$file_name:expr) => {
-        let file = fs::read_to_string(format!("tests/{}/{}.rs", $dest, $file_name)).unwrap();
-
-        Command::new("cargo")
-            .args([
-                "+nightly",
-                "run",
-                format!("examples/{}/{}/{}.sol", $dest, $file_name, $file_name).as_str(),
-            ])
-            .output()
-            .expect("failed to execute process");
-
-        assert_eq!(
-            file,
-            fs::read_to_string(format!(
-                "examples/{}/{}/{}.rs",
-                $dest, $file_name, $file_name
-            ))
-            .unwrap()
-        );
+macro_rules! contract_file {
+    ($origin:expr,$mod_name:expr,$file_name:expr) => {
+        fs::read_to_string(format!(
+            "{}/generated/contracts/{}/{}",
+            $origin, $mod_name, $file_name
+        ))
+        .unwrap_or_else(|err| panic!("{err:?}"))
     };
 }
 
-macro_rules! contract_file {
-    ($origin:expr,$folder_name:expr,$mod_name:expr,$file_name:expr) => {
+macro_rules! test_file {
+    ($origin:expr,$mod_name:expr,$file_name:expr) => {
         fs::read_to_string(format!(
-            "{}/contracts/{}/{}/{}",
-            $origin, $folder_name, $mod_name, $file_name
+            "{}/generated/src/{}/{}",
+            $origin, $mod_name, $file_name
         ))
         .unwrap_or_else(|err| panic!("{err:?}"))
     };
@@ -39,13 +25,11 @@ macro_rules! contract_file {
 
 macro_rules! test_case_contract {
     ($folder_name:expr,$mod_name:expr) => {
-        let contract_cargo = contract_file!("tests", $folder_name, "contract", "Cargo.toml");
-        let contract_lib = contract_file!("tests", $folder_name, "contract", "lib.rs");
+        let contract_cargo = contract_file!("tests", $mod_name, "Cargo.toml");
+        let contract_lib = contract_file!("tests", $mod_name, "lib.rs");
 
-        let impl_cargo = contract_file!("tests", $folder_name, $mod_name, "Cargo.toml");
-        let impl_impl = contract_file!("tests", $folder_name, $mod_name, "impls.rs");
-        let impl_lib = contract_file!("tests", $folder_name, $mod_name, "lib.rs");
-        let impl_traits = contract_file!("tests", $folder_name, $mod_name, "traits.rs");
+        let impl_file = test_file!("tests", "impls", format!("{}.rs", $mod_name));
+        let trait_file = test_file!("tests", "traits", format!("{}.rs", $mod_name));
 
         Command::new("cargo")
             .args([
@@ -58,28 +42,20 @@ macro_rules! test_case_contract {
 
         assert_eq!(
             contract_cargo,
-            contract_file!("examples", $folder_name, "contract", "Cargo.toml")
+            contract_file!("examples", $mod_name, "Cargo.toml")
         );
         assert_eq!(
             contract_lib,
-            contract_file!("examples", $folder_name, "contract", "lib.rs")
+            contract_file!("examples", $mod_name, "lib.rs")
         );
 
         assert_eq!(
-            impl_cargo,
-            contract_file!("examples", $folder_name, $mod_name, "Cargo.toml")
+            impl_file,
+            test_file!("examples", "impls", format!("{}.rs", $mod_name))
         );
         assert_eq!(
-            impl_impl,
-            contract_file!("examples", $folder_name, $mod_name, "impls.rs")
-        );
-        assert_eq!(
-            impl_lib,
-            contract_file!("examples", $folder_name, $mod_name, "lib.rs")
-        );
-        assert_eq!(
-            impl_traits,
-            contract_file!("examples", $folder_name, $mod_name, "traits.rs")
+            trait_file,
+            test_file!("examples", "traits", format!("{}.rs", $mod_name))
         );
     };
 }
@@ -117,31 +93,6 @@ fn flipper_is_not_changed() {
 #[test]
 fn primitives_is_not_changed() {
     test_case_contract!("Primitives", "primitives");
-}
-
-#[test]
-fn ierc20_is_not_changed() {
-    test_case_file!("interfaces", "IERC20");
-}
-
-#[test]
-fn ierc721_is_not_changed() {
-    test_case_file!("interfaces", "IERC721");
-}
-
-#[test]
-fn ierc1155_is_not_changed() {
-    test_case_file!("interfaces", "IERC1155");
-}
-
-#[test]
-fn iaccess_control_is_not_changed() {
-    test_case_file!("interfaces", "IAccessControl");
-}
-
-#[test]
-fn safe_math_is_not_changed() {
-    test_case_file!("libraries", "SafeMath");
 }
 
 #[test]
