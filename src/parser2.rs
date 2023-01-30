@@ -999,11 +999,7 @@ impl<'a> Parser<'a> {
                 {
                     let parsed_arguments = arguments
                         .iter()
-                        .map(|argument| {
-                            let parsed_argument =
-                                self.parse_expression(&argument.expr, location.clone());
-                            parsed_argument
-                        })
+                        .map(|argument| self.parse_expression(&argument.expr, location.clone()))
                         .collect();
                     Expression::FunctionCall(parsed_expression, parsed_arguments)
                 } else {
@@ -1249,7 +1245,7 @@ impl<'a> Parser<'a> {
                 Expression::List(list)
             }
             SolangExpression::ArrayLiteral(_, content) => {
-                let list = self.parse_expression_vec(&content, location);
+                let list = self.parse_expression_vec(content, location);
                 Expression::ArrayLiteral(list)
             }
             SolangExpression::Unit(_, _, _) => todo!(),
@@ -1336,7 +1332,7 @@ impl<'a> Parser<'a> {
                 let parsed_type = Box::new(self.parse_type(ty)?);
                 let parsed_expression = expression_maybe
                     .as_ref()
-                    .map(|option| self.parse_expression(&option, VariableAccessLocation::Any));
+                    .map(|option| self.parse_expression(option, VariableAccessLocation::Any));
                 Ok(Type::Array(parsed_type, parsed_expression))
             }
             _ => Err(ParserError::IncorrectTypeOfVariable),

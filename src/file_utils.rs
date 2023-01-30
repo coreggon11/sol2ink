@@ -41,7 +41,6 @@ use std::{
         prelude::*,
         BufReader,
     },
-    path::Path,
 };
 
 /// Reads the file to be transpiled and returns it as string
@@ -60,20 +59,18 @@ static IMPLS_DIR: &str = "/generated/src/impls";
 static TRAITS_DIR: &str = "/generated/src/traits";
 static LIBS_DIR: &str = "/generated/src/libs";
 
-pub fn create_structure(path: &String) -> std::io::Result<String> {
-    let file_path = Path::new(path);
-    let file_home = file_path.parent().unwrap();
-    let contracts_dir = format!("{}{}", file_home.to_str().unwrap(), CONTRACTS_DIR);
-    let impls_dir = format!("{}{}", file_home.to_str().unwrap(), IMPLS_DIR);
-    let traits_dir = format!("{}{}", file_home.to_str().unwrap(), TRAITS_DIR);
-    let libs_dir = format!("{}{}", file_home.to_str().unwrap(), LIBS_DIR);
+pub fn create_structure(file_home: &str) -> std::io::Result<()> {
+    let contracts_dir = format!("{file_home}{CONTRACTS_DIR}");
+    let impls_dir = format!("{file_home}{IMPLS_DIR}",);
+    let traits_dir = format!("{file_home}{TRAITS_DIR}");
+    let libs_dir = format!("{file_home}{LIBS_DIR}");
 
-    create_dir_all(&contracts_dir)?;
-    create_dir_all(&impls_dir)?;
-    create_dir_all(&traits_dir)?;
-    create_dir_all(&libs_dir)?;
+    create_dir_all(contracts_dir)?;
+    create_dir_all(impls_dir)?;
+    create_dir_all(traits_dir)?;
+    create_dir_all(libs_dir)?;
 
-    Ok(file_home.to_str().unwrap().to_owned())
+    Ok(())
 }
 
 /// writes the output to file
@@ -82,7 +79,7 @@ pub fn create_structure(path: &String) -> std::io::Result<String> {
 /// each item in the vec represents a separate line in the output file
 pub fn write_trait(
     lines: TokenStream,
-    file_home: &String,
+    file_home: &str,
     trait_name: &String,
 ) -> std::io::Result<()> {
     let mut file = File::create(format!("{file_home}{TRAITS_DIR}/{trait_name}.rs"))?;
@@ -98,7 +95,7 @@ pub fn write_trait(
 }
 
 pub fn write_mod_files(
-    file_home: &String,
+    file_home: &str,
     impls: TokenStream,
     traits: TokenStream,
     libs: TokenStream,
@@ -146,7 +143,7 @@ pub fn write_mod_files(
 
 pub fn write_library(
     lines: TokenStream,
-    file_home: &String,
+    file_home: &str,
     lib_name: &String,
 ) -> std::io::Result<()> {
     let mut file = File::create(format!("{file_home}{LIBS_DIR}/{lib_name}.rs"))?;
@@ -166,7 +163,7 @@ pub fn write_contract_files(
     implementation: TokenStream,
     trait_definition: TokenStream,
     contract_name_raw: &String,
-    home_path: &String,
+    home_path: &str,
 ) -> std::io::Result<()> {
     let contract_name = contract_name_raw.to_case(Snake);
     let config = Config::new_str().post_proc(PostProcess::ReplaceMarkersAndDocBlocks);

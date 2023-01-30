@@ -79,7 +79,9 @@ fn main() {
     for file in files {
         match file {
             CliInput::SolidityFile(file) => {
-                match run(&file) {
+                let file_path = Path::new(&file);
+                let file_home = file_path.parent().unwrap().to_str().unwrap();
+                match run(file_home, &[file.clone()]) {
                     Ok(_) => {
                         println!("Successfully parsed {file}");
                     }
@@ -91,6 +93,7 @@ fn main() {
             }
             CliInput::Directory(dir) => {
                 let files = Path::new(&dir).read_dir().unwrap();
+                let mut paths = vec![];
 
                 for file in files {
                     let file = file.unwrap();
@@ -98,15 +101,15 @@ fn main() {
                     let file = file.to_str().unwrap();
 
                     if file.ends_with(".sol") {
-                        match run(&file.to_string()) {
-                            Ok(_) => {
-                                println!("Successfully parsed {file}");
-                            }
-                            Err(err) => {
-                                eprintln!("error: {err:?}");
-                                std::process::exit(1);
-                            }
-                        }
+                        paths.push(file.to_string());
+                    }
+                }
+
+                match run(&dir, &paths) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        eprintln!("error: {err:?}");
+                        std::process::exit(1);
                     }
                 }
             }
@@ -114,8 +117,7 @@ fn main() {
     }
 }
 
-fn run(path: &String) -> Result<(), ParserError> {
-    let content = file_utils::read_file(path)?;
+fn run(home: &str, path: &[String]) -> Result<(), ParserError> {
     let mut fields_map = HashMap::new();
     let mut modifier_map = HashMap::new();
     let mut imports = HashSet::new();
@@ -128,48 +130,52 @@ fn run(path: &String) -> Result<(), ParserError> {
         &mut comments,
     );
 
-    let home_path = create_structure(path)?;
-    let output = parser.parse_file(&content)?;
+    create_structure(home)?;
     let mut impls = Vec::default();
     let mut traits = Vec::default();
     let mut libs = Vec::default();
 
-    for output in output {
-        match output {
-            ParserOutput::Contract(name, contract) => {
-                let ink_contract = assembler::assemble_contract(&contract);
-                let implementation = assembler::assemble_impl(&contract);
-                let trait_definition = assembler::assemble_trait(&contract);
+    for file in path {
+        let content = file_utils::read_file(file)?;
+        let output = parser.parse_file(&content)?;
 
-                impls.push(name.clone());
-                traits.push(name.clone());
+        for output in output {
+            match output {
+                ParserOutput::Contract(name, contract) => {
+                    let ink_contract = assembler::assemble_contract(&contract);
+                    let implementation = assembler::assemble_impl(&contract);
+                    let trait_definition = assembler::assemble_trait(&contract);
 
-                file_utils::write_contract_files(
-                    ink_contract,
-                    implementation,
-                    trait_definition,
-                    &contract.name,
-                    &home_path,
-                )?;
-                println!("File saved!");
+                    impls.push(name.clone());
+                    traits.push(name.clone());
+
+                    file_utils::write_contract_files(
+                        ink_contract,
+                        implementation,
+                        trait_definition,
+                        &contract.name,
+                        home,
+                    )?;
+                    println!("File saved!");
+                }
+                ParserOutput::Interface(name, interface) => {
+                    let ink_trait = assembler::assemble_interface(interface);
+
+                    traits.push(name.clone());
+
+                    file_utils::write_trait(ink_trait, home, &name)?;
+                    println!("File saved!");
+                }
+                ParserOutput::Library(name, library) => {
+                    let lib = assembler::assemble_library(library);
+
+                    libs.push(name.clone());
+
+                    file_utils::write_library(lib, home, &name)?;
+                    println!("File saved!");
+                }
+                _ => {}
             }
-            ParserOutput::Interface(name, interface) => {
-                let ink_trait = assembler::assemble_interface(interface);
-
-                traits.push(name.clone());
-
-                file_utils::write_trait(ink_trait, &home_path, &name)?;
-                println!("File saved!");
-            }
-            ParserOutput::Library(name, library) => {
-                let lib = assembler::assemble_library(library);
-
-                libs.push(name.clone());
-
-                file_utils::write_library(lib, &home_path, &name)?;
-                println!("File saved!");
-            }
-            _ => {}
         }
     }
 
@@ -178,7 +184,7 @@ fn run(path: &String) -> Result<(), ParserError> {
     let libs_mod = assemble_mod(&libs);
     let lib = assemble_lib();
 
-    write_mod_files(&home_path, impls_mod, traits_mod, libs_mod, lib)?;
+    write_mod_files(home, impls_mod, traits_mod, libs_mod, lib)?;
 
     Ok(())
 }

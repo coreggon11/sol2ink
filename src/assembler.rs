@@ -234,10 +234,10 @@ pub fn assemble_lib() -> TokenStream {
     }
 }
 
-pub fn assemble_mod(mods: &Vec<String>) -> TokenStream {
+pub fn assemble_mod(mods: &[String]) -> TokenStream {
     let tokens = mods
         .iter()
-        .map(|name| TokenStream::from_str(&name).unwrap())
+        .map(|name| TokenStream::from_str(name).unwrap())
         .collect::<Vec<_>>();
 
     quote! {
