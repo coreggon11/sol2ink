@@ -74,7 +74,7 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
             use scale::Decode;
             use ink_storage::traits::SpreadAllocate;
             use openbrush::traits::Storage;
-            use #mod_name::*;
+            use generated::*;
             use ink_lang::codegen::Env;
             use ink_lang::codegen::EmitEvent;
             _blank_!();
@@ -226,9 +226,22 @@ pub fn assemble_lib() -> TokenStream {
         _blank_!();
         pub mod impls;
         pub mod traits;
+        pub mod libs;
 
         pub use impls::*;
-        pub use impls::Data as Data;
+        pub use traits::*;
+        pub use libs::*;
+    }
+}
+
+pub fn assemble_mod(mods: &Vec<String>) -> TokenStream {
+    let tokens = mods
+        .iter()
+        .map(|name| TokenStream::from_str(&name).unwrap())
+        .collect::<Vec<_>>();
+
+    quote! {
+        #(pub mod #tokens; pub use #tokens::*; _blank_!(); )*
     }
 }
 

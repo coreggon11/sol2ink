@@ -63,9 +63,9 @@ use std::{
 
 #[derive(Clone, Hash)]
 pub enum ParserOutput {
-    Contract(Contract),
-    Interface(Interface),
-    Library(Library),
+    Contract(String, Contract),
+    Interface(String, Interface),
+    Library(String, Library),
     None,
 }
 
@@ -186,20 +186,23 @@ impl<'a> Parser<'a> {
         match contract_definition.ty {
             ContractTy::Abstract(loc) | ContractTy::Contract(loc) => {
                 let comments = self.get_comments(loc.end());
+                let parsed_contract = self.parse_contract(contract_definition, &comments)?;
                 let contract =
-                    ParserOutput::Contract(self.parse_contract(contract_definition, &comments)?);
+                    ParserOutput::Contract(parsed_contract.name.to_case(Snake), parsed_contract);
                 Ok(contract)
             }
             ContractTy::Library(loc) => {
                 let comments = self.get_comments(loc.end());
+                let parsed_library = self.parse_library(contract_definition, &comments)?;
                 let library =
-                    ParserOutput::Library(self.parse_library(contract_definition, &comments)?);
+                    ParserOutput::Library(parsed_library.name.to_case(Snake), parsed_library);
                 Ok(library)
             }
             ContractTy::Interface(loc) => {
                 let comments = self.get_comments(loc.end());
+                let parsed_trait = self.parse_interface(contract_definition, &comments)?;
                 let interface =
-                    ParserOutput::Interface(self.parse_interface(contract_definition, &comments)?);
+                    ParserOutput::Interface(parsed_trait.name.to_case(Snake), parsed_trait);
                 Ok(interface)
             }
         }

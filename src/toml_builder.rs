@@ -56,14 +56,14 @@ pub fn generate_cargo_toml(package_name: &str, mod_name: Option<String>) -> Stri
 
     if let Some(mod_name) = mod_name.clone() {
         out.push_str(mod_name.as_str());
-        out.push_str(" = { path = \"../");
-        out.push_str(mod_name.as_str());
-        out.push_str("\", default-features = false }\n");
+        out.push_str(" = { path = \"../../src\", default-features = false }\n");
     }
 
     out.push('\n');
     out.push_str("[lib]\n");
-    out.push_str("name = \"sol_2_ink_generated\"\n");
+    out.push_str("name = \"");
+    out.push_str(package_name);
+    out.push_str("\"\n");
     out.push_str("path = \"lib.rs\"\n");
     if mod_name.is_some() {
         out.push_str("crate-type = [\"cdylib\"]\n");

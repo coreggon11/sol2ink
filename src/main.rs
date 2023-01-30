@@ -34,6 +34,14 @@ pub mod parser2;
 pub mod structures;
 pub mod toml_builder;
 
+use assembler::{
+    assemble_lib,
+    assemble_mod,
+};
+use file_utils::{
+    create_structure,
+    write_mod_files,
+};
 use parser2::Parser;
 
 use crate::{
@@ -120,40 +128,57 @@ fn run(path: &String) -> Result<(), ParserError> {
         &mut comments,
     );
 
+    let home_path = create_structure(path)?;
     let output = parser.parse_file(&content)?;
+    let mut impls = Vec::default();
+    let mut traits = Vec::default();
+    let mut libs = Vec::default();
 
     for output in output {
         match output {
-            ParserOutput::Contract(contract) => {
+            ParserOutput::Contract(name, contract) => {
                 let ink_contract = assembler::assemble_contract(&contract);
                 let implementation = assembler::assemble_impl(&contract);
                 let trait_definition = assembler::assemble_trait(&contract);
-                let lib_definition = assembler::assemble_lib();
-                let file_name = path.replace(".sol", "");
-                file_utils::write_files(
+
+                impls.push(name.clone());
+                traits.push(name.clone());
+
+                file_utils::write_contract_files(
                     ink_contract,
                     implementation,
                     trait_definition,
-                    lib_definition,
-                    Some(file_name),
                     &contract.name,
+                    &home_path,
                 )?;
                 println!("File saved!");
             }
-            ParserOutput::Interface(interface) => {
+            ParserOutput::Interface(name, interface) => {
                 let ink_trait = assembler::assemble_interface(interface);
-                let file_name = path.replace(".sol", ".rs");
-                file_utils::write_file(ink_trait, Some(file_name))?;
+
+                traits.push(name.clone());
+
+                file_utils::write_trait(ink_trait, &home_path, &name)?;
                 println!("File saved!");
             }
-            ParserOutput::Library(library) => {
-                let ink_trait = assembler::assemble_library(library);
-                let file_name = path.replace(".sol", ".rs");
-                file_utils::write_file(ink_trait, Some(file_name))?;
+            ParserOutput::Library(name, library) => {
+                let lib = assembler::assemble_library(library);
+
+                libs.push(name.clone());
+
+                file_utils::write_library(lib, &home_path, &name)?;
                 println!("File saved!");
             }
             _ => {}
         }
     }
+
+    let impls_mod = assemble_mod(&impls);
+    let traits_mod = assemble_mod(&traits);
+    let libs_mod = assemble_mod(&libs);
+    let lib = assemble_lib();
+
+    write_mod_files(&home_path, impls_mod, traits_mod, libs_mod, lib)?;
+
     Ok(())
 }
