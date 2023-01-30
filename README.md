@@ -1,3 +1,5 @@
+![Sol2!nk](https://user-images.githubusercontent.com/43150707/215464954-13e4c8d8-96b4-49da-996c-3e79b8344b3a.png)
+
 ## Summary
 **Sol2Ink is a tool for easy migration from Solidity to Ink! and Rust**
 
