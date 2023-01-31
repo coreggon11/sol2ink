@@ -49,7 +49,7 @@ use solang_parser::{
         VariableAttribute,
         VariableDeclaration,
         VariableDefinition,
-        Visibility,
+        Visibility, Unit,
     },
 };
 use std::{
@@ -966,8 +966,12 @@ impl<'a> Parser<'a> {
                     }
                 }
             }
-            SolangExpression::ArraySlice(_, _, _, _) => {
-                todo!()
+            SolangExpression::ArraySlice(_, exp, left, right) => {
+                boxed_expression!(parsed_exp, exp);
+                maybe_boxed_expression!(parsed_left, left);
+                maybe_boxed_expression!(parsed_right, right);
+
+                Expression::ArraySlice(parsed_exp, parsed_left, parsed_right)
             }
             SolangExpression::Parenthesis(_, expression) => {
                 boxed_expression!(parsed_expression, expression);
@@ -1025,7 +1029,10 @@ impl<'a> Parser<'a> {
                 boxed_expression!(parsed_expression, expression);
                 Expression::Not(parsed_expression)
             }
-            SolangExpression::Complement(_, _) => todo!(),
+            SolangExpression::Complement(_, exp) => {
+                boxed_expression!(parsed_expression, exp);
+                Expression::Not(parsed_expression)
+            }
             SolangExpression::Delete(_, expression) => {
                 boxed_expression!(parsed_expression, expression);
                 Expression::Delete(parsed_expression)
@@ -1038,8 +1045,14 @@ impl<'a> Parser<'a> {
                 boxed_expression!(parsed_expression, expression);
                 Expression::PreDecrement(parsed_expression)
             }
-            SolangExpression::UnaryPlus(_, _) => todo!(),
-            SolangExpression::UnaryMinus(_, _) => todo!(),
+            SolangExpression::UnaryPlus(_, exp) => {
+                boxed_expression!(parsed_expression, exp);
+                Expression::UnaryPlus(parsed_expression)
+            },
+            SolangExpression::UnaryMinus(_, exp) => {
+                boxed_expression!(parsed_expression, exp);
+                Expression::UnaryMinus(parsed_expression)
+            },
             SolangExpression::Power(_, left, right) => {
                 boxed_expression!(parsed_left, left);
                 boxed_expression!(parsed_right, right);
@@ -1207,7 +1220,16 @@ impl<'a> Parser<'a> {
                     Expression::NumberLiteral(literal.clone())
                 }
             }
-            SolangExpression::RationalNumberLiteral(_, _, _, _) => todo!(),
+            SolangExpression::RationalNumberLiteral(_, integer_exp, float_exp, exp) => {
+                let float_len = float_exp.len();
+                let integer_exp = integer_exp.parse::<f64>().unwrap();
+                let float_exp = float_exp.parse::<f64>().unwrap_or(0_f64);
+                let exp = exp.parse::<i32>().unwrap_or(0);
+
+                let result = (integer_exp + float_exp * 10_f64.powi(-(float_len as i32))) * 10_f64.powi(exp);
+
+                Expression::NumberLiteral(result.to_string())
+            },
             SolangExpression::HexNumberLiteral(_, hex_number) => {
                 Expression::HexLiteral(hex_number.clone())
             }
@@ -1254,7 +1276,22 @@ impl<'a> Parser<'a> {
                 let list = self.parse_expression_vec(content, location);
                 Expression::ArrayLiteral(list)
             }
-            SolangExpression::Unit(_, _, _) => todo!(),
+            SolangExpression::Unit(_, exp, unit) => {
+                let constant: i128 = match unit {
+                    Unit::Seconds(_) => 1,
+                    Unit::Minutes(_) => 60,
+                    Unit::Hours(_)   => 3600,
+                    Unit::Days(_)   => 86400,
+                    Unit::Weeks(_)  => 604800,
+                    Unit::Wei(_) => 1,
+                    Unit::Gwei(_) => 1_000_000_000,
+                    Unit::Ether(_) => 1_000_000_000_000_000_000,
+                };
+
+                boxed_expression!(parsed_exp, exp);
+
+                Expression::Unit(parsed_exp, constant)
+            },
             SolangExpression::This(_) => Expression::This(location),
         }
     }

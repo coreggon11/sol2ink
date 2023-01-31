@@ -1590,9 +1590,25 @@ impl ToTokens for Expression {
                    #left && #right
                 )
             }
-            Expression::ArrayLiteral(expressions) => quote!( [ #(#expressions),* ] ),
+            Expression::ArrayLiteral(expressions) => quote!(vec![#(#expressions),*]),
             Expression::InvalidModifier(_, _) => quote!(),
-            Expression::This(_) => quote!()
+            Expression::This(_) => quote!(),
+            Expression::UnaryMinus(expression) => {
+                quote!(
+                    - #expression
+                )
+            }
+            Expression::UnaryPlus(expression) => {
+                quote!(
+                    + #expression
+                )
+            }
+            Expression::Unit(expression, unit) => {
+               quote!( #expression * #unit )
+            }
+            Expression::ArraySlice(expression, start, end) => {
+                quote!( #expression[#start..#end] )
+            }
         })
     }
 }

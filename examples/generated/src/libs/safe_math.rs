@@ -14,12 +14,12 @@ use ink_prelude::vec::*;
 ///
 /// NOTE: `SafeMath` is generally not needed starting with Solidity 0.8, since the compiler
 /// now has built in overflow checking.
-use openbrush::traits::String;
+use openbrush::traits::AccountId;
 use openbrush::{
     storage::Mapping,
     traits::{
-        AccountId,
         AccountIdExt,
+        String,
         ZERO_ADDRESS,
     },
 };

@@ -296,6 +296,10 @@ pub enum Expression {
     AssignShiftRight(Box<Expression>, Box<Expression>),
     HexLiteral(String),
     NamedFunctionCall(Box<Expression>, Vec<(String, Expression)>),
+    UnaryPlus(Box<Expression>),
+    UnaryMinus(Box<Expression>),
+    Unit(Box<Expression>, i128),
+    ArraySlice(Box<Expression>, Option<Box<Expression>>, Option<Box<Expression>>),
 }
 
 #[derive(Clone, Debug, Hash)]
