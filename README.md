@@ -36,7 +36,7 @@ The result will be stored in `contract/lib.rs` and the Cargo.toml file in `contr
 
 You can transpile the example contracts from examples folder by running `cargo +nightly test creating`.
 
-If you are using Sol2Ink from release pages, you will need to run `./sol_to_ink contract.sol`, substituting contract.sol with your Solidity contract's name.
+If you are using Sol2Ink from release pages, you will need to run `./sol2ink contract.sol`, substituting contract.sol with your Solidity contract's name.
 
 ### Examples
 
