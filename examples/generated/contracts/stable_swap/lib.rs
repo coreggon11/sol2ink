@@ -61,7 +61,7 @@ pub mod stable_swap {
         #[ink(constructor)]
         pub fn new() -> Self {
             ink_lang::codegen::initialize_contract(|instance: &mut Self| {
-                self.multipliers = [1, 1000000000000, 1000000000000];
+                self.multipliers = vec![1, 1000000000000, 1000000000000];
             })
         }
 
