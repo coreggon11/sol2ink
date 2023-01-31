@@ -4,6 +4,7 @@
 // Generated with Sol2Ink v2.0.0-beta
 // https://github.com/727-Ventures/sol2ink
 
+use ink_prelude::vec::*;
 /// SPDX-License-Identifier: MIT
 /// Simplified version of Curve's stable swap AMM
 ///Invariant - price of trade and amount of liquidity are determined by this equation
@@ -23,13 +24,12 @@
 ///6. Remove liquidity one token
 ///   - Calculate withdraw one token
 ///   - getYD
-use ink_prelude::vec::*;
+use openbrush::traits::String;
 use openbrush::{
     storage::Mapping,
     traits::{
         AccountId,
         AccountIdExt,
-        String,
         ZERO_ADDRESS,
     },
 };
