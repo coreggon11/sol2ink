@@ -60,6 +60,11 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
     let constants = assemble_constants(&contract.fields);
     let comments = assemble_contract_doc(&contract.contract_doc);
     let emit_functions = assemble_contract_emit_functions(&contract.events);
+    let base = contract
+        .base
+        .iter()
+        .map(|base| TokenStream::from_str(&base).unwrap())
+        .collect::<Vec<_>>();
 
     let contract = quote! {
         #![cfg_attr(not(feature = "std"), no_std)]
@@ -87,6 +92,9 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
             impl #mod_name::Internal for #contract_name {
                 #emit_functions
             }
+
+            #(_blank_!(); impl #base for #contract_name {})*
+
             _blank_!();
             impl #contract_name {
                 #constructor

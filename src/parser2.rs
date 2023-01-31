@@ -214,6 +214,11 @@ impl<'a> Parser<'a> {
         comments: &[String],
     ) -> Result<Contract, ParserError> {
         let name = self.parse_identifier(&contract_definition.name);
+        let base = contract_definition
+            .base
+            .iter()
+            .map(|base| self.parse_identifier_path(&base.name))
+            .collect();
 
         let mut structs: Vec<Struct> = Default::default();
         let mut events: Vec<Event> = Default::default();
@@ -318,6 +323,7 @@ impl<'a> Parser<'a> {
             modifiers,
             imports: self.imports.clone(),
             contract_doc: comments.to_vec(),
+            base,
         })
     }
 

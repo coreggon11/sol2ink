@@ -49,6 +49,7 @@ pub struct Contract {
     pub imports: HashSet<Import>,
     pub contract_doc: Vec<String>,
     pub modifiers: Vec<Function>,
+    pub base: Vec<String>
 }
 
 impl Hash for Contract {
