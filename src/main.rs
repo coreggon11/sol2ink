@@ -30,7 +30,7 @@ extern crate core;
 pub mod assembler;
 pub mod cli;
 pub mod file_utils;
-pub mod parser2;
+pub mod parser;
 pub mod structures;
 pub mod toml_builder;
 
@@ -42,14 +42,14 @@ use file_utils::{
     create_structure,
     write_mod_files,
 };
-use parser2::Parser;
+use parser::Parser;
 
 use crate::{
     cli::{
         cli,
         CliInput,
     },
-    parser2::{
+    parser::{
         ParserError,
         ParserOutput,
     },
