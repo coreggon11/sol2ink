@@ -144,6 +144,14 @@ pub mod erc_1155 {
 
     }
 
+    impl Context for ERC1155Contract {}
+
+    impl ERC165 for ERC1155Contract {}
+
+    impl IERC1155 for ERC1155Contract {}
+
+    impl IERC1155MetadataURI for ERC1155Contract {}
+
     impl ERC1155Contract {
         /// @dev See {_setURI}.
         #[ink(constructor)]

@@ -24,13 +24,13 @@ use ink_prelude::vec::*;
 ///6. Remove liquidity one token
 ///   - Calculate withdraw one token
 ///   - getYD
-use openbrush::traits::ZERO_ADDRESS;
+use openbrush::traits::String;
 use openbrush::{
     storage::Mapping,
     traits::{
         AccountId,
         AccountIdExt,
-        String,
+        ZERO_ADDRESS,
     },
 };
 
