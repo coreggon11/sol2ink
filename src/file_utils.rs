@@ -54,14 +54,35 @@ pub fn read_file(path: &String) -> std::io::Result<String> {
     Ok(contents)
 }
 
+static CONTRACTS_DIR: &str = "/generated/contracts";
+static IMPLS_DIR: &str = "/generated/src/impls";
+static TRAITS_DIR: &str = "/generated/src/traits";
+static LIBS_DIR: &str = "/generated/src/libs";
+
+pub fn create_structure(file_home: &str) -> std::io::Result<()> {
+    let contracts_dir = format!("{file_home}{CONTRACTS_DIR}");
+    let impls_dir = format!("{file_home}{IMPLS_DIR}",);
+    let traits_dir = format!("{file_home}{TRAITS_DIR}");
+    let libs_dir = format!("{file_home}{LIBS_DIR}");
+
+    create_dir_all(contracts_dir)?;
+    create_dir_all(impls_dir)?;
+    create_dir_all(traits_dir)?;
+    create_dir_all(libs_dir)?;
+
+    Ok(())
+}
+
 /// writes the output to file
 ///
 /// `lines` the transpiled file in the form of vec of strings
 /// each item in the vec represents a separate line in the output file
-pub fn write_file(lines: TokenStream, file_name: Option<String>) -> std::io::Result<()> {
-    let path = file_name.unwrap_or_else(|| String::from("output"));
-
-    let mut file = File::create(path)?;
+pub fn write_trait(
+    lines: TokenStream,
+    file_home: &str,
+    trait_name: &String,
+) -> std::io::Result<()> {
+    let mut file = File::create(format!("{file_home}{TRAITS_DIR}/{trait_name}.rs"))?;
     let config = Config::new_str().post_proc(PostProcess::ReplaceMarkersAndDocBlocks);
     file.write_all(
         RustFmt::from_config(config)
@@ -73,52 +94,101 @@ pub fn write_file(lines: TokenStream, file_name: Option<String>) -> std::io::Res
     Ok(())
 }
 
-pub fn write_files(
+pub fn write_mod_files(
+    file_home: &str,
+    impls: TokenStream,
+    traits: TokenStream,
+    libs: TokenStream,
+    lib: TokenStream,
+) -> std::io::Result<()> {
+    let config = Config::new_str().post_proc(PostProcess::ReplaceMarkersAndDocBlocks);
+
+    let mut impls_file = File::create(format!("{file_home}{IMPLS_DIR}/mod.rs"))?;
+    impls_file.write_all(
+        RustFmt::from_config(config.clone())
+            .format_tokens(impls)
+            .unwrap()
+            .as_bytes(),
+    )?;
+
+    let mut traits_file = File::create(format!("{file_home}{TRAITS_DIR}/mod.rs"))?;
+    traits_file.write_all(
+        RustFmt::from_config(config.clone())
+            .format_tokens(traits)
+            .unwrap()
+            .as_bytes(),
+    )?;
+
+    let mut libs_file = File::create(format!("{file_home}{LIBS_DIR}/mod.rs"))?;
+    libs_file.write_all(
+        RustFmt::from_config(config.clone())
+            .format_tokens(libs)
+            .unwrap()
+            .as_bytes(),
+    )?;
+
+    let mut main_lib_file = File::create(format!("{file_home}/generated/src/lib.rs"))?;
+    main_lib_file.write_all(
+        RustFmt::from_config(config)
+            .format_tokens(lib)
+            .unwrap()
+            .as_bytes(),
+    )?;
+
+    let mut main_cargo_toml = File::create(format!("{file_home}/generated/src/Cargo.toml"))?;
+    main_cargo_toml.write_all(toml_builder::generate_cargo_toml("generated", None).as_bytes())?;
+
+    Ok(())
+}
+
+pub fn write_library(
+    lines: TokenStream,
+    file_home: &str,
+    lib_name: &String,
+) -> std::io::Result<()> {
+    let mut file = File::create(format!("{file_home}{LIBS_DIR}/{lib_name}.rs"))?;
+    let config = Config::new_str().post_proc(PostProcess::ReplaceMarkersAndDocBlocks);
+    file.write_all(
+        RustFmt::from_config(config)
+            .format_tokens(lines)
+            .unwrap()
+            .as_bytes(),
+    )?;
+
+    Ok(())
+}
+
+pub fn write_contract_files(
     contract: TokenStream,
     implementation: TokenStream,
     trait_definition: TokenStream,
-    lib_definition: TokenStream,
-    file_name: Option<String>,
     contract_name_raw: &String,
+    home_path: &str,
 ) -> std::io::Result<()> {
     let contract_name = contract_name_raw.to_case(Snake);
     let config = Config::new_str().post_proc(PostProcess::ReplaceMarkersAndDocBlocks);
     let rust_fmt = RustFmt::from_config(config);
-    // contract
-    let contract_path = format!(
-        "{}/contract",
-        file_name.clone().unwrap_or_else(|| String::from("output"))
-    );
-    create_dir_all(&contract_path)?;
+    let contract_folder_path = format!("{home_path}{CONTRACTS_DIR}/{contract_name}/");
 
-    let mut contract_file = File::create(format!("{contract_path}/lib.rs"))?;
+    create_dir_all(&contract_folder_path)?;
+
+    // contract
+    let mut contract_file = File::create(format!("{contract_folder_path}lib.rs"))?;
     contract_file.write_all(rust_fmt.format_tokens(contract).unwrap().as_bytes())?;
 
-    let mut cargo_toml = File::create(format!("{contract_path}/Cargo.toml"))?;
+    let mut cargo_toml = File::create(format!("{contract_folder_path}/Cargo.toml"))?;
     cargo_toml.write_all(
-        toml_builder::generate_cargo_toml("contract", Some(contract_name.clone())).as_bytes(),
+        toml_builder::generate_cargo_toml(&contract_name, Some(String::from("generated")))
+            .as_bytes(),
     )?;
 
     // impl
-    let base_path = format!(
-        "{}/{contract_name}",
-        file_name.unwrap_or_else(|| String::from("output"))
-    );
-    create_dir_all(&base_path)?;
-
-    let mut impl_file = File::create(format!("{base_path}/impls.rs"))?;
+    let mut impl_file = File::create(format!("{home_path}{IMPLS_DIR}/{contract_name}.rs"))?;
     impl_file.write_all(rust_fmt.format_tokens(implementation).unwrap().as_bytes())?;
 
     // trait
-    let mut trait_file = File::create(format!("{base_path}/traits.rs"))?;
+    let mut trait_file = File::create(format!("{home_path}{TRAITS_DIR}/{contract_name}.rs"))?;
     trait_file.write_all(rust_fmt.format_tokens(trait_definition).unwrap().as_bytes())?;
-
-    let mut lib_file = File::create(format!("{base_path}/lib.rs"))?;
-    lib_file.write_all(rust_fmt.format_tokens(lib_definition).unwrap().as_bytes())?;
-
-    let mut main_cargo_toml = File::create(format!("{base_path}/Cargo.toml"))?;
-    main_cargo_toml
-        .write_all(toml_builder::generate_cargo_toml(&contract_name, None).as_bytes())?;
 
     Ok(())
 }

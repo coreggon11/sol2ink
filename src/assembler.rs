@@ -60,6 +60,11 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
     let constants = assemble_constants(&contract.fields);
     let comments = assemble_contract_doc(&contract.contract_doc);
     let emit_functions = assemble_contract_emit_functions(&contract.events);
+    let base = contract
+        .base
+        .iter()
+        .map(|base| TokenStream::from_str(&base).unwrap())
+        .collect::<Vec<_>>();
 
     let contract = quote! {
         #![cfg_attr(not(feature = "std"), no_std)]
@@ -74,7 +79,7 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
             use scale::Decode;
             use ink_storage::traits::SpreadAllocate;
             use openbrush::traits::Storage;
-            use #mod_name::*;
+            use generated::*;
             use ink_lang::codegen::Env;
             use ink_lang::codegen::EmitEvent;
             _blank_!();
@@ -87,6 +92,9 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
             impl #mod_name::Internal for #contract_name {
                 #emit_functions
             }
+
+            #(_blank_!(); impl #base for #contract_name {})*
+
             _blank_!();
             impl #contract_name {
                 #constructor
@@ -226,9 +234,22 @@ pub fn assemble_lib() -> TokenStream {
         _blank_!();
         pub mod impls;
         pub mod traits;
+        pub mod libs;
 
         pub use impls::*;
-        pub use impls::Data as Data;
+        pub use traits::*;
+        pub use libs::*;
+    }
+}
+
+pub fn assemble_mod(mods: &[String]) -> TokenStream {
+    let tokens = mods
+        .iter()
+        .map(|name| TokenStream::from_str(name).unwrap())
+        .collect::<Vec<_>>();
+
+    quote! {
+        #(pub mod #tokens; pub use #tokens::*; _blank_!(); )*
     }
 }
 
@@ -1338,6 +1359,14 @@ impl ToTokens for Expression {
                             Expression::NumberLiteral(number) if number == "0" => {
                                 quote!(ZERO_ADDRESS.into())
                             }
+                            Expression::This(location) => {
+                                let location = match location {
+                                    VariableAccessLocation::Constructor => quote!(instance.),
+                                    VariableAccessLocation::Modifier => quote!(T::),
+                                    VariableAccessLocation::Any => quote!(Self::),
+                                };
+                                quote!( #location env().account_id() )
+                            }
                             _ => quote!( AccountId::from(#account_id) ),
                         }
                     }
@@ -1561,7 +1590,25 @@ impl ToTokens for Expression {
                    #left && #right
                 )
             }
-            _ => quote!(),
+            Expression::ArrayLiteral(expressions) => quote!(vec![#(#expressions),*]),
+            Expression::InvalidModifier(_, _) => quote!(),
+            Expression::This(_) => quote!(),
+            Expression::UnaryMinus(expression) => {
+                quote!(
+                    - #expression
+                )
+            }
+            Expression::UnaryPlus(expression) => {
+                quote!(
+                    + #expression
+                )
+            }
+            Expression::Unit(expression, unit) => {
+               quote!( #expression * #unit )
+            }
+            Expression::ArraySlice(expression, start, end) => {
+                quote!( #expression[#start..#end] )
+            }
         })
     }
 }

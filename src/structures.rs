@@ -49,6 +49,7 @@ pub struct Contract {
     pub imports: HashSet<Import>,
     pub contract_doc: Vec<String>,
     pub modifiers: Vec<Function>,
+    pub base: Vec<String>
 }
 
 impl Hash for Contract {
@@ -241,6 +242,7 @@ pub enum Expression {
     Add(Box<Expression>, Box<Expression>),
     And(Box<Expression>, Box<Expression>),
     ArraySubscript(Box<Expression>, Option<Box<Expression>>),
+    ArrayLiteral(Vec<Expression>),
     Assign(Box<Expression>, Box<Expression>),
     AssignAdd(Box<Expression>, Box<Expression>),
     AssignDivide(Box<Expression>, Box<Expression>),
@@ -278,6 +280,7 @@ pub enum Expression {
     StringLiteral(Vec<String>),
     Subtract(Box<Expression>, Box<Expression>),
     Ternary(Box<Expression>, Box<Expression>, Box<Expression>),
+    This(VariableAccessLocation),
     Type(Box<Type>),
     Variable(String, MemberType, VariableAccessLocation),
     VariableDeclaration(Box<Type>, String),
@@ -293,6 +296,10 @@ pub enum Expression {
     AssignShiftRight(Box<Expression>, Box<Expression>),
     HexLiteral(String),
     NamedFunctionCall(Box<Expression>, Vec<(String, Expression)>),
+    UnaryPlus(Box<Expression>),
+    UnaryMinus(Box<Expression>),
+    Unit(Box<Expression>, i128),
+    ArraySlice(Box<Expression>, Option<Box<Expression>>, Option<Box<Expression>>),
 }
 
 #[derive(Clone, Debug, Hash)]

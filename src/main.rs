@@ -30,18 +30,26 @@ extern crate core;
 pub mod assembler;
 pub mod cli;
 pub mod file_utils;
-pub mod parser2;
+pub mod parser;
 pub mod structures;
 pub mod toml_builder;
 
-use parser2::Parser;
+use assembler::{
+    assemble_lib,
+    assemble_mod,
+};
+use file_utils::{
+    create_structure,
+    write_mod_files,
+};
+use parser::Parser;
 
 use crate::{
     cli::{
         cli,
         CliInput,
     },
-    parser2::{
+    parser::{
         ParserError,
         ParserOutput,
     },
@@ -71,7 +79,9 @@ fn main() {
     for file in files {
         match file {
             CliInput::SolidityFile(file) => {
-                match run(&file) {
+                let file_path = Path::new(&file);
+                let file_home = file_path.parent().unwrap().to_str().unwrap();
+                match run(file_home, &[file.clone()]) {
                     Ok(_) => {
                         println!("Successfully parsed {file}");
                     }
@@ -83,6 +93,7 @@ fn main() {
             }
             CliInput::Directory(dir) => {
                 let files = Path::new(&dir).read_dir().unwrap();
+                let mut paths = vec![];
 
                 for file in files {
                     let file = file.unwrap();
@@ -90,15 +101,15 @@ fn main() {
                     let file = file.to_str().unwrap();
 
                     if file.ends_with(".sol") {
-                        match run(&file.to_string()) {
-                            Ok(_) => {
-                                println!("Successfully parsed {file}");
-                            }
-                            Err(err) => {
-                                eprintln!("error: {err:?}");
-                                std::process::exit(1);
-                            }
-                        }
+                        paths.push(file.to_string());
+                    }
+                }
+
+                match run(&dir, &paths) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        eprintln!("error: {err:?}");
+                        std::process::exit(1);
                     }
                 }
             }
@@ -106,8 +117,7 @@ fn main() {
     }
 }
 
-fn run(path: &String) -> Result<(), ParserError> {
-    let content = file_utils::read_file(path)?;
+fn run(home: &str, path: &[String]) -> Result<(), ParserError> {
     let mut fields_map = HashMap::new();
     let mut modifier_map = HashMap::new();
     let mut imports = HashSet::new();
@@ -120,40 +130,61 @@ fn run(path: &String) -> Result<(), ParserError> {
         &mut comments,
     );
 
-    let output = parser.parse_file(&content)?;
+    create_structure(home)?;
+    let mut impls = Vec::default();
+    let mut traits = Vec::default();
+    let mut libs = Vec::default();
 
-    for output in output {
-        match output {
-            ParserOutput::Contract(contract) => {
-                let ink_contract = assembler::assemble_contract(&contract);
-                let implementation = assembler::assemble_impl(&contract);
-                let trait_definition = assembler::assemble_trait(&contract);
-                let lib_definition = assembler::assemble_lib();
-                let file_name = path.replace(".sol", "");
-                file_utils::write_files(
-                    ink_contract,
-                    implementation,
-                    trait_definition,
-                    lib_definition,
-                    Some(file_name),
-                    &contract.name,
-                )?;
-                println!("File saved!");
+    for file in path {
+        let content = file_utils::read_file(file)?;
+        let output = parser.parse_file(&content)?;
+
+        for output in output {
+            match output {
+                ParserOutput::Contract(name, contract) => {
+                    let ink_contract = assembler::assemble_contract(&contract);
+                    let implementation = assembler::assemble_impl(&contract);
+                    let trait_definition = assembler::assemble_trait(&contract);
+
+                    impls.push(name.clone());
+                    traits.push(name.clone());
+
+                    file_utils::write_contract_files(
+                        ink_contract,
+                        implementation,
+                        trait_definition,
+                        &contract.name,
+                        home,
+                    )?;
+                    println!("File saved!");
+                }
+                ParserOutput::Interface(name, interface) => {
+                    let ink_trait = assembler::assemble_interface(interface);
+
+                    traits.push(name.clone());
+
+                    file_utils::write_trait(ink_trait, home, &name)?;
+                    println!("File saved!");
+                }
+                ParserOutput::Library(name, library) => {
+                    let lib = assembler::assemble_library(library);
+
+                    libs.push(name.clone());
+
+                    file_utils::write_library(lib, home, &name)?;
+                    println!("File saved!");
+                }
+                _ => {}
             }
-            ParserOutput::Interface(interface) => {
-                let ink_trait = assembler::assemble_interface(interface);
-                let file_name = path.replace(".sol", ".rs");
-                file_utils::write_file(ink_trait, Some(file_name))?;
-                println!("File saved!");
-            }
-            ParserOutput::Library(library) => {
-                let ink_trait = assembler::assemble_library(library);
-                let file_name = path.replace(".sol", ".rs");
-                file_utils::write_file(ink_trait, Some(file_name))?;
-                println!("File saved!");
-            }
-            _ => {}
         }
     }
+
+    let impls_mod = assemble_mod(&impls);
+    let traits_mod = assemble_mod(&traits);
+    let libs_mod = assemble_mod(&libs);
+    let lib = assemble_lib();
+
+    write_mod_files(home, impls_mod, traits_mod, libs_mod, lib)?;
+
     Ok(())
 }
