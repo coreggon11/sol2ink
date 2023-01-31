@@ -49,7 +49,7 @@ pub struct Contract {
     pub imports: HashSet<Import>,
     pub contract_doc: Vec<String>,
     pub modifiers: Vec<Function>,
-    pub base: Vec<String>
+    pub base: Vec<String>,
 }
 
 impl Hash for Contract {
@@ -299,7 +299,11 @@ pub enum Expression {
     UnaryPlus(Box<Expression>),
     UnaryMinus(Box<Expression>),
     Unit(Box<Expression>, i128),
-    ArraySlice(Box<Expression>, Option<Box<Expression>>, Option<Box<Expression>>),
+    ArraySlice(
+        Box<Expression>,
+        Option<Box<Expression>>,
+        Option<Box<Expression>>,
+    ),
 }
 
 #[derive(Clone, Debug, Hash)]

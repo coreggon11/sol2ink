@@ -46,10 +46,11 @@ use solang_parser::{
         Statement as SolangStatement,
         StructDefinition,
         Type as SolangType,
+        Unit,
         VariableAttribute,
         VariableDeclaration,
         VariableDefinition,
-        Visibility, Unit,
+        Visibility,
     },
 };
 use std::{
@@ -1048,11 +1049,11 @@ impl<'a> Parser<'a> {
             SolangExpression::UnaryPlus(_, exp) => {
                 boxed_expression!(parsed_expression, exp);
                 Expression::UnaryPlus(parsed_expression)
-            },
+            }
             SolangExpression::UnaryMinus(_, exp) => {
                 boxed_expression!(parsed_expression, exp);
                 Expression::UnaryMinus(parsed_expression)
-            },
+            }
             SolangExpression::Power(_, left, right) => {
                 boxed_expression!(parsed_left, left);
                 boxed_expression!(parsed_right, right);
@@ -1226,10 +1227,11 @@ impl<'a> Parser<'a> {
                 let float_exp = float_exp.parse::<f64>().unwrap_or(0_f64);
                 let exp = exp.parse::<i32>().unwrap_or(0);
 
-                let result = (integer_exp + float_exp * 10_f64.powi(-(float_len as i32))) * 10_f64.powi(exp);
+                let result =
+                    (integer_exp + float_exp * 10_f64.powi(-(float_len as i32))) * 10_f64.powi(exp);
 
                 Expression::NumberLiteral(result.to_string())
-            },
+            }
             SolangExpression::HexNumberLiteral(_, hex_number) => {
                 Expression::HexLiteral(hex_number.clone())
             }
@@ -1280,9 +1282,9 @@ impl<'a> Parser<'a> {
                 let constant: i128 = match unit {
                     Unit::Seconds(_) => 1,
                     Unit::Minutes(_) => 60,
-                    Unit::Hours(_)   => 3600,
-                    Unit::Days(_)   => 86400,
-                    Unit::Weeks(_)  => 604800,
+                    Unit::Hours(_) => 3600,
+                    Unit::Days(_) => 86400,
+                    Unit::Weeks(_) => 604800,
                     Unit::Wei(_) => 1,
                     Unit::Gwei(_) => 1_000_000_000,
                     Unit::Ether(_) => 1_000_000_000_000_000_000,
@@ -1291,7 +1293,7 @@ impl<'a> Parser<'a> {
                 boxed_expression!(parsed_exp, exp);
 
                 Expression::Unit(parsed_exp, constant)
-            },
+            }
             SolangExpression::This(_) => Expression::This(location),
         }
     }
