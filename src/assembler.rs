@@ -1131,6 +1131,11 @@ impl ToTokens for Type {
             }
             Type::Array(ty, _) => quote!(Vec< #ty >),
             Type::None => quote!(),
+            Type::MemberAccess(from, identifeir) => {
+                let parsed_identifier =
+                    TokenStream::from_str(&format_expression(identifeir, Snake)).unwrap();
+                quote!(#from :: #parsed_identifier)
+            }
         })
     }
 }
@@ -1138,7 +1143,7 @@ impl ToTokens for Type {
 impl ToTokens for Statement {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         tokens.extend(match self {
-            Statement::Assembly(_) => todo!(),
+            Statement::Assembly => quote!(__comment__!("Assembly block here. Parsing assembly is not implemented yet");),
             Statement::Block(body) => quote!(#(#body)*),
             Statement::Break => quote!(break),
             Statement::Continue => quote!(continue),
@@ -1322,6 +1327,9 @@ impl ToTokens for Expression {
             }
             Expression::FunctionCall(function, args,value) => {
                 match *function.clone() {
+                    Expression::MemberAccess(_,name)if name == "decode" =>{
+                        quote!(  #function ( __comment__!(#(#args),*) )? )
+                    }
                     Expression::Variable(name, ..) if name == "require" => {
                         let condition = &args[0];
                         if args.len() > 1 {
@@ -1373,7 +1381,7 @@ impl ToTokens for Expression {
                     Expression::Type(ty) => {
                         match *ty {
                             Type::DynamicBytes => quote!( Vec::<u8>::from ( #(#args),* ) ),
-                            _ => quote!( #ty :: from ( #(#args),* ) ),
+                            _ => quote!( <#ty> :: from ( #(#args),* ) ),
                         }
                     }
                     Expression::Variable(name, ..) if name == "type" => {
@@ -1417,6 +1425,7 @@ impl ToTokens for Expression {
                         };
                         match member.as_str() {
                             "sender" => quote!(#location env().caller()),
+                            "value" => quote!(#location env().transferred_value()),
                             _ => panic!("msg.{member} is not implemented!"),
                         }
                     }
@@ -1447,7 +1456,16 @@ impl ToTokens for Expression {
                     {
                         quote!(vec!( #ty ::default(); #(#values)* ))
                     }
-                    _ => todo!(),
+                    Expression::FunctionCall(bytes, size, _)
+                        if let Expression::Type(ty) = *bytes.clone() =>
+                    {
+                        if let Type::DynamicBytes = *ty.clone() {
+                            quote!( Vec::with_capacity(#(#size)*) )
+                        }else {
+                            todo!("{new:?}")
+                        }
+                    }
+                    _ => todo!("{new:?}"),
                 }
             }
             Expression::Not(expression) => {

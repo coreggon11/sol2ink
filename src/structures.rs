@@ -206,7 +206,7 @@ pub struct FunctionParam {
 
 #[derive(Clone, Debug, Hash)]
 pub enum Statement {
-    Assembly(Vec<String>),
+    Assembly,
     Block(Vec<Statement>),
     Break,
     Continue,
@@ -304,7 +304,7 @@ pub enum Expression {
         Option<Box<Expression>>,
         Option<Box<Expression>>,
     ),
-    None
+    None,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -318,6 +318,7 @@ pub enum Type {
     Bytes(u8),
     DynamicBytes,
     Variable(String),
+    MemberAccess(Expression, String),
     Mapping(Vec<Type>, Box<Type>),
     None,
 }

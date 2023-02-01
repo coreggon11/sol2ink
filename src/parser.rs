@@ -292,7 +292,8 @@ impl<'a> Parser<'a> {
                     match function_definition.ty {
                         FunctionTy::Constructor => constructor = parsed_function,
                         FunctionTy::Modifier => modifiers.push(parsed_function),
-                        _ => functions.push(parsed_function),
+                        FunctionTy::Function => functions.push(parsed_function),
+                        _ => (),
                     }
                 }
                 ContractPart::StructDefinition(struct_definition) => {
@@ -505,8 +506,13 @@ impl<'a> Parser<'a> {
             .fields
             .iter()
             .filter_map(|variable_declaration| {
+                let event_field_name = self.parse_identifier(&variable_declaration.name);
                 let event_field = EventField {
-                    name: self.parse_identifier(&variable_declaration.name),
+                    name: if event_field_name == "_" {
+                        String::from("anonymous")
+                    } else {
+                        event_field_name
+                    },
                     field_type: self.parse_type(&variable_declaration.ty).ok()?,
                     indexed: variable_declaration.indexed,
                     comments: self.get_comments(variable_declaration.loc.end()),
@@ -761,10 +767,7 @@ impl<'a> Parser<'a> {
                 dialect: _,
                 flags: _,
                 block: _,
-            } => {
-                println!("{statement:?}");
-                todo!()
-            }
+            } => Statement::Assembly,
             SolangStatement::Args(_, _) => {
                 println!("{statement:?}");
                 todo!()
@@ -1295,9 +1298,18 @@ impl<'a> Parser<'a> {
                 let list = parameters
                     .iter()
                     .map(|tuple| tuple.1.clone())
-                    .filter(|option| option.is_some())
-                    .map(|parameter| parameter.unwrap().ty)
-                    .map(|expression| self.parse_expression(&expression, location.clone()))
+                    .map(|parameter_maybe| {
+                        let name = self.parse_identifier(
+                            &parameter_maybe
+                                .map(|parameter| parameter.name)
+                                .unwrap_or(None),
+                        );
+                        Expression::Variable(
+                            name,
+                            MemberType::None(Box::new(Type::None)),
+                            location.clone(),
+                        )
+                    })
                     .collect();
                 Expression::List(list)
             }
@@ -1407,7 +1419,15 @@ impl<'a> Parser<'a> {
                     .map(|option| self.parse_expression(option, VariableAccessLocation::Any));
                 Ok(Type::Array(parsed_type, parsed_expression))
             }
-            _ => Err(ParserError::IncorrectTypeOfVariable),
+            SolangExpression::MemberAccess(_, from, identifier) => {
+                let parsed_expression = self.parse_expression(from, VariableAccessLocation::Any);
+                let parsed_identifier = self.parse_identifier(&Some(identifier.clone()));
+                Ok(Type::MemberAccess(parsed_expression, parsed_identifier))
+            }
+            _ => {
+                println!("{ty:?}");
+                Err(ParserError::IncorrectTypeOfVariable)
+            }
         }
     }
 
