@@ -1154,7 +1154,7 @@ impl ToTokens for Statement {
             }
             Statement::Emit(expression) => {
                 match expression {
-                    Expression::FunctionCall(identifier, args)
+                    Expression::FunctionCall(identifier, args,_)
                     if let Expression::Variable(event_name,_,location)=*identifier.clone()=> {
                         let fn_name = TokenStream::from_str(&format!(
                             "_emit_{}",
@@ -1320,7 +1320,7 @@ impl ToTokens for Expression {
                     #left == #right
                 )
             }
-            Expression::FunctionCall(function, args) => {
+            Expression::FunctionCall(function, args,value) => {
                 match *function.clone() {
                     Expression::Variable(name, ..) if name == "require" => {
                         let condition = &args[0];
@@ -1381,6 +1381,11 @@ impl ToTokens for Expression {
                             type_of ( #(#args),* )?
                         )
                     }
+                    _ if let Some(value) = value => {
+                        quote!(
+                            #function ( #(#args),* ).transferred_value( #value )?
+                        )
+                    }
                     _ => {
                         quote!(
                             #function ( #(#args),* )?
@@ -1437,7 +1442,7 @@ impl ToTokens for Expression {
             Expression::New(new) => {
                 match *new.clone() {
                     // new array
-                    Expression::FunctionCall(array, values)
+                    Expression::FunctionCall(array, values, _)
                         if let Expression::ArraySubscript(ty, _) = *array.clone() =>
                     {
                         quote!(vec!( #ty ::default(); #(#values)* ))
@@ -1609,6 +1614,7 @@ impl ToTokens for Expression {
             Expression::ArraySlice(expression, start, end) => {
                 quote!( #expression[#start..#end] )
             }
+            Expression::None => quote!()
         })
     }
 }
