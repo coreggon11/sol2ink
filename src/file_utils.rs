@@ -41,6 +41,7 @@ use std::{
         prelude::*,
         BufReader,
     },
+    path::Path,
 };
 
 /// Reads the file to be transpiled and returns it as string
@@ -71,6 +72,26 @@ pub fn create_structure(file_home: &str) -> std::io::Result<()> {
     create_dir_all(libs_dir)?;
 
     Ok(())
+}
+
+pub fn get_solidity_files_from_directory(dir: &str) -> std::io::Result<Vec<String>> {
+    let directory = Path::new(&dir).read_dir().unwrap();
+
+    let mut paths = Vec::default();
+    for file in directory {
+        println!("{file:?}");
+        let directory = file.unwrap();
+        let path = directory.path();
+        let file = path.to_str().unwrap();
+
+        if file.ends_with(".sol") {
+            paths.push(file.to_string());
+        } else {
+            let mut new_paths = get_solidity_files_from_directory(file)?;
+            paths.append(&mut new_paths);
+        }
+    }
+    Ok(paths)
 }
 
 /// writes the output to file

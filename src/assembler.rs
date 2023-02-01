@@ -63,7 +63,7 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
     let base = contract
         .base
         .iter()
-        .map(|base| TokenStream::from_str(&base).unwrap())
+        .map(|base| TokenStream::from_str(base).unwrap())
         .collect::<Vec<_>>();
 
     let contract = quote! {
