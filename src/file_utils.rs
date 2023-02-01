@@ -35,6 +35,7 @@ use rust_format::{
 use std::{
     fs::{
         create_dir_all,
+        metadata,
         File,
     },
     io::{
@@ -79,16 +80,17 @@ pub fn get_solidity_files_from_directory(dir: &str) -> std::io::Result<Vec<Strin
 
     let mut paths = Vec::default();
     for file in directory {
-        println!("{file:?}");
         let directory = file.unwrap();
         let path = directory.path();
         let file = path.to_str().unwrap();
 
         if file.ends_with(".sol") {
             paths.push(file.to_string());
-        } else {
-            let mut new_paths = get_solidity_files_from_directory(file)?;
-            paths.append(&mut new_paths);
+        } else if let Ok(metadata) = metadata(&path) {
+            if metadata.is_dir() {
+                let mut new_paths = get_solidity_files_from_directory(file)?;
+                paths.append(&mut new_paths);
+            }
         }
     }
     Ok(paths)
