@@ -1,3 +1,5 @@
+![Sol2!nk](https://user-images.githubusercontent.com/43150707/215464954-13e4c8d8-96b4-49da-996c-3e79b8344b3a.png)
+
 ## Summary
 **Sol2Ink is a tool for easy migration from Solidity to Ink! and Rust**
 
@@ -8,7 +10,7 @@ we would save much time. And that is how the idea of Sol2Ink was born.
 
 ### Capabilities
 
-Sol2Ink in its current state is able to parse compilable Solidity interfaces into ink! traits and compilable Solidity contracts into ink! contracts, while leveraging the power of [OpenBrush](https://github.com/Supercolony-net/openbrush-contracts). Currently, Sol2Ink supports only single file contract transpiling, not supporting inheritance. The output of Sol2Ink is a folder with the ink! smart contract and a Cargo.toml.
+Sol2Ink in its current state is able to parse compilable Solidity interfaces into ink! traits and compilable Solidity contracts into ink! contracts, while leveraging the power of [OpenBrush](https://github.com/727-Ventures/openbrush-contracts). Currently, Sol2Ink supports only single file contract transpiling, not supporting inheritance. The output of Sol2Ink is a folder with the ink! smart contract and a Cargo.toml.
 
 Some errors may occur in this version of Sol2Ink and will be fixed in upcoming versions.
 With some statements, a parsing error can occur and cause the member to be parsed incorrectly. This needs to be corrected by the user.
@@ -16,17 +18,16 @@ The program may panic while parsing uncompilable code. Future versions should br
 Some expressions may be parsed incorrectly, while still creating compilable code (one known example is `type(uint).max` is parsed as `u128.max` instead of `u128::MAX`.
 And of course, as with all programs, there are probably some hidden unknown bugs as well :)
 
-Read more about how Sol2Ink works under the hood [here](https://www.sol2ink.com).
-
 ### Future development
 
 - [X] Sol2Ink CLI
-- [ ] User friendly errors when transpiling uncompilable contract
+- [X] User friendly errors when transpiling uncompilable contract
 - [X] Parsing libraries
-- [ ] Implement currently incorrectly parsed statements and expressions
-- [ ] Ability to parse a whole Solidity project into ink! project
-- [ ] Parse inheritance
+- [X] Implement currently incorrectly parsed statements and expressions
+- [X] Ability to parse a whole Solidity project into ink! project
+- [X] Parse inheritance
 - [ ] Sol2Ink Web Application with interface
+- [ ] Make the parsed contracts 
 
 ### How to use it?
 
@@ -41,11 +42,9 @@ If you are using Sol2Ink from release pages, you will need to run `./sol2ink con
 ### Examples
 
 Examples are stored in the example folder, where we have the input Solidity file and the output Rust and Ink! file.
-By running `cargo test creating`, we will transpile all of the examples stored in this folder. We have several example contracts from OpenZeppelin and two example contracts from Solang. These original contracts were not modified (except the OpenZeppelin contracts, where we added missing enums, events, structs, etc. from the respective interface file), and the outputs of Sol2Ink are not modified either.
 
-### Changelog
+By running `cargo test`, we will transpile all of the examples stored in this folder. We have several example contracts from OpenZeppelin and two example contracts from Solang, and some Solidity contracts created by us. These original contracts were not modified, and the outputs of Sol2Ink are not modified either.
 
-#### Version 1.1.0
-- Implemented Library parsing
-- Fixed error with require statement when the error message was passed as a string variable
-- Fixed handling of Rust keywords which are not keywords in Solidity
+### Our Community
+
+If you have any questions regarding Sol2Ink, you can join the [Brushfam Element channel](https://matrix.to/#/!utTuYglskDvqRRMQta:matrix.org?via=matrix.org&via=t2bot.io&via=web3.foundation) to find your answers and meet other ink! smart contracts developers.
