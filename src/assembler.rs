@@ -47,7 +47,7 @@ const RUST_KEYWORDS: [&str; 27] = [
     "async", "await", "dyn", "union",
 ];
 
-/// Assembles ink! contract from the parsed contract struct and return it as a vec of Strings
+/// Assembles the TokenStream of an ink! contract from the parsed contract struct
 pub fn assemble_contract(contract: &Contract) -> TokenStream {
     let mod_name = format_ident!("{}", contract.name.to_case(Snake));
     let contract_name = format_ident!("{}Contract", contract.name);
@@ -58,7 +58,7 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
     let storage = assemble_storage(&contract.name);
     let constructor = assemble_constructor(&contract.constructor, &contract.fields);
     let constants = assemble_constants(&contract.fields);
-    let comments = assemble_contract_doc(&contract.contract_doc);
+    let comments = &contract.contract_doc;
     let emit_functions = assemble_contract_emit_functions(&contract.events);
     let base = contract
         .base
@@ -71,7 +71,7 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
         #![feature(min_specialization)]
         _blank_!();
         #signature
-        #comments
+        #(#[doc = #comments])*
         #[openbrush::contract]
         pub mod #mod_name {
             #(#imports)*
@@ -105,7 +105,7 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
     contract
 }
 
-/// Assembles the implementation of the contract's trait
+/// Assembles the TokenStream of an ink! contract implementation file from the parsed contract struct
 pub fn assemble_impl(contract: &Contract) -> TokenStream {
     let trait_name = format_ident!("{}", contract.name);
     let signature = signature();
@@ -178,7 +178,7 @@ pub fn assemble_impl(contract: &Contract) -> TokenStream {
     contract
 }
 
-/// Assembles ink! trait of the provided contract
+/// Assembles the TokenStream of an ink! trait from the parsed contract struct
 pub fn assemble_trait(contract: &Contract) -> TokenStream {
     let trait_name = TokenStream::from_str(&contract.name).unwrap();
     let ref_name = TokenStream::from_str(&format!("{}Ref", contract.name)).unwrap();
@@ -226,7 +226,7 @@ pub fn assemble_trait(contract: &Contract) -> TokenStream {
     }
 }
 
-/// Assembles lib file
+/// Assembles the TokenStream of a lib file of the ink! project
 pub fn assemble_lib() -> TokenStream {
     quote! {
         #![cfg_attr(not(feature = "std"), no_std)]
@@ -242,6 +242,7 @@ pub fn assemble_lib() -> TokenStream {
     }
 }
 
+/// Assembles the TokenStream of a mod file of a folder, containing all modules provided
 pub fn assemble_mod(mods: &[String]) -> TokenStream {
     let tokens = mods
         .iter()
@@ -253,7 +254,7 @@ pub fn assemble_mod(mods: &[String]) -> TokenStream {
     }
 }
 
-/// Assembles ink! interface(trait) from the parsed interface struct and return it as a vec of Strings
+/// Assembles the TokenStream of an ink! trait from the parsed interface struct
 pub fn assemble_interface(interface: Interface) -> TokenStream {
     let interface_name = TokenStream::from_str(&interface.name).unwrap();
     let interface_name_ref = TokenStream::from_str(&format!("{}Ref", interface.name)).unwrap();
@@ -283,7 +284,7 @@ pub fn assemble_interface(interface: Interface) -> TokenStream {
     interface
 }
 
-/// Assembles a solidity library as a plain Rust file from the parsed library struct and return it as a TokenStream
+/// Assembles the TokenStream of a library from the parsed library struct
 pub fn assemble_library(library: Library) -> TokenStream {
     let signature = signature();
     let imports = Vec::from_iter(&library.imports);
@@ -292,14 +293,14 @@ pub fn assemble_library(library: Library) -> TokenStream {
     let structs = assemble_structs(&library.structs);
     let constants = assemble_constants(&library.fields);
     let functions = assemble_functions(&library.functions, true);
-    let comments = assemble_contract_doc(&library.libraray_doc);
+    let comments = &library.libraray_doc;
 
     let library = quote! {
         #![cfg_attr(not(feature = "std"), no_std)]
         #![feature(min_specialization)]
         _blank_!();
         #signature
-        #comments
+        #(#[doc = #comments])*
         #(#imports)*
         _blank_!();
         pub enum Error {
@@ -317,20 +318,7 @@ pub fn assemble_library(library: Library) -> TokenStream {
     library
 }
 
-fn assemble_contract_doc(comments: &[String]) -> TokenStream {
-    let mut output = TokenStream::new();
-
-    // assemble comments
-    for comment in comments.iter() {
-        output.extend(quote! {
-            #[doc = #comment]
-        });
-    }
-
-    output
-}
-
-/// Assembles ink! enums from the vec of parsed Enum structs and return them as a vec of Strings
+/// Assembles the TokenStream of Enums from the parsed Enum structs
 fn assemble_enums(enums: &[Enum]) -> TokenStream {
     let mut output = TokenStream::new();
 
@@ -375,7 +363,7 @@ fn assemble_enums(enums: &[Enum]) -> TokenStream {
     output
 }
 
-/// Assembles ink! events from the vec of parsed Event structs and return them as a vec of Strings
+/// Assembles the TokenStream of ink! events from the parsed Event structs
 fn assemble_events(events: &[Event]) -> TokenStream {
     let mut output = TokenStream::new();
 
@@ -431,7 +419,7 @@ fn assemble_events(events: &[Event]) -> TokenStream {
     output
 }
 
-/// Assembles ink! storage struct from the vec of parsed ContractField structs and return it as a vec of Strings
+/// Assembles the TokenStream of contract's storage fields from the parsed ContractField structs
 fn assemble_data_struct(fields: &[ContractField]) -> TokenStream {
     let mut output = TokenStream::new();
     let mut storage_fields = TokenStream::new();
@@ -465,7 +453,7 @@ fn assemble_data_struct(fields: &[ContractField]) -> TokenStream {
     output
 }
 
-/// Assembles ink! storage struct from the vec of parsed ContractField structs and return it as a vec of Strings
+/// Assembles the TokenStream of getters for public fields of the contract storage from the parsed ContractField structs
 fn assemble_getters(fields: &[ContractField]) -> TokenStream {
     let mut output = TokenStream::new();
 
@@ -488,7 +476,8 @@ fn assemble_getters(fields: &[ContractField]) -> TokenStream {
     output
 }
 
-/// Assembles ink! storage struct from the vec of parsed ContractField structs and return it as a vec of Strings
+/// Assembles the TokenStream of getter function descriptions for public fields of the contract storage
+/// from the parsed ContractField structs
 fn assemble_getters_trait(fields: &[ContractField]) -> TokenStream {
     let mut output = TokenStream::new();
 
@@ -507,7 +496,7 @@ fn assemble_getters_trait(fields: &[ContractField]) -> TokenStream {
     output
 }
 
-/// Assembles ink! storage struct from the vec of parsed ContractField structs and return it as a vec of Strings
+/// Assembles the TokenStream of ink! contract
 fn assemble_storage(contract_name: &String) -> TokenStream {
     let mut output = TokenStream::new();
     let contract_name = format_ident!("{}Contract", contract_name);
@@ -524,7 +513,7 @@ fn assemble_storage(contract_name: &String) -> TokenStream {
     output
 }
 
-/// Assembles constant fields of the contract
+/// Assembles the TokenStream of constant fields of the contract
 fn assemble_constants(fields: &[ContractField]) -> TokenStream {
     let mut output = TokenStream::new();
 
@@ -551,7 +540,7 @@ fn assemble_constants(fields: &[ContractField]) -> TokenStream {
     output
 }
 
-/// Assembles ink! structs from the vec of parsed Struct structs and return them as a vec of Strings
+/// Assembles the TokenStream of structs from the parsed Struct structs
 fn assemble_structs(structs: &[Struct]) -> TokenStream {
     let mut output = TokenStream::new();
 
@@ -604,7 +593,8 @@ fn assemble_structs(structs: &[Struct]) -> TokenStream {
     output
 }
 
-/// Assembles ink! cosntructor from the parsed Function struct and return it as a vec of Strings
+/// Assembles the TokenStream of cosntructor from the parsed Function struct
+/// If there are any fields with a preset value in the original contract, we will initialize them in the constructor
 fn assemble_constructor(constructor: &Function, fields: &[ContractField]) -> TokenStream {
     let mut output = TokenStream::new();
     let mut params = TokenStream::new();
@@ -661,7 +651,8 @@ fn assemble_constructor(constructor: &Function, fields: &[ContractField]) -> Tok
     output
 }
 
-/// Assembles ink! functions from the vec of parsed Function structs and return them as a vec of Strings
+/// Assembles the TokenStream of functions from the parsed Function structs
+/// If we are creating functions for a library, we will not manipulate with contract's storage
 fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
     let mut output = TokenStream::new();
 
@@ -852,6 +843,7 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
     output
 }
 
+/// Helper function which returns true if the given statement contains a return statement
 fn has_return_statement(statement: &Option<Statement>) -> bool {
     match statement {
         Some(statement) => {
@@ -869,6 +861,10 @@ fn has_return_statement(statement: &Option<Statement>) -> bool {
     }
 }
 
+/// Assembles the TokenStream of internal emit functions of the contracts, which emit events
+/// Returns the default implementation of such functions with empty body, which is then added to the implementation of the Internal trait
+/// as well as the function definitions, which is used in the Internal trait definition
+/// The TokenStream is generated based on the parsed events
 fn assemble_emit_functions(events: &[Event]) -> (TokenStream, TokenStream) {
     let mut default_output = TokenStream::new();
     let mut impl_output = TokenStream::new();
@@ -906,6 +902,8 @@ fn assemble_emit_functions(events: &[Event]) -> (TokenStream, TokenStream) {
     (default_output, impl_output)
 }
 
+/// Assembles the TokenStream of contract's emit functions, which then emit events
+/// The TokenStream is generated based on the parsed events
 fn assemble_contract_emit_functions(events: &[Event]) -> TokenStream {
     let mut output = TokenStream::new();
 
@@ -940,7 +938,7 @@ fn assemble_contract_emit_functions(events: &[Event]) -> TokenStream {
     output
 }
 
-/// Assembles ink! functions from the vec of parsed Function structs and return them as a vec of Strings
+/// Assembles the TokenStream of conract's modifiers from the parsed Function structs
 fn assemble_modifiers(modifiers: &[Function], contract_name: &Ident) -> TokenStream {
     let mut output = TokenStream::new();
 
@@ -980,7 +978,7 @@ fn assemble_modifiers(modifiers: &[Function], contract_name: &Ident) -> TokenStr
     output
 }
 
-/// Assembles ink! trait function headers from the vec of parsed FunctionHeader structs and return them as a vec of Strings
+/// Assembles the TokenStream of trait function headers from the parsed FunctionHeader structs
 fn assemble_function_headers(function_headers: &[FunctionHeader]) -> TokenStream {
     let mut output = TokenStream::new();
 
@@ -1084,7 +1082,7 @@ fn assemble_function_headers(function_headers: &[FunctionHeader]) -> TokenStream
     output
 }
 
-/// Adds a signature to the beginning of the file :)
+/// Assembles the TokenStream of the signature which is then added to the beginning of the file :)
 fn signature() -> TokenStream {
     const VERSION: &str = env!("CARGO_PKG_VERSION");
     let version = &format!("Generated with Sol2Ink v{VERSION}\n");
@@ -1096,6 +1094,8 @@ fn signature() -> TokenStream {
     }
 }
 
+/// Formats an expression provided with the casing provided
+/// Appends `_is_rust_keyword` to identifiers which collide with rust keyword
 fn format_expression(expression_raw: &String, case: Case) -> String {
     if expression_raw == "_" {
         return expression_raw.clone()
@@ -1108,6 +1108,7 @@ fn format_expression(expression_raw: &String, case: Case) -> String {
     }
 }
 
+/// Returns the TokenStream of a `Type` enum variant
 impl ToTokens for Type {
     fn to_tokens(&self, stream: &mut TokenStream) {
         stream.extend(match self {
@@ -1140,6 +1141,7 @@ impl ToTokens for Type {
     }
 }
 
+/// Returns the TokenStream of a `Statement` enum variant
 impl ToTokens for Statement {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         tokens.extend(match self {
@@ -1238,6 +1240,7 @@ impl ToTokens for Statement {
     }
 }
 
+/// Returns the TokenStream of an `Expression` enum variant
 impl ToTokens for Expression {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         tokens.extend(match self {
@@ -1637,6 +1640,7 @@ impl ToTokens for Expression {
     }
 }
 
+/// Returns the TokenStream of a `VariableAccessLocation` enum variant
 impl ToTokens for VariableAccessLocation {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         tokens.extend(match self {
@@ -1647,6 +1651,7 @@ impl ToTokens for VariableAccessLocation {
     }
 }
 
+/// Returns the TokenStream of a `FunctionParam` enum variant
 impl ToTokens for FunctionParam {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let name =
@@ -1656,6 +1661,7 @@ impl ToTokens for FunctionParam {
     }
 }
 
+/// Returns the TokenStream of an `Import` enum variant
 impl ToTokens for Import {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         tokens.extend(match self {
