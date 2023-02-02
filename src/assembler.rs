@@ -1462,7 +1462,7 @@ impl ToTokens for Expression {
                     Expression::FunctionCall(bytes, size, _)
                         if let Expression::Type(ty) = *bytes.clone() =>
                     {
-                        if let Type::DynamicBytes = *ty.clone() {
+                        if let Type::DynamicBytes = *ty {
                             quote!( Vec::with_capacity(#(#size)*) )
                         }else {
                             todo!("{new:?}")

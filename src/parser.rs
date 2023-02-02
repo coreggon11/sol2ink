@@ -52,16 +52,13 @@ use solang_parser::{
         Visibility,
     },
 };
-use std::{
-    collections::{
-        HashMap,
-        HashSet,
-        VecDeque,
-    },
-    hash::Hash,
+use std::collections::{
+    HashMap,
+    HashSet,
+    VecDeque,
 };
 
-#[derive(Clone, Hash)]
+#[derive(Clone)]
 pub enum ParserOutput {
     Contract(String, Contract),
     Interface(String, Interface),
@@ -1064,7 +1061,7 @@ impl<'a> Parser<'a> {
                 if let SolangExpression::FunctionCallBlock(_, function, parameters) =
                     *function.clone()
                 {
-                    if let SolangStatement::Args(_, arguments) = *parameters.clone() {
+                    if let SolangStatement::Args(_, arguments) = *parameters {
                         let value_argument = arguments
                             .iter()
                             .map(|argument| {
@@ -1074,8 +1071,7 @@ impl<'a> Parser<'a> {
                                     self.parse_identifier(&Some(argument.name.clone()));
                                 (parsed_name, parsed_argument)
                             })
-                            .filter(|(name, _)| name == "value")
-                            .nth(0)
+                            .find(|(name, _)| name == "value")
                             .map(|option| Box::new(option.1));
                         boxed_expression!(parsed_function, &function);
                         return Expression::FunctionCall(
