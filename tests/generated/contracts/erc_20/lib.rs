@@ -1,11 +1,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 /// SPDX-License-Identifier: MIT
-/// OpenZeppelin Contracts (last updated v4.6.0) (token/ERC20/ERC20.sol)
+/// OpenZeppelin Contracts (last updated v4.8.0) (token/ERC20/ERC20.sol)
 /// @dev Implementation of the {IERC20} interface.
 ///
 /// This implementation is agnostic to the way tokens are created. This means
@@ -13,8 +13,11 @@
 /// For a generic mechanism see {ERC20PresetMinterPauser}.
 ///
 /// TIP: For a detailed writeup see our guide
-/// https://forum.zeppelin.solutions/t/how-to-implement-erc20-supply-mechanisms/226[How
+/// https://forum.openzeppelin.com/t/how-to-implement-erc20-supply-mechanisms/226[How
 /// to implement supply mechanisms].
+///
+/// The default value of {decimals} is 18. To change this, you should override
+/// this function so it returns a different value.
 ///
 /// We have followed general OpenZeppelin Contracts guidelines: functions revert
 /// instead returning `false` on failure. This behavior is nonetheless
@@ -54,30 +57,6 @@ pub mod erc_20 {
     };
 
 
-    /// @dev Emitted when `value` tokens are moved from one account (`from`) to
-    /// another (`to`).
-    ///
-    /// Note that `value` may be zero.
-    #[ink(event)]
-    pub struct Transfer {
-        #[ink(topic)]
-        from: AccountId,
-        #[ink(topic)]
-        to: AccountId,
-        value: u128,
-    }
-
-    /// @dev Emitted when the allowance of a `spender` for an `owner` is set by
-    /// a call to {approve}. `value` is the new allowance.
-    #[ink(event)]
-    pub struct Approval {
-        #[ink(topic)]
-        owner: AccountId,
-        #[ink(topic)]
-        spender: AccountId,
-        value: u128,
-    }
-
     #[ink(storage)]
     #[derive(Default, SpreadAllocate, Storage)]
     pub struct ERC20Contract {
@@ -87,26 +66,16 @@ pub mod erc_20 {
 
     impl ERC20 for ERC20Contract {}
 
-    impl erc_20::Internal for ERC20Contract {
-        fn _emit_transfer(&self, from: AccountId, to: AccountId, value: u128) {
-            self.env().emit_event(Transfer { from, to, value });
-        }
+    impl erc_20::Internal for ERC20Contract {}
 
-        fn _emit_approval(&self, owner: AccountId, spender: AccountId, value: u128) {
-            self.env().emit_event(Approval {
-                owner,
-                spender,
-                value,
-            });
-        }
+    impl Context for ERC20Contract {}
 
-    }
+    impl IERC20 for ERC20Contract {}
+
+    impl IERC20Metadata for ERC20Contract {}
 
     impl ERC20Contract {
         /// @dev Sets the values for {name} and {symbol}.
-        ///
-        /// The default value of {decimals} is 18. To select a different value for
-        /// {decimals} you should overload it.
         ///
         /// All two of these values are immutable: they can only be set once during
         /// construction.

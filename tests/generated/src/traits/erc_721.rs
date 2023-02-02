@@ -1,4 +1,4 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 use ink_prelude::vec::*;
@@ -78,7 +78,7 @@ pub trait ERC721 {
         token_id: u128,
     ) -> Result<(), Error>;
 
-    /// solhint-disable-next-line max-line-length
+    ///solhint-disable-next-line max-line-length
     /// @dev See {IERC721-safeTransferFrom}.
     #[ink(message)]
     fn safe_transfer_from(

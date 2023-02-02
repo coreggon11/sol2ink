@@ -1,4 +1,4 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
@@ -112,7 +112,7 @@ impl<T: Storage<Data>> AccessControl for T {
     ///
     /// May emit a {RoleRevoked} event.
     fn renounce_role(&mut self, role: [u8; 32], account: AccountId) -> Result<(), Error> {
-        if !(account == Self::env().caller()) {
+        if !(account == msg_sender()?) {
             return Err(Error::Custom(String::from(
                 "AccessControl: can only renounce roles for self",
             )))
@@ -124,7 +124,7 @@ impl<T: Storage<Data>> AccessControl for T {
 }
 
 pub trait Internal {
-    /// @dev Revert with a standard message if `msg.sender` is missing `role`.
+    /// @dev Revert with a standard message if `_msgSender()` is missing `role`.
     /// Overriding this function changes the behavior of the {onlyRole} modifier.
     ///
     /// Format of the revert message is described in {_checkRole}.
@@ -178,28 +178,17 @@ pub trait Internal {
     /// May emit a {RoleRevoked} event.
     fn _revoke_role(&mut self, role: [u8; 32], account: AccountId) -> Result<(), Error>;
 
-    fn _emit_role_admin_changed(
-        &self,
-        role: [u8; 32],
-        previous_admin_role: [u8; 32],
-        new_admin_role: [u8; 32],
-    );
-
-    fn _emit_role_granted(&self, role: [u8; 32], account: AccountId, sender: AccountId);
-
-    fn _emit_role_revoked(&self, role: [u8; 32], account: AccountId, sender: AccountId);
-
 }
 
 impl<T: Storage<Data>> Internal for T {
-    /// @dev Revert with a standard message if `msg.sender` is missing `role`.
+    /// @dev Revert with a standard message if `_msgSender()` is missing `role`.
     /// Overriding this function changes the behavior of the {onlyRole} modifier.
     ///
     /// Format of the revert message is described in {_checkRole}.
     ///
     /// _Available since v4.6._
     default fn _check_role(&self, role: [u8; 32]) -> Result<(), Error> {
-        self._check_role(role, Self::env().caller())?;
+        self._check_role(role, msg_sender()?)?;
         Ok(())
     }
 
@@ -265,7 +254,7 @@ impl<T: Storage<Data>> Internal for T {
                 .unwrap_or_default()
                 .members
                 .insert(&(account), &true);
-            self._emit_role_granted(role, account, Self::env().caller());
+            self._emit_role_granted(role, account, msg_sender()?);
         }
         Ok(())
     }
@@ -283,15 +272,9 @@ impl<T: Storage<Data>> Internal for T {
                 .unwrap_or_default()
                 .members
                 .insert(&(account), &false);
-            self._emit_role_revoked(role, account, Self::env().caller());
+            self._emit_role_revoked(role, account, msg_sender()?);
         }
         Ok(())
     }
-
-    default fn _emit_role_admin_changed(&self, _: [u8; 32], _: [u8; 32], _: [u8; 32]) {}
-
-    default fn _emit_role_granted(&self, _: [u8; 32], _: AccountId, _: AccountId) {}
-
-    default fn _emit_role_revoked(&self, _: [u8; 32], _: AccountId, _: AccountId) {}
 
 }

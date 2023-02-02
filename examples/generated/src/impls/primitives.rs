@@ -1,4 +1,4 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
@@ -89,7 +89,7 @@ impl<T: Storage<Data>> primitives for T {
         } else if op == oper.modulo {
             return Ok(a % b)
         } else if op == oper.pow {
-            return Ok(a.pow(u128::from(b)))
+            return Ok(a.pow(<u128>::from(b)))
         } else if op == oper.shl {
             return Ok(a << b)
         } else if op == oper.shr {

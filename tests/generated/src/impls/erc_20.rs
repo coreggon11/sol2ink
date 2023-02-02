@@ -1,4 +1,4 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
@@ -48,8 +48,8 @@ impl<T: Storage<Data>> ERC20 for T {
     /// be displayed to a user as `5.05` (`505 / 10 ** 2`).
     ///
     /// Tokens usually opt for a value of 18, imitating the relationship between
-    /// Ether and Wei. This is the value {ERC20} uses, unless this function is
-    /// overridden;
+    /// Ether and Wei. This is the default value returned by this function, unless
+    /// it's overridden.
     ///
     /// NOTE: This information is only used for _display_ purposes: it in
     /// no way affects any of the arithmetic of the contract, including
@@ -75,7 +75,7 @@ impl<T: Storage<Data>> ERC20 for T {
     /// - `to` cannot be the zero address.
     /// - the caller must have a balance of at least `amount`.
     fn transfer(&mut self, to: AccountId, amount: u128) -> Result<bool, Error> {
-        let mut owner: AccountId = Self::env().caller();
+        let mut owner: AccountId = msg_sender()?;
         self._transfer(owner, to, amount)?;
         return Ok(true)
     }
@@ -98,7 +98,7 @@ impl<T: Storage<Data>> ERC20 for T {
     ///
     /// - `spender` cannot be the zero address.
     fn approve(&mut self, spender: AccountId, amount: u128) -> Result<bool, Error> {
-        let mut owner: AccountId = Self::env().caller();
+        let mut owner: AccountId = msg_sender()?;
         self._approve(owner, spender, amount)?;
         return Ok(true)
     }
@@ -123,7 +123,7 @@ impl<T: Storage<Data>> ERC20 for T {
         to: AccountId,
         amount: u128,
     ) -> Result<bool, Error> {
-        let mut spender: AccountId = Self::env().caller();
+        let mut spender: AccountId = msg_sender()?;
         self._spend_allowance(from, spender, amount)?;
         self._transfer(from, to, amount)?;
         return Ok(true)
@@ -140,7 +140,7 @@ impl<T: Storage<Data>> ERC20 for T {
     ///
     /// - `spender` cannot be the zero address.
     fn increase_allowance(&mut self, spender: AccountId, added_value: u128) -> Result<bool, Error> {
-        let mut owner: AccountId = Self::env().caller();
+        let mut owner: AccountId = msg_sender()?;
         self._approve(
             owner,
             spender,
@@ -166,7 +166,7 @@ impl<T: Storage<Data>> ERC20 for T {
         spender: AccountId,
         subtracted_value: u128,
     ) -> Result<bool, Error> {
-        let mut owner: AccountId = Self::env().caller();
+        let mut owner: AccountId = msg_sender()?;
         let mut current_allowance: u128 = self.allowance(owner, spender)?;
         if !(current_allowance >= subtracted_value) {
             return Err(Error::Custom(String::from(
@@ -194,6 +194,8 @@ pub trait Internal {
     /// - `from` must have a balance of at least `amount`.
     fn _transfer(&mut self, from: AccountId, to: AccountId, amount: u128) -> Result<(), Error>;
 
+    /// Overflow not possible: the sum of all balances is capped by totalSupply, and the sum is preserved by
+    /// decrementing then incrementing.
     ///dev Creates `amount` tokens and assigns them to `account`, increasing
     /// the total supply.
     ///
@@ -204,6 +206,7 @@ pub trait Internal {
     /// - `account` cannot be the zero address.
     fn _mint(&mut self, account: AccountId, amount: u128) -> Result<(), Error>;
 
+    /// Overflow not possible: balance + amount is at most totalSupply + amount, which is checked above.
     /// @dev Destroys `amount` tokens from `account`, reducing the
     /// total supply.
     ///
@@ -215,6 +218,7 @@ pub trait Internal {
     /// - `account` must have at least `amount` tokens.
     fn _burn(&mut self, account: AccountId, amount: u128) -> Result<(), Error>;
 
+    /// Overflow not possible: amount <= accountBalance <= totalSupply.
     /// @dev Sets `amount` as the allowance of `spender` over the `owner` s tokens.
     ///
     /// This internal function is equivalent to `approve`, and can be used to
@@ -280,10 +284,6 @@ pub trait Internal {
         amount: u128,
     ) -> Result<(), Error>;
 
-    fn _emit_transfer(&self, from: AccountId, to: AccountId, value: u128);
-
-    fn _emit_approval(&self, owner: AccountId, spender: AccountId, value: u128);
-
 }
 
 impl<T: Storage<Data>> Internal for T {
@@ -330,6 +330,8 @@ impl<T: Storage<Data>> Internal for T {
         Ok(())
     }
 
+    /// Overflow not possible: the sum of all balances is capped by totalSupply, and the sum is preserved by
+    /// decrementing then incrementing.
     ///dev Creates `amount` tokens and assigns them to `account`, increasing
     /// the total supply.
     ///
@@ -353,6 +355,7 @@ impl<T: Storage<Data>> Internal for T {
         Ok(())
     }
 
+    /// Overflow not possible: balance + amount is at most totalSupply + amount, which is checked above.
     /// @dev Destroys `amount` tokens from `account`, reducing the
     /// total supply.
     ///
@@ -384,6 +387,7 @@ impl<T: Storage<Data>> Internal for T {
         Ok(())
     }
 
+    /// Overflow not possible: amount <= accountBalance <= totalSupply.
     /// @dev Sets `amount` as the allowance of `spender` over the `owner` s tokens.
     ///
     /// This internal function is equivalent to `approve`, and can be used to
@@ -479,9 +483,5 @@ impl<T: Storage<Data>> Internal for T {
     ) -> Result<(), Error> {
         Ok(())
     }
-
-    default fn _emit_transfer(&self, _: AccountId, _: AccountId, _: u128) {}
-
-    default fn _emit_approval(&self, _: AccountId, _: AccountId, _: u128) {}
 
 }

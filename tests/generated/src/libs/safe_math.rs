@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 use ink_prelude::vec::*;
@@ -35,9 +35,9 @@ pub enum Error {
 pub fn try_add(&self, a: u128, b: u128) -> Result<(bool, u128), Error> {
     let mut c: u128 = a + b;
     if c < a {
-        return Ok((false, 0))
+        return Ok((_, _))
     }
-    return Ok((true, c))
+    return Ok((_, _))
 }
 
 /// @dev Returns the subtraction of two unsigned integers, with an overflow flag.
@@ -45,9 +45,9 @@ pub fn try_add(&self, a: u128, b: u128) -> Result<(bool, u128), Error> {
 /// _Available since v3.4._
 pub fn try_sub(&self, a: u128, b: u128) -> Result<(bool, u128), Error> {
     if b > a {
-        return Ok((false, 0))
+        return Ok((_, _))
     }
-    return Ok((true, a - b))
+    return Ok((_, _))
 }
 
 /// @dev Returns the multiplication of two unsigned integers, with an overflow flag.
@@ -55,13 +55,13 @@ pub fn try_sub(&self, a: u128, b: u128) -> Result<(bool, u128), Error> {
 /// _Available since v3.4._
 pub fn try_mul(&self, a: u128, b: u128) -> Result<(bool, u128), Error> {
     if a == 0 {
-        return Ok((true, 0))
+        return Ok((_, _))
     }
     let mut c: u128 = a * b;
     if c / a != b {
-        return Ok((false, 0))
+        return Ok((_, _))
     }
-    return Ok((true, c))
+    return Ok((_, _))
 }
 
 /// Gas optimization: this is cheaper than requiring 'a' not being zero, but the
@@ -72,9 +72,9 @@ pub fn try_mul(&self, a: u128, b: u128) -> Result<(bool, u128), Error> {
 /// _Available since v3.4._
 pub fn try_div(&self, a: u128, b: u128) -> Result<(bool, u128), Error> {
     if b == 0 {
-        return Ok((false, 0))
+        return Ok((_, _))
     }
-    return Ok((true, a / b))
+    return Ok((_, _))
 }
 
 /// @dev Returns the remainder of dividing two unsigned integers, with a division by zero flag.
@@ -82,9 +82,9 @@ pub fn try_div(&self, a: u128, b: u128) -> Result<(bool, u128), Error> {
 /// _Available since v3.4._
 pub fn try_mod(&self, a: u128, b: u128) -> Result<(bool, u128), Error> {
     if b == 0 {
-        return Ok((false, 0))
+        return Ok((_, _))
     }
-    return Ok((true, a % b))
+    return Ok((_, _))
 }
 
 /// @dev Returns the addition of two unsigned integers, reverting on

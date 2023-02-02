@@ -1,4 +1,4 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 use ink_prelude::vec::*;
@@ -22,20 +22,6 @@ pub enum Error {
     Custom(String),
 }
 
-/// This enum is added just to test enum parsing
-pub enum Enum {
-    First,
-    Second,
-}
-
-
-/// This struct is added just to test struct parsing
-#[derive(Default, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
-pub struct Struct {
-    field_1: u128,
-    field_2: u128,
-}
 
 
 #[openbrush::wrapper]
@@ -57,8 +43,8 @@ pub trait ERC20 {
     /// be displayed to a user as `5.05` (`505 / 10 ** 2`).
     ///
     /// Tokens usually opt for a value of 18, imitating the relationship between
-    /// Ether and Wei. This is the value {ERC20} uses, unless this function is
-    /// overridden;
+    /// Ether and Wei. This is the default value returned by this function, unless
+    /// it's overridden.
     ///
     /// NOTE: This information is only used for _display_ purposes: it in
     /// no way affects any of the arithmetic of the contract, including
