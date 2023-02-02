@@ -64,6 +64,7 @@ use std::{
     path::Path,
 };
 
+/// main function
 fn main() {
     let args = cli();
 
@@ -108,6 +109,10 @@ fn main() {
     }
 }
 
+/// Runs the parser on the selected contracts
+/// 
+/// `home` the home directory of a single file, or the directory we are parsing
+/// `path` the paths to the files we want to parse
 fn run(home: &str, path: &[String]) -> Result<(), ParserError> {
     let mut fields_map = HashMap::new();
     let mut modifier_map = HashMap::new();
