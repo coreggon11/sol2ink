@@ -45,7 +45,12 @@ use std::{
     path::Path,
 };
 
-/// Reads the file to be transpiled and returns it as string
+static CONTRACTS_DIR: &str = "/generated/contracts";
+static IMPLS_DIR: &str = "/generated/src/impls";
+static TRAITS_DIR: &str = "/generated/src/traits";
+static LIBS_DIR: &str = "/generated/src/libs";
+
+/// Reads the file to be transpiled and returns its content as a String
 ///
 /// `path` the path to the file
 pub fn read_file(path: &String) -> std::io::Result<String> {
@@ -56,11 +61,9 @@ pub fn read_file(path: &String) -> std::io::Result<String> {
     Ok(contents)
 }
 
-static CONTRACTS_DIR: &str = "/generated/contracts";
-static IMPLS_DIR: &str = "/generated/src/impls";
-static TRAITS_DIR: &str = "/generated/src/traits";
-static LIBS_DIR: &str = "/generated/src/libs";
-
+/// Creates the basic structure for generated ink! contracts
+/// 
+/// `file_home` the home directory of the file we are parsing, or the directory we are parsing
 pub fn create_structure(file_home: &str) -> std::io::Result<()> {
     let contracts_dir = format!("{file_home}{CONTRACTS_DIR}");
     let impls_dir = format!("{file_home}{IMPLS_DIR}",);
@@ -75,6 +78,9 @@ pub fn create_structure(file_home: &str) -> std::io::Result<()> {
     Ok(())
 }
 
+/// Returns the paths to all Solidity files within a directory
+/// 
+/// `dir` the directory we want to search
 pub fn get_solidity_files_from_directory(dir: &str) -> std::io::Result<Vec<String>> {
     let directory = Path::new(&dir).read_dir().unwrap();
 
@@ -96,12 +102,13 @@ pub fn get_solidity_files_from_directory(dir: &str) -> std::io::Result<Vec<Strin
     Ok(paths)
 }
 
-/// writes the output to file
+/// writes the output trait to a file
 ///
-/// `lines` the transpiled file in the form of vec of strings
-/// each item in the vec represents a separate line in the output file
+/// `tokens` the transpiled file in the form of TokenStream
+/// `file_home` the home directory of the file we are parsing, or the directory we are parsing
+/// `trait_name` the name of the trait we are writing
 pub fn write_trait(
-    lines: TokenStream,
+    tokens: TokenStream,
     file_home: &str,
     trait_name: &String,
 ) -> std::io::Result<()> {
@@ -109,7 +116,7 @@ pub fn write_trait(
     let config = Config::new_str().post_proc(PostProcess::ReplaceMarkersAndDocBlocks);
     file.write_all(
         RustFmt::from_config(config)
-            .format_tokens(lines)
+            .format_tokens(tokens)
             .unwrap()
             .as_bytes(),
     )?;
@@ -117,6 +124,13 @@ pub fn write_trait(
     Ok(())
 }
 
+/// generates the mod files for the result project
+///
+/// `file_home` the home directory of the file we are parsing, or the directory we are parsing
+/// `impls` the mod file of the impls folder in the form of TokenStream
+/// `traits` the mod file of the traits folder in the form of TokenStream
+/// `libs` the mod file of the libs folder in the form of TokenStream
+/// `lib` the main lib file in the form of TokenStream
 pub fn write_mod_files(
     file_home: &str,
     impls: TokenStream,
@@ -164,6 +178,11 @@ pub fn write_mod_files(
     Ok(())
 }
 
+/// writes the output library to a file
+///
+/// `tokens` the transpiled file in the form of TokenStream
+/// `file_home` the home directory of the file we are parsing, or the directory we are parsing
+/// `lib_name` the name of the library we are writing
 pub fn write_library(
     lines: TokenStream,
     file_home: &str,
@@ -181,6 +200,13 @@ pub fn write_library(
     Ok(())
 }
 
+/// generates the file structure of an ink! contract
+///
+/// `contract` the ink! contract file in the for of TokenStream
+/// `implementation` the impl file of ink! contract in the for of TokenStream
+/// `trait_definition` the trait definition file of ink! contract in the for of TokenStream
+/// `contract_name_raw` the name of the original contract
+/// `home_path` the home directory of the file we are parsing, or the directory we are parsing
 pub fn write_contract_files(
     contract: TokenStream,
     implementation: TokenStream,
