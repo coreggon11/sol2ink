@@ -12,7 +12,7 @@ what issues you may face while using Sol2Ink, and you will see some examples of 
 
 ## What is Sol2Ink
 
-Sol2Ink is a tool developed to ease the developers' transition from Solidity to ink!. Since we are the builders in the Dotsama ecosystem, we recognized a problem when some team wanted to develop their existing Solidity dapp in ink! smart contract language, the most annoying and time-consuming part of the development will be rewriting the Solidity code into Rust and ink!. Sol2Ink aims to decrease this time by transpiling the existing Solidity code into Rust and ink! code. So the dirty part of the job is automated, and now it is up to the developers to fix some language-specific issues while teaching how stuff works in ink!. Sol2Ink will save time!
+Sol2Ink is a tool developed to ease the developers' transition from Solidity to ink!. Since we are the builders in the Dotsama ecosystem, we recognized a problem when some team wanted to develop their existing Solidity dapp in ink! smart contract language, the most annoying and time-consuming part of the development will be rewriting the Solidity code into Rust and ink!. Sol2Ink aims to decrease this time by transpiling the existing Solidity code into Rust and ink! code. So the dirty part of the job is automated, and now it is up to the developers to fix some language-specific issues while learning how things works in ink!. Sol2Ink will save time!
 
 ### What you'll need
 

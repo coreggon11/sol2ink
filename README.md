@@ -1,47 +1,68 @@
 ![Sol2!nk](https://user-images.githubusercontent.com/43150707/215464954-13e4c8d8-96b4-49da-996c-3e79b8344b3a.png)
 
 ## Summary
+
 **Sol2Ink is a tool for easy migration from Solidity to Ink! and Rust**
 
 As we are the builders in the Dotsama ecosystem and experts in ink! smart contracts, we help companies with their path to the Dotsama ecosystem.
 One of our many tasks is to help projects and teams migrate their smart contracts from popular Solidity to Polkadot's ink!. During this process,
-we found out that the transition process may be unnecessarily long, and if we had a tool that would transpile a Solidity file to Rust and ink!, 
+we found out that the transition process may be unnecessarily long, and if we had a tool that would transpile a Solidity file to Rust and ink!,
 we would save much time. And that is how the idea of Sol2Ink was born.
 
 ### Capabilities
 
-Sol2Ink in its current state is able to parse compilable Solidity interfaces into ink! traits and compilable Solidity contracts into ink! contracts, while leveraging the power of [OpenBrush](https://github.com/727-Ventures/openbrush-contracts). Currently, Sol2Ink supports only single file contract transpiling, not supporting inheritance. The output of Sol2Ink is a folder with the ink! smart contract and a Cargo.toml.
+Sol2Ink can parse Solidity files into ink! project while leveraging the power of [OpenBrush](https://github.com/727-Ventures/openbrush-contracts). You can either parse a single file by providing the path to the file, or a whole folder by providing the path to teh folder. In the latter case, Sol2Ink will parse all Solidity files in the selected folder file tree and add them to one big ink! project. The output of Sol2Ink is a folder called `generated` with the following file structure:
 
-Some errors may occur in this version of Sol2Ink and will be fixed in upcoming versions.
-With some statements, a parsing error can occur and cause the member to be parsed incorrectly. This needs to be corrected by the user.
-The program may panic while parsing uncompilable code. Future versions should bring more user-friendly errors.
-Some expressions may be parsed incorrectly, while still creating compilable code (one known example is `type(uint).max` is parsed as `u128.max` instead of `u128::MAX`.
-And of course, as with all programs, there are probably some hidden unknown bugs as well :)
+```shell
+├── contracts
+│   └── contract
+│       ├── contract.rs
+│       └── Cargo.toml
+└── src
+    ├── impls
+    │   ├── contract.rs
+    │   └── mod.rs
+    ├── libs
+    │   ├── library.rs
+    │   └── mod.rs
+    ├── traits
+    │   ├── contract.rs
+    │   └── mod.rs
+    │── lib.rs
+    └── Cargo.toml
+```
+
+In this structure, we suppose we were parsing a directory which contains a contract called `Contract.sol` and a library called `Library.sol`. Sol2Ink will produce a lib file called `library.rs` in the folder `src/libs` and expose it in the `src/libs/mod.rs` file. Parsing the `Contract.sol` file produces a trait which serves as a public API for our contract in `src/traits/contract.rs`, expose it in `src/traits/mod.rs`, the trait implementation file in `src/impls/contract.rs` and expose it in `src/impls/mod.rs`, a contract implementation file in `contracts/contract/contract.rs`, where the genrated trait will be implemented for the contract and a `contracts/contract/Cargo.toml` file, where will be the dependencies of our contract. Additionaly, it will expose the folders `src/impls`, `src/libs` and `src/traits` in `src/lib.rs` file, and add the dependencies file `src/Cargo.toml` file.
+
+This version of Sol2Ink is able to parse any contract, however, it may produce some compile-time issues. These will need to be fixed by the developer and future versions of Sol2Ink will aim to produce fully compilable code. The point of Sol2Ink currently is to save time on re-writing the code and makes the developer go over the generated code and fix it to make it work.
 
 ### Future development
 
-- [X] Sol2Ink CLI
-- [ ] User friendly errors when transpiling uncompilable contract
-- [ ] Parsing libraries
-- [ ] Implement currently incorrectly parsed statements and expressions
-- [ ] Ability to parse a whole Solidity project into ink! project
-- [ ] Parse inheritance
+- [x] Sol2Ink CLI
+- [x] User friendly errors when transpiling uncompilable contract
+- [x] Parsing libraries
+- [x] Implement currently incorrectly parsed statements and expressions
+- [x] Ability to parse a whole Solidity project into ink! project
+- [x] Parse inheritance
+- [ ] Produce ink! contracts with ink! 4
+- [ ] Produce fully compilable contracts
 - [ ] Sol2Ink Web Application with interface
+- [ ] Make the parsed contracts 
 
 ### How to use it?
 
 To run the application you will need to have installed Rust and run the nightly toolchain. ​
-You can run the application with `cargo +nightly run contract.sol`, assuming you have a solidity file called contract.sol in the working directory.
-The result will be stored in `contract/lib.rs` and the Cargo.toml file in `contract/Cargo.toml`.
+You can run the application with `cargo +nightly run input`, where input is either a solidity file, or a folder containing solidity files.
+The result will be stored in `generated` folder, as described above.
 
 You can transpile the example contracts from examples folder by running `cargo +nightly test`.
 
-If you are using Sol2Ink from release pages, you will need to run `./sol_to_ink contract.sol`, substituting contract.sol with your Solidity contract's name.
+If you are using Sol2Ink from release pages, you will need to run `./sol2ink input`, substituting input with your Solidity contract's name or with the name of the folder containing Solidity files you want to transpile.
 
 ### Examples
 
-Examples are stored in the example folder, where we have the input Solidity file and the output Rust and Ink! file.
-By running `cargo test`, we will transpile all of the examples stored in this folder. We have several example contracts from OpenZeppelin and two example contracts from Solang. These original contracts were not modified (except the OpenZeppelin contracts, where we added missing enums, events, structs, etc. from the respective interface file), and the outputs of Sol2Ink are not modified either.
+Examples are stored in the example folder, where we have the input Solidity files and the output `generated` folder with all the transpiled exmaples.
+By running `cargo test`, we will transpile all of the examples stored in this folder. We have several example contracts from OpenZeppelin and two example contracts from Solang. These original contracts were not modified, and the outputs of Sol2Ink are not modified either.
 
 ### Our Community
 

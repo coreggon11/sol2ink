@@ -20,28 +20,37 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use proc_macro2::TokenStream;
-use std::{
-    fs::{
-        create_dir_all,
-        File,
-    },
-    io::{
-        prelude::*,
-        BufReader,
-    },
+use crate::toml_builder;
+use convert_case::{
+    Case::Snake,
+    Casing,
 };
-
+use proc_macro2::TokenStream;
 use rust_format::{
     Config,
     Formatter,
     PostProcess,
     RustFmt,
 };
+use std::{
+    fs::{
+        create_dir_all,
+        metadata,
+        File,
+    },
+    io::{
+        prelude::*,
+        BufReader,
+    },
+    path::Path,
+};
 
-use crate::toml_builder;
+static CONTRACTS_DIR: &str = "/generated/contracts";
+static IMPLS_DIR: &str = "/generated/src/impls";
+static TRAITS_DIR: &str = "/generated/src/traits";
+static LIBS_DIR: &str = "/generated/src/libs";
 
-/// Reads the file to be transpiled and returns it as string
+/// Reads the file to be transpiled and returns its content as a String
 ///
 /// `path` the path to the file
 pub fn read_file(path: &String) -> std::io::Result<String> {
@@ -52,18 +61,134 @@ pub fn read_file(path: &String) -> std::io::Result<String> {
     Ok(contents)
 }
 
-/// writes the output to file
+/// Creates the basic structure for generated ink! contracts
 ///
-/// `lines` the transpiled file in the form of vec of strings
-/// each item in the vec represents a separate line in the output file
-pub fn write_file(
-    lines: TokenStream,
-    file_name: Option<String>,
-) -> std::io::Result<()> {
-    let path = file_name.unwrap_or_else(|| String::from("output"));
-    create_dir_all(&path)?;
+/// `file_home` the home directory of the file we are parsing, or the directory we are parsing
+pub fn create_structure(file_home: &str) -> std::io::Result<()> {
+    let contracts_dir = format!("{file_home}{CONTRACTS_DIR}");
+    let impls_dir = format!("{file_home}{IMPLS_DIR}",);
+    let traits_dir = format!("{file_home}{TRAITS_DIR}");
+    let libs_dir = format!("{file_home}{LIBS_DIR}");
 
-    let mut file = File::create(format!("{path}/lib.rs"))?;
+    create_dir_all(contracts_dir)?;
+    create_dir_all(impls_dir)?;
+    create_dir_all(traits_dir)?;
+    create_dir_all(libs_dir)?;
+
+    Ok(())
+}
+
+/// Returns the paths to all Solidity files within a directory
+///
+/// `dir` the directory we want to search
+pub fn get_solidity_files_from_directory(dir: &str) -> std::io::Result<Vec<String>> {
+    let directory = Path::new(&dir).read_dir().unwrap();
+
+    let mut paths = Vec::default();
+    for file in directory {
+        let directory = file.unwrap();
+        let path = directory.path();
+        let file = path.to_str().unwrap();
+
+        if file.ends_with(".sol") {
+            paths.push(file.to_string());
+        } else if let Ok(metadata) = metadata(&path) {
+            if metadata.is_dir() {
+                let mut new_paths = get_solidity_files_from_directory(file)?;
+                paths.append(&mut new_paths);
+            }
+        }
+    }
+    Ok(paths)
+}
+
+/// writes the output trait to a file
+///
+/// `tokens` the transpiled file in the form of TokenStream
+/// `file_home` the home directory of the file we are parsing, or the directory we are parsing
+/// `trait_name` the name of the trait we are writing
+pub fn write_trait(
+    tokens: TokenStream,
+    file_home: &str,
+    trait_name: &String,
+) -> std::io::Result<()> {
+    let mut file = File::create(format!("{file_home}{TRAITS_DIR}/{trait_name}.rs"))?;
+    let config = Config::new_str().post_proc(PostProcess::ReplaceMarkersAndDocBlocks);
+    file.write_all(
+        RustFmt::from_config(config)
+            .format_tokens(tokens)
+            .unwrap()
+            .as_bytes(),
+    )?;
+
+    Ok(())
+}
+
+/// generates the mod files for the result project
+///
+/// `file_home` the home directory of the file we are parsing, or the directory we are parsing
+/// `impls` the mod file of the impls folder in the form of TokenStream
+/// `traits` the mod file of the traits folder in the form of TokenStream
+/// `libs` the mod file of the libs folder in the form of TokenStream
+/// `lib` the main lib file in the form of TokenStream
+pub fn write_mod_files(
+    file_home: &str,
+    impls: TokenStream,
+    traits: TokenStream,
+    libs: TokenStream,
+    lib: TokenStream,
+) -> std::io::Result<()> {
+    let config = Config::new_str().post_proc(PostProcess::ReplaceMarkersAndDocBlocks);
+
+    let mut impls_file = File::create(format!("{file_home}{IMPLS_DIR}/mod.rs"))?;
+    impls_file.write_all(
+        RustFmt::from_config(config.clone())
+            .format_tokens(impls)
+            .unwrap()
+            .as_bytes(),
+    )?;
+
+    let mut traits_file = File::create(format!("{file_home}{TRAITS_DIR}/mod.rs"))?;
+    traits_file.write_all(
+        RustFmt::from_config(config.clone())
+            .format_tokens(traits)
+            .unwrap()
+            .as_bytes(),
+    )?;
+
+    let mut libs_file = File::create(format!("{file_home}{LIBS_DIR}/mod.rs"))?;
+    libs_file.write_all(
+        RustFmt::from_config(config.clone())
+            .format_tokens(libs)
+            .unwrap()
+            .as_bytes(),
+    )?;
+
+    let mut main_lib_file = File::create(format!("{file_home}/generated/src/lib.rs"))?;
+    main_lib_file.write_all(
+        RustFmt::from_config(config)
+            .format_tokens(lib)
+            .unwrap()
+            .as_bytes(),
+    )?;
+
+    let mut main_cargo_toml = File::create(format!("{file_home}/generated/src/Cargo.toml"))?;
+    main_cargo_toml.write_all(toml_builder::generate_cargo_toml("generated", None).as_bytes())?;
+
+    Ok(())
+}
+
+/// writes the output library to a file
+///
+/// `tokens` the transpiled file in the form of TokenStream
+/// `file_home` the home directory of the file we are parsing, or the directory we are parsing
+/// `lib_name` the name of the library we are writing
+pub fn write_library(
+    lines: TokenStream,
+    file_home: &str,
+    lib_name: &String,
+) -> std::io::Result<()> {
+    let mut file = File::create(format!("{file_home}{LIBS_DIR}/{lib_name}.rs"))?;
     let config = Config::new_str().post_proc(PostProcess::ReplaceMarkersAndDocBlocks);
     file.write_all(
         RustFmt::from_config(config)
@@ -72,8 +197,47 @@ pub fn write_file(
             .as_bytes(),
     )?;
 
-    let mut cargo_toml = File::create(format!("{path}/Cargo.toml"))?;
-    cargo_toml.write_all(toml_builder::generate_cargo_toml().as_bytes())?;
+    Ok(())
+}
+
+/// generates the file structure of an ink! contract
+///
+/// `contract` the ink! contract file in the for of TokenStream
+/// `implementation` the impl file of ink! contract in the for of TokenStream
+/// `trait_definition` the trait definition file of ink! contract in the for of TokenStream
+/// `contract_name_raw` the name of the original contract
+/// `home_path` the home directory of the file we are parsing, or the directory we are parsing
+pub fn write_contract_files(
+    contract: TokenStream,
+    implementation: TokenStream,
+    trait_definition: TokenStream,
+    contract_name_raw: &String,
+    home_path: &str,
+) -> std::io::Result<()> {
+    let contract_name = contract_name_raw.to_case(Snake);
+    let config = Config::new_str().post_proc(PostProcess::ReplaceMarkersAndDocBlocks);
+    let rust_fmt = RustFmt::from_config(config);
+    let contract_folder_path = format!("{home_path}{CONTRACTS_DIR}/{contract_name}/");
+
+    create_dir_all(&contract_folder_path)?;
+
+    // contract
+    let mut contract_file = File::create(format!("{contract_folder_path}lib.rs"))?;
+    contract_file.write_all(rust_fmt.format_tokens(contract).unwrap().as_bytes())?;
+
+    let mut cargo_toml = File::create(format!("{contract_folder_path}/Cargo.toml"))?;
+    cargo_toml.write_all(
+        toml_builder::generate_cargo_toml(&contract_name, Some(String::from("generated")))
+            .as_bytes(),
+    )?;
+
+    // impl
+    let mut impl_file = File::create(format!("{home_path}{IMPLS_DIR}/{contract_name}.rs"))?;
+    impl_file.write_all(rust_fmt.format_tokens(implementation).unwrap().as_bytes())?;
+
+    // trait
+    let mut trait_file = File::create(format!("{home_path}{TRAITS_DIR}/{contract_name}.rs"))?;
+    trait_file.write_all(rust_fmt.format_tokens(trait_definition).unwrap().as_bytes())?;
 
     Ok(())
 }
