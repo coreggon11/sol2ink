@@ -13,7 +13,7 @@ const config = {
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',
-  organizationName: 'supercolony-net', 
+  organizationName: '727-Ventures', 
   projectName: 'sol2ink',
   deploymentBranch: 'gh-pages',
 
@@ -29,12 +29,12 @@ const config = {
       },
       items: [
         {
-          href: 'https://twitter.com/supercolony_vs',
+          href: 'https://twitter.com/727_ventures',
           className: 'header-twitter-link',
           position: 'right'
         },
         {
-          href: 'https://github.com/Supercolony-net/sol2ink',
+          href: 'https://github.com/727-Ventures/sol2ink',
           className: 'header-github-link',
           position: 'right'
         }
@@ -57,7 +57,7 @@ const config = {
         docs: {
           routeBasePath: '/',
           sidebarPath: require.resolve('./sidebars.js'),
-          editUrl: 'https://github.com/Supercolony-net/sol2ink/tree/main/docs'
+          editUrl: 'https://github.com/727-Ventures/sol2ink/tree/main/docs'
         },
         theme: {
           customCss: [require.resolve('./src/css/custom.scss')]
