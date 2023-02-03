@@ -4,6 +4,17 @@
 // Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
+pub use ink_prelude::vec::*;
+pub use openbrush::{
+    storage::Mapping,
+    traits::{
+        AccountId,
+        AccountIdExt,
+        String,
+        ZERO_ADDRESS,
+    },
+};
+
 /// SPDX-License-Identifier: MIT
 /// Simplified version of Curve's stable swap AMM
 ///Invariant - price of trade and amount of liquidity are determined by this equation
@@ -23,17 +34,6 @@
 ///6. Remove liquidity one token
 ///   - Calculate withdraw one token
 ///   - getYD
-pub use ink_prelude::vec::*;
-pub use openbrush::{
-    storage::Mapping,
-    traits::{
-        AccountId,
-        AccountIdExt,
-        String,
-        ZERO_ADDRESS,
-    },
-};
-
 pub enum Error {
     Custom(String),
 }

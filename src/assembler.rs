@@ -296,9 +296,9 @@ pub fn assemble_library(library: Library) -> TokenStream {
         #![feature(min_specialization)]
         _blank_!();
         #signature
-        #(#[doc = #comments])*
         #(#imports)*
         _blank_!();
+        #(#[doc = #comments])*
         pub enum Error {
             Custom(String),
         }

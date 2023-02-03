@@ -4,15 +4,6 @@
 // Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
-/// SPDX-License-Identifier: MIT
-/// OpenZeppelin Contracts (last updated v4.6.0) (utils/math/SafeMath.sol)
-/// CAUTION
-/// This version of SafeMath should only be used with Solidity 0.8 or later,
-/// because it relies on the compiler's built in overflow checks.
-/// @dev Wrappers over Solidity's arithmetic operations.
-///
-/// NOTE: `SafeMath` is generally not needed starting with Solidity 0.8, since the compiler
-/// now has built in overflow checking.
 pub use ink_prelude::vec::*;
 pub use openbrush::{
     storage::Mapping,
@@ -24,6 +15,15 @@ pub use openbrush::{
     },
 };
 
+/// SPDX-License-Identifier: MIT
+/// OpenZeppelin Contracts (last updated v4.6.0) (utils/math/SafeMath.sol)
+/// CAUTION
+/// This version of SafeMath should only be used with Solidity 0.8 or later,
+/// because it relies on the compiler's built in overflow checks.
+/// @dev Wrappers over Solidity's arithmetic operations.
+///
+/// NOTE: `SafeMath` is generally not needed starting with Solidity 0.8, since the compiler
+/// now has built in overflow checking.
 pub enum Error {
     Custom(String),
 }

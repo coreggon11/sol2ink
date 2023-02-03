@@ -5,6 +5,16 @@
 // https://github.com/727-Ventures/sol2ink
 
 pub use ink_prelude::vec::*;
+pub use openbrush::{
+    storage::Mapping,
+    traits::{
+        AccountId,
+        AccountIdExt,
+        String,
+        ZERO_ADDRESS,
+    },
+};
+
 /// SPDX-License-Identifier: MIT
 /// OpenZeppelin Contracts (last updated v4.6.0) (utils/math/SafeMath.sol)
 /// CAUTION
@@ -14,16 +24,6 @@ pub use ink_prelude::vec::*;
 ///
 /// NOTE: `SafeMath` is generally not needed starting with Solidity 0.8, since the compiler
 /// now has built in overflow checking.
-pub use openbrush::traits::AccountId;
-pub use openbrush::{
-    storage::Mapping,
-    traits::{
-        AccountIdExt,
-        String,
-        ZERO_ADDRESS,
-    },
-};
-
 pub enum Error {
     Custom(String),
 }
