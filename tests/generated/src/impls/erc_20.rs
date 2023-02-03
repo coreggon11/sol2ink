@@ -5,7 +5,6 @@ pub use crate::{
     impls,
     traits::*,
 };
-pub use ink_prelude::vec::*;
 use openbrush::traits::Storage;
 pub use openbrush::{
     storage::Mapping,

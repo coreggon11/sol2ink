@@ -5,16 +5,11 @@ pub use crate::{
     impls,
     traits::*,
 };
-pub use ink_prelude::vec::*;
 use openbrush::traits::Storage;
-pub use openbrush::{
-    storage::Mapping,
-    traits::{
-        AccountId,
-        AccountIdExt,
-        String,
-        ZERO_ADDRESS,
-    },
+pub use openbrush::traits::{
+    AccountId,
+    AccountIdExt,
+    ZERO_ADDRESS,
 };
 
 pub const STORAGE_KEY: u32 = openbrush::storage_unique_key!(Data);
@@ -42,13 +37,11 @@ impl<T: Storage<Data>> example for T {
 
     ///must be pid 1 and not zombie ourselves
     /// Returning a constant does not access storage at all, so
-    /// fn parameters
     /// function can be declared pure
     fn systemd_pid(&self) -> Result<u32, Error> {
         return Ok(<u32>::from(FIRST_PID))
     }
 
-    /// declaration
     /// Note that cast is required to change sign from
     /// int32 to uint32
     ///Convert celcius to fahrenheit
@@ -57,9 +50,7 @@ impl<T: Storage<Data>> example for T {
         return Ok(fahrenheit)
     }
 
-    /// assign value
     ///Convert fahrenheit to celcius
-    /// assign array type
     fn fahrenheit_2_celcius(&self, fahrenheit: i32) -> Result<i32, Error> {
         return Ok((fahrenheit - 32) * 5 / 9)
     }
@@ -69,7 +60,6 @@ impl<T: Storage<Data>> example for T {
         return Ok(n != 0 && (n & (n - 1)) == 0)
     }
 
-    /// nested array
     ///calculate the population count (number of set bits) using Brian Kerningham's way
     fn population_count(&self, n: u128) -> Result<u128, Error> {
         let mut count = Default::default();
@@ -91,7 +81,6 @@ impl<T: Storage<Data>> example for T {
         return Ok(a == ZERO_ADDRESS.into())
     }
 
-    /// struct fields
     /// reverse the bytes in an array of 8 (endian swap)
     fn byte_8_reverse(&self, input: [u8; 8]) -> Result<[u8; 8], Error> {
         let mut out = Default::default();
@@ -106,7 +95,6 @@ impl<T: Storage<Data>> example for T {
         Ok(out)
     }
 
-    /// pop
     fn reap_processes(&mut self) -> Result<(), Error> {
         let mut n: u32 = 0;
         while n < 100 {
@@ -119,7 +107,6 @@ impl<T: Storage<Data>> example for T {
     }
 
     /// reap!
-    /// delete
     fn run_queue(&self) -> Result<u16, Error> {
         let mut count: u16 = 0;
         let mut n: u32 = 0;
@@ -146,7 +133,7 @@ impl<T: Storage<Data>> example for T {
     fn ace_of_spaces(&self) -> Result<Card, Error> {
         return Ok(card {
             s: suit.spades,
-            v: self.data().value.ace,
+            v: value.ace,
         })
     }
 
@@ -154,16 +141,16 @@ impl<T: Storage<Data>> example for T {
     fn score_card(&self, c: Card) -> Result<u32, Error> {
         let mut score = Default::default();
         if c.s == suit.hearts {
-            if c.v == self.data().value.ace {
+            if c.v == value.ace {
                 score = 14;
             }
-            if c.v == self.data().value.king {
+            if c.v == value.king {
                 score = 13;
             }
-            if c.v == self.data().value.queen {
+            if c.v == value.queen {
                 score = 12;
             }
-            if c.v == self.data().value.jack {
+            if c.v == value.jack {
                 score = 11;
             }
         }
@@ -173,20 +160,15 @@ impl<T: Storage<Data>> example for T {
 }
 
 pub trait Internal {
-    /// nested struct fields
-    /// assign struct field
     /// This mocks a pid state
     fn _get_pid_state(&self, pid: u64) -> Result<State, Error>;
 
-    /// push
     ///Overloaded function with different return value!
     fn _get_pid_state(&self) -> Result<u32, Error>;
 
 }
 
 impl<T: Storage<Data>> Internal for T {
-    /// nested struct fields
-    /// assign struct field
     /// This mocks a pid state
     default fn _get_pid_state(&self, pid: u64) -> Result<State, Error> {
         let mut n: u64 = 8;
@@ -202,7 +184,6 @@ impl<T: Storage<Data>> Internal for T {
         return Ok(state(n % <u64>::from(state.state_count))?)
     }
 
-    /// push
     ///Overloaded function with different return value!
     default fn _get_pid_state(&self) -> Result<u32, Error> {
         return Ok(self.data().reaped)

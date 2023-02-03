@@ -6,11 +6,6 @@
 
 /// SPDX-License-Identifier: MIT
 /// OpenZeppelin Contracts (last updated v4.8.0) (access/AccessControl.sol)
-/// 3 ways to initialize a struct
-/// - calling it like a function
-/// key value mapping
-/// initialize an empty struct and then update it
-/// completed initialized to false
 /// @dev Contract module that allows children to implement role-based access
 /// control mechanisms. This is a lightweight version that doesn't allow enumerating role
 /// members except through off-chain means by accessing the contract event logs. Some

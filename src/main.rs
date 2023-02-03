@@ -173,6 +173,8 @@ fn run(home: &str, path: &[String]) -> Result<(), ParserError> {
                 _ => {}
             }
         }
+
+        parser.clear();
     }
 
     let impls_mod = assemble_mod(&impls);

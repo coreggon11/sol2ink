@@ -5,16 +5,10 @@ pub use crate::{
     impls,
     traits::*,
 };
-pub use ink_prelude::vec::*;
 use openbrush::traits::Storage;
 pub use openbrush::{
     storage::Mapping,
-    traits::{
-        AccountId,
-        AccountIdExt,
-        String,
-        ZERO_ADDRESS,
-    },
+    traits::AccountId,
 };
 
 pub const STORAGE_KEY: u32 = openbrush::storage_unique_key!(Data);
@@ -41,8 +35,8 @@ impl<T: Storage<Data>> StableSwap for T {
     fn get_virtual_price(&self) -> Result<u128, Error> {
         let mut d: u128 = self._get_d(self._xp()?)?;
         let mut total_supply: u128 = self.data().total_supply;
-        if self.data().total_supply > 0 {
-            return Ok((d * 10.pow(DECIMALS)) / self.data().total_supply)
+        if total_supply > 0 {
+            return Ok((d * 10.pow(DECIMALS)) / total_supply)
         }
         return Ok(0)
     }
@@ -65,7 +59,7 @@ impl<T: Storage<Data>> StableSwap for T {
         let mut xp: Vec<u128> = self._xp()?;
         let mut x: u128 = xp[i] + dx * self.data().multipliers[i];
         let mut y_0: u128 = xp[j];
-        let mut y_1: u128 = self._get_y(i, j, self.data().x, xp)?;
+        let mut y_1: u128 = self._get_y(i, j, x, xp)?;
         dy = (y_0 - y_1 - 1) / self.data().multipliers[j];
         let mut fee: u128 = (dy * SWAP_FEE) / FEE_DENOMINATOR;
         dy -= fee;
@@ -86,7 +80,7 @@ impl<T: Storage<Data>> StableSwap for T {
         let mut shares = Default::default();
         let mut total_supply: u128 = self.data().total_supply;
         let mut old_xs: Vec<u128> = self._xp()?;
-        if self.data().total_supply > 0 {
+        if total_supply > 0 {
             d_0 = self._get_d(old_xs)?;
         };
         while i < N {
@@ -107,7 +101,7 @@ impl<T: Storage<Data>> StableSwap for T {
         if !(d_1 > d_0) {
             return Err(Error::Custom(String::from("liquidity didn't increase")))
         };
-        if self.data().total_supply > 0 {
+        if total_supply > 0 {
             while i < N {
                 let mut ideal_balance: u128 = (old_xs[i] * d_1) / d_0;
                 let mut diff: u128 = math.abs(new_xs[i], ideal_balance)?;
@@ -122,8 +116,8 @@ impl<T: Storage<Data>> StableSwap for T {
             self.data().balances[i] += amounts[i];
             i += 1;
         }
-        if self.data().total_supply > 0 {
-            shares = ((d_2 - d_0) * self.data().total_supply) / d_0;
+        if total_supply > 0 {
+            shares = ((d_2 - d_0) * total_supply) / d_0;
         } else {
             shares = d_2;
         }
@@ -150,8 +144,7 @@ impl<T: Storage<Data>> StableSwap for T {
         let mut amounts_out = Default::default();
         let mut total_supply: u128 = self.data().total_supply;
         while i < N {
-            let mut amount_out: u128 =
-                (self.data().balances[i] * shares) / self.data().total_supply;
+            let mut amount_out: u128 = (self.data().balances[i] * shares) / total_supply;
             if !(amount_out >= min_amounts_out[i]) {
                 return Err(Error::Custom(String::from("out < min")))
             };
@@ -254,7 +247,6 @@ pub trait Internal {
     /// @param xp Current precision-adjusted balances
     fn _get_y(&self, i: u128, j: u128, x: u128, xp: Vec<u128>) -> Result<u128, Error>;
 
-    /// all others score 0
     ///Newton's method to compute y
     ///        -----------------------------
     ///        y = x_j
@@ -370,7 +362,7 @@ impl<T: Storage<Data>> Internal for T {
         let mut c: u128 = d;
         while k < N {
             if k == i {
-                x = self.data().x;
+                x = x;
             } else if k == j {
                 continue
             } else {
@@ -394,7 +386,6 @@ impl<T: Storage<Data>> Internal for T {
         return Err(Error::Custom(String::from("_")))
     }
 
-    /// all others score 0
     ///Newton's method to compute y
     ///        -----------------------------
     ///        y = x_j
@@ -461,7 +452,7 @@ impl<T: Storage<Data>> Internal for T {
         let mut total_supply: u128 = self.data().total_supply;
         let mut xp: Vec<u128> = self._xp()?;
         let mut d_0: u128 = self._get_d(xp)?;
-        let mut d_1: u128 = d_0 - (d_0 * shares) / self.data().total_supply;
+        let mut d_1: u128 = d_0 - (d_0 * shares) / total_supply;
         let mut y_0: u128 = self._get_yd(i, xp, d_1)?;
         let mut dy_0: u128 = (xp[i] - y_0) / self.data().multipliers[i];
         while j < N {

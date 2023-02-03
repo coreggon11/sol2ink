@@ -37,10 +37,10 @@ pub mod example {
             ink_lang::codegen::initialize_contract(|instance: &mut Self| {
                 instance.data.pid = pid;
                 self.reaped = 3;
-                self.card_1 = card(instance.data.value.two, suit.club)?;
+                self.card_1 = card(value.two, suit.club)?;
                 self.card_2 = card {
                     s: suit.club,
-                    v: instance.data.value.two,
+                    v: value.two,
                 };
             })
         }

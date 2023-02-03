@@ -5,16 +5,12 @@ pub use crate::{
     impls,
     traits::*,
 };
-pub use ink_prelude::vec::*;
 use openbrush::traits::Storage;
-pub use openbrush::{
-    storage::Mapping,
-    traits::{
-        AccountId,
-        AccountIdExt,
-        String,
-        ZERO_ADDRESS,
-    },
+pub use openbrush::traits::{
+    AccountId,
+    AccountIdExt,
+    String,
+    ZERO_ADDRESS,
 };
 
 pub const STORAGE_KEY: u32 = openbrush::storage_unique_key!(Data);

@@ -48,25 +48,21 @@ impl<T: Storage<Data>> ERC721 for T {
 
     /// @dev See {IERC721-balanceOf}.
     fn balance_of(&self, owner: AccountId) -> Result<u128, Error> {
-        if !(self.data().owner != ZERO_ADDRESS.into()) {
+        if !(owner != ZERO_ADDRESS.into()) {
             return Err(Error::Custom(String::from(
                 "ERC721: address zero is not a valid owner",
             )))
         };
-        return Ok(self
-            .data()
-            .balances
-            .get(&self.data().owner)
-            .unwrap_or_default())
+        return Ok(self.data().balances.get(&owner).unwrap_or_default())
     }
 
     /// @dev See {IERC721-ownerOf}.
     fn owner_of(&self, token_id: u128) -> Result<AccountId, Error> {
         let mut owner: AccountId = self._owner_of(token_id)?;
-        if !(self.data().owner != ZERO_ADDRESS.into()) {
+        if !(owner != ZERO_ADDRESS.into()) {
             return Err(Error::Custom(String::from("ERC721: invalid token ID")))
         };
-        return Ok(self.data().owner)
+        return Ok(owner)
     }
 
     /// @dev See {IERC721Metadata-name}.
@@ -93,14 +89,12 @@ impl<T: Storage<Data>> ERC721 for T {
     /// @dev See {IERC721-approve}.
     fn approve(&mut self, to: AccountId, token_id: u128) -> Result<(), Error> {
         let mut owner: AccountId = erc_721.owner_of(token_id)?;
-        if !(to != self.data().owner) {
+        if !(to != owner) {
             return Err(Error::Custom(String::from(
                 "ERC721: approval to current owner",
             )))
         };
-        if !(msg_sender()? == self.data().owner
-            || self.is_approved_for_all(self.data().owner, msg_sender()?)?)
-        {
+        if !(msg_sender()? == owner || self.is_approved_for_all(owner, msg_sender()?)?) {
             return Err(Error::Custom(String::from(
                 "ERC721: approve caller is not token owner or approved for all",
             )))
@@ -130,7 +124,7 @@ impl<T: Storage<Data>> ERC721 for T {
         return Ok(self
             .data()
             .operator_approvals
-            .get(&(self.data().owner, operator))
+            .get(&(owner, operator))
             .unwrap_or_default())
     }
 
@@ -437,8 +431,8 @@ impl<T: Storage<Data>> Internal for T {
         token_id: u128,
     ) -> Result<bool, Error> {
         let mut owner: AccountId = erc_721.owner_of(token_id)?;
-        return Ok((spender == self.data().owner
-            || self.is_approved_for_all(self.data().owner, spender)?
+        return Ok((spender == owner
+            || self.is_approved_for_all(owner, spender)?
             || self.get_approved(token_id)? == spender))
     }
 
@@ -519,21 +513,14 @@ impl<T: Storage<Data>> Internal for T {
     /// Emits a {Transfer} event.
     default fn _burn(&mut self, token_id: u128) -> Result<(), Error> {
         let mut owner: AccountId = erc_721.owner_of(token_id)?;
-        self._before_token_transfer(self.data().owner, ZERO_ADDRESS.into(), token_id, 1)?;
-        self.data().owner = erc_721.owner_of(token_id)?;
+        self._before_token_transfer(owner, ZERO_ADDRESS.into(), token_id, 1)?;
+        owner = erc_721.owner_of(token_id)?;
         self.data().token_approvals.remove(&(token_id));
-        let new_value = self
-            .data()
-            .balances
-            .get(&(self.data().owner))
-            .unwrap_or_default()
-            - 1;
-        self.data()
-            .balances
-            .insert(&(self.data().owner), &new_value);
+        let new_value = self.data().balances.get(&(owner)).unwrap_or_default() - 1;
+        self.data().balances.insert(&(owner), &new_value);
         self.data().owners.remove(&(token_id));
-        self._emit_transfer(self.data().owner, ZERO_ADDRESS.into(), token_id);
-        self._after_token_transfer(self.data().owner, ZERO_ADDRESS.into(), token_id, 1)?;
+        self._emit_transfer(owner, ZERO_ADDRESS.into(), token_id);
+        self._after_token_transfer(owner, ZERO_ADDRESS.into(), token_id, 1)?;
         Ok(())
     }
 
@@ -608,13 +595,13 @@ impl<T: Storage<Data>> Internal for T {
         operator: AccountId,
         approved: bool,
     ) -> Result<(), Error> {
-        if !(self.data().owner != operator) {
+        if !(owner != operator) {
             return Err(Error::Custom(String::from("ERC721: approve to caller")))
         };
         self.data()
             .operator_approvals
-            .insert(&(self.data().owner, operator), &approved);
-        self._emit_approval_for_all(self.data().owner, operator, approved);
+            .insert(&(owner, operator), &approved);
+        self._emit_approval_for_all(owner, operator, approved);
         Ok(())
     }
 

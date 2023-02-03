@@ -1,16 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-pub use ink_prelude::vec::*;
-pub use openbrush::{
-    storage::Mapping,
-    traits::{
-        AccountId,
-        AccountIdExt,
-        String,
-        ZERO_ADDRESS,
-    },
-};
 
 // Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
@@ -41,10 +31,6 @@ pub enum Error {
 
 
 pub fn abs(&self, x: u128, y: u128) -> Result<u128, Error> {
-    return Ok(if self.data().x >= y {
-        self.data().x - y
-    } else {
-        y - self.data().x
-    })
+    return Ok(if x >= y { x - y } else { y - x })
 }
 

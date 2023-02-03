@@ -11,9 +11,7 @@ pub use openbrush::{
     storage::Mapping,
     traits::{
         AccountId,
-        AccountIdExt,
         String,
-        ZERO_ADDRESS,
     },
 };
 

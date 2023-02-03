@@ -2,14 +2,9 @@
 // https://github.com/727-Ventures/sol2ink
 
 pub use ink_prelude::vec::*;
-pub use openbrush::{
-    storage::Mapping,
-    traits::{
-        AccountId,
-        AccountIdExt,
-        String,
-        ZERO_ADDRESS,
-    },
+pub use openbrush::traits::{
+    AccountId,
+    String,
 };
 
 /// @dev Emitted when `value` tokens of token type `id` are transferred from `from` to `to` by `operator`.

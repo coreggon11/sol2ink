@@ -108,6 +108,13 @@ impl<'a> Parser<'a> {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.members_map.clear();
+        self.modifiers_map.clear();
+        self.imports.clear();
+        self.comments.clear();
+    }
+
     /// Removes slashes and asterisks from a comment and returns it as a String
     ///
     /// `original` the original comment
