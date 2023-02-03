@@ -1,4 +1,4 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
@@ -88,7 +88,7 @@ impl<T: Storage<Data>> FunctionContract for T {
 
     /// Functions can return multiple values.
     fn return_many(&self) -> Result<(u128, bool, u128), Error> {
-        return Ok((1, true, 2))
+        return Ok((_, _, _))
     }
 
     /// Return values can be named.
@@ -96,7 +96,7 @@ impl<T: Storage<Data>> FunctionContract for T {
         let mut x = Default::default();
         let mut b = Default::default();
         let mut y = Default::default();
-        return Ok((1, true, 2))
+        return Ok((_, _, _))
     }
 
     /// Return values can be assigned to their name.
@@ -114,9 +114,9 @@ impl<T: Storage<Data>> FunctionContract for T {
     /// Use destructuring assignment when calling another
     /// function that returns multiple values.
     fn destructuring_assignments(&self) -> Result<(u128, bool, u128, u128, u128), Error> {
-        (u128, bool, u128) = self.return_many()?;
-        (u128, u128) = (4, 5, 6);
-        return Ok((i, b, j, self.data().x, y))
+        (i, b, j) = self.return_many()?;
+        (x, _, y) = (_, _, _);
+        return Ok((_, _, _, _, _))
     }
 
     /// Values can be left out.

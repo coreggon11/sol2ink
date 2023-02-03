@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v4.7.0) (token/ERC1155/ERC1155.sol)
+// OpenZeppelin Contracts (last updated v4.8.0) (token/ERC1155/ERC1155.sol)
 
 pragma solidity ^0.8.0;
 
@@ -19,38 +19,6 @@ import "../../utils/introspection/ERC165.sol";
  */
 contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
     using Address for address;
-
-    /**
-     * @dev Emitted when `value` tokens of token type `id` are transferred from `from` to `to` by `operator`.
-     */
-    event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value);
-
-    /**
-     * @dev Equivalent to multiple {TransferSingle} events, where `operator`, `from` and `to` are the same for all
-     * transfers.
-     */
-    event TransferBatch(
-        address indexed operator,
-        address indexed from,
-        address indexed to,
-        uint256[] ids,
-        uint256[] values
-    );
-
-    /**
-     * @dev Emitted when `account` grants or revokes permission to `operator` to transfer their tokens, according to
-     * `approved`.
-     */
-    event ApprovalForAll(address indexed account, address indexed operator, bool approved);
-
-    /**
-     * @dev Emitted when the URI for token type `id` changes to `value`, if it is a non-programmatic URI.
-     *
-     * If an {URI} event was emitted for `id`, the standard
-     * https://eips.ethereum.org/EIPS/eip-1155#metadata-extensions[guarantees] that `value` will equal the value
-     * returned by {IERC1155MetadataURI-uri}.
-     */
-    event URI(string value, uint256 indexed id);
 
     // Mapping from token ID to account balances
     mapping(uint256 => mapping(address => uint256)) private _balances;
@@ -111,13 +79,10 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
      *
      * - `accounts` and `ids` must have the same length.
      */
-    function balanceOfBatch(address[] memory accounts, uint256[] memory ids)
-        public
-        view
-        virtual
-        override
-        returns (uint256[] memory)
-    {
+    function balanceOfBatch(
+        address[] memory accounts,
+        uint256[] memory ids
+    ) public view virtual override returns (uint256[] memory) {
         require(accounts.length == ids.length, "ERC1155: accounts and ids length mismatch");
 
         uint256[] memory batchBalances = new uint256[](accounts.length);
@@ -133,7 +98,7 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
      * @dev See {IERC1155-setApprovalForAll}.
      */
     function setApprovalForAll(address operator, bool approved) public virtual override {
-        _setApprovalForAll(msg.sender, operator, approved);
+        _setApprovalForAll(_msgSender(), operator, approved);
     }
 
     /**
@@ -154,8 +119,8 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
         bytes memory data
     ) public virtual override {
         require(
-            from == msg.sender || isApprovedForAll(from, msg.sender),
-            "ERC1155: caller is not token owner nor approved"
+            from == _msgSender() || isApprovedForAll(from, _msgSender()),
+            "ERC1155: caller is not token owner or approved"
         );
         _safeTransferFrom(from, to, id, amount, data);
     }
@@ -171,8 +136,8 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
         bytes memory data
     ) public virtual override {
         require(
-            from == msg.sender || isApprovedForAll(from, msg.sender),
-            "ERC1155: caller is not token owner nor approved"
+            from == _msgSender() || isApprovedForAll(from, _msgSender()),
+            "ERC1155: caller is not token owner or approved"
         );
         _safeBatchTransferFrom(from, to, ids, amounts, data);
     }
@@ -198,7 +163,7 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
     ) internal virtual {
         require(to != address(0), "ERC1155: transfer to the zero address");
 
-        address operator = msg.sender;
+        address operator = _msgSender();
         uint256[] memory ids = _asSingletonArray(id);
         uint256[] memory amounts = _asSingletonArray(amount);
 
@@ -238,7 +203,7 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
         require(ids.length == amounts.length, "ERC1155: ids and amounts length mismatch");
         require(to != address(0), "ERC1155: transfer to the zero address");
 
-        address operator = msg.sender;
+        address operator = _msgSender();
 
         _beforeTokenTransfer(operator, from, to, ids, amounts, data);
 
@@ -295,15 +260,10 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
      * - If `to` refers to a smart contract, it must implement {IERC1155Receiver-onERC1155Received} and return the
      * acceptance magic value.
      */
-    function _mint(
-        address to,
-        uint256 id,
-        uint256 amount,
-        bytes memory data
-    ) internal virtual {
+    function _mint(address to, uint256 id, uint256 amount, bytes memory data) internal virtual {
         require(to != address(0), "ERC1155: mint to the zero address");
 
-        address operator = msg.sender;
+        address operator = _msgSender();
         uint256[] memory ids = _asSingletonArray(id);
         uint256[] memory amounts = _asSingletonArray(amount);
 
@@ -337,7 +297,7 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
         require(to != address(0), "ERC1155: mint to the zero address");
         require(ids.length == amounts.length, "ERC1155: ids and amounts length mismatch");
 
-        address operator = msg.sender;
+        address operator = _msgSender();
 
         _beforeTokenTransfer(operator, address(0), to, ids, amounts, data);
 
@@ -362,14 +322,10 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
      * - `from` cannot be the zero address.
      * - `from` must have at least `amount` tokens of token type `id`.
      */
-    function _burn(
-        address from,
-        uint256 id,
-        uint256 amount
-    ) internal virtual {
+    function _burn(address from, uint256 id, uint256 amount) internal virtual {
         require(from != address(0), "ERC1155: burn from the zero address");
 
-        address operator = msg.sender;
+        address operator = _msgSender();
         uint256[] memory ids = _asSingletonArray(id);
         uint256[] memory amounts = _asSingletonArray(amount);
 
@@ -395,15 +351,11 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
      *
      * - `ids` and `amounts` must have the same length.
      */
-    function _burnBatch(
-        address from,
-        uint256[] memory ids,
-        uint256[] memory amounts
-    ) internal virtual {
+    function _burnBatch(address from, uint256[] memory ids, uint256[] memory amounts) internal virtual {
         require(from != address(0), "ERC1155: burn from the zero address");
         require(ids.length == amounts.length, "ERC1155: ids and amounts length mismatch");
 
-        address operator = msg.sender;
+        address operator = _msgSender();
 
         _beforeTokenTransfer(operator, from, address(0), ids, amounts, "");
 
@@ -428,11 +380,7 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
      *
      * Emits an {ApprovalForAll} event.
      */
-    function _setApprovalForAll(
-        address owner,
-        address operator,
-        bool approved
-    ) internal virtual {
+    function _setApprovalForAll(address owner, address operator, bool approved) internal virtual {
         require(owner != operator, "ERC1155: setting approval status for self");
         _operatorApprovals[owner][operator] = approved;
         emit ApprovalForAll(owner, operator, approved);

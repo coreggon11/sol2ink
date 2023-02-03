@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v4.7.0) (access/AccessControl.sol)
+// OpenZeppelin Contracts (last updated v4.8.0) (access/AccessControl.sol)
 
 pragma solidity ^0.8.0;
 
@@ -19,14 +19,14 @@ import "../utils/introspection/ERC165.sol";
  * in the external API and be unique. The best way to achieve this is by
  * using `public constant` hash digests:
  *
- * ```
+ * ```solidity
  * bytes32 public constant MY_ROLE = keccak256("MY_ROLE");
  * ```
  *
  * Roles can be used to represent a set of permissions. To restrict access to a
  * function call, use {hasRole}:
  *
- * ```
+ * ```solidity
  * function foo() public {
  *     require(hasRole(MY_ROLE, msg.sender));
  *     ...
@@ -46,34 +46,7 @@ import "../utils/introspection/ERC165.sol";
  * grant and revoke this role. Extra precautions should be taken to secure
  * accounts that have been granted it.
  */
-abstract contract AccessControl {
-    /**
-     * @dev Emitted when `newAdminRole` is set as ``role``'s admin role, replacing `previousAdminRole`
-     *
-     * `DEFAULT_ADMIN_ROLE` is the starting admin for all roles, despite
-     * {RoleAdminChanged} not being emitted signaling this.
-     *
-     * _Available since v3.1._
-     */
-    event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole);
-
-    /**
-     * @dev Emitted when `account` is granted `role`.
-     *
-     * `sender` is the account that originated the contract call, an admin role
-     * bearer except when using {AccessControl-_setupRole}.
-     */
-    event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender);
-
-    /**
-     * @dev Emitted when `account` is revoked `role`.
-     *
-     * `sender` is the account that originated the contract call:
-     *   - if using `revokeRole`, it is the admin role bearer
-     *   - if using `renounceRole`, it is the role bearer (i.e. `account`)
-     */
-    event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender);
-
+abstract contract AccessControl is Context, IAccessControl, ERC165 {
     struct RoleData {
         mapping(address => bool) members;
         bytes32 adminRole;
@@ -89,7 +62,7 @@ abstract contract AccessControl {
      *
      * The format of the revert reason is given by the following regular expression:
      *
-     * /^AccessControl: account (0x[0-9a-f]{40}) is missing role (0x[0-9a-f]{64})$/
+     *  /^AccessControl: account (0x[0-9a-f]{40}) is missing role (0x[0-9a-f]{64})$/
      *
      * _Available since v4.1._
      */
@@ -113,7 +86,7 @@ abstract contract AccessControl {
     }
 
     /**
-     * @dev Revert with a standard message if `msg.sender` is missing `role`.
+     * @dev Revert with a standard message if `_msgSender()` is missing `role`.
      * Overriding this function changes the behavior of the {onlyRole} modifier.
      *
      * Format of the revert message is described in {_checkRole}.
@@ -121,7 +94,7 @@ abstract contract AccessControl {
      * _Available since v4.6._
      */
     function _checkRole(bytes32 role) internal view virtual {
-        _checkRole(role, msg.sender);
+        _checkRole(role, _msgSender());
     }
 
     /**
@@ -204,7 +177,7 @@ abstract contract AccessControl {
      * May emit a {RoleRevoked} event.
      */
     function renounceRole(bytes32 role, address account) public virtual override {
-        require(account == msg.sender, "AccessControl: can only renounce roles for self");
+        require(account == _msgSender(), "AccessControl: can only renounce roles for self");
 
         _revokeRole(role, account);
     }
@@ -254,7 +227,7 @@ abstract contract AccessControl {
     function _grantRole(bytes32 role, address account) internal virtual {
         if (!hasRole(role, account)) {
             _roles[role].members[account] = true;
-            emit RoleGranted(role, account, msg.sender);
+            emit RoleGranted(role, account, _msgSender());
         }
     }
 
@@ -268,7 +241,7 @@ abstract contract AccessControl {
     function _revokeRole(bytes32 role, address account) internal virtual {
         if (hasRole(role, account)) {
             _roles[role].members[account] = false;
-            emit RoleRevoked(role, account, msg.sender);
+            emit RoleRevoked(role, account, _msgSender());
         }
     }
 }

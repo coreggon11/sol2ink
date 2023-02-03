@@ -1,4 +1,4 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
@@ -92,7 +92,7 @@ impl<T: Storage<Data>> ERC1155 for T {
 
     /// @dev See {IERC1155-setApprovalForAll}.
     fn set_approval_for_all(&mut self, operator: AccountId, approved: bool) -> Result<(), Error> {
-        self._set_approval_for_all(Self::env().caller(), operator, approved)?;
+        self._set_approval_for_all(msg_sender()?, operator, approved)?;
         Ok(())
     }
 
@@ -114,11 +114,9 @@ impl<T: Storage<Data>> ERC1155 for T {
         amount: u128,
         data: Vec<u8>,
     ) -> Result<(), Error> {
-        if !(from == Self::env().caller()
-            || self.is_approved_for_all(from, Self::env().caller())?)
-        {
+        if !(from == msg_sender()? || self.is_approved_for_all(from, msg_sender()?)?) {
             return Err(Error::Custom(String::from(
-                "ERC1155: caller is not token owner nor approved",
+                "ERC1155: caller is not token owner or approved",
             )))
         };
         self._safe_transfer_from(from, to, id, amount, data)?;
@@ -134,11 +132,9 @@ impl<T: Storage<Data>> ERC1155 for T {
         amounts: Vec<u128>,
         data: Vec<u8>,
     ) -> Result<(), Error> {
-        if !(from == Self::env().caller()
-            || self.is_approved_for_all(from, Self::env().caller())?)
-        {
+        if !(from == msg_sender()? || self.is_approved_for_all(from, msg_sender()?)?) {
             return Err(Error::Custom(String::from(
-                "ERC1155: caller is not token owner nor approved",
+                "ERC1155: caller is not token owner or approved",
             )))
         };
         self._safe_batch_transfer_from(from, to, ids, amounts, data)?;
@@ -343,28 +339,6 @@ pub trait Internal {
 
     fn _as_singleton_array(&self, element: u128) -> Result<Vec<u128>, Error>;
 
-    fn _emit_transfer_single(
-        &self,
-        operator: AccountId,
-        from: AccountId,
-        to: AccountId,
-        id: u128,
-        value: u128,
-    );
-
-    fn _emit_transfer_batch(
-        &self,
-        operator: AccountId,
-        from: AccountId,
-        to: AccountId,
-        ids: Vec<u128>,
-        values: Vec<u128>,
-    );
-
-    fn _emit_approval_for_all(&self, account: AccountId, operator: AccountId, approved: bool);
-
-    fn _emit_uri(&self, value: String, id: u128);
-
 }
 
 impl<T: Storage<Data>> Internal for T {
@@ -391,7 +365,7 @@ impl<T: Storage<Data>> Internal for T {
                 "ERC1155: transfer to the zero address",
             )))
         };
-        let mut operator: AccountId = Self::env().caller();
+        let mut operator: AccountId = msg_sender()?;
         let mut ids: Vec<u128> = self._as_singleton_array(id)?;
         let mut amounts: Vec<u128> = self._as_singleton_array(amount)?;
         self._before_token_transfer(operator, from, to, ids, amounts, data)?;
@@ -438,7 +412,7 @@ impl<T: Storage<Data>> Internal for T {
                 "ERC1155: transfer to the zero address",
             )))
         };
-        let mut operator: AccountId = Self::env().caller();
+        let mut operator: AccountId = msg_sender()?;
         self._before_token_transfer(operator, from, to, ids, amounts, data)?;
         let mut i: u128 = 0;
         while i < ids.length {
@@ -506,7 +480,7 @@ impl<T: Storage<Data>> Internal for T {
                 "ERC1155: mint to the zero address",
             )))
         };
-        let mut operator: AccountId = Self::env().caller();
+        let mut operator: AccountId = msg_sender()?;
         let mut ids: Vec<u128> = self._as_singleton_array(id)?;
         let mut amounts: Vec<u128> = self._as_singleton_array(amount)?;
         self._before_token_transfer(operator, ZERO_ADDRESS.into(), to, ids, amounts, data)?;
@@ -551,7 +525,7 @@ impl<T: Storage<Data>> Internal for T {
                 "ERC1155: ids and amounts length mismatch",
             )))
         };
-        let mut operator: AccountId = Self::env().caller();
+        let mut operator: AccountId = msg_sender()?;
         self._before_token_transfer(operator, ZERO_ADDRESS.into(), to, ids, amounts, data)?;
         let mut i: u128 = 0;
         while i < ids.length {
@@ -587,7 +561,7 @@ impl<T: Storage<Data>> Internal for T {
                 "ERC1155: burn from the zero address",
             )))
         };
-        let mut operator: AccountId = Self::env().caller();
+        let mut operator: AccountId = msg_sender()?;
         let mut ids: Vec<u128> = self._as_singleton_array(id)?;
         let mut amounts: Vec<u128> = self._as_singleton_array(amount)?;
         self._before_token_transfer(operator, from, ZERO_ADDRESS.into(), ids, amounts, "")?;
@@ -628,7 +602,7 @@ impl<T: Storage<Data>> Internal for T {
                 "ERC1155: ids and amounts length mismatch",
             )))
         };
-        let mut operator: AccountId = Self::env().caller();
+        let mut operator: AccountId = msg_sender()?;
         self._before_token_transfer(operator, from, ZERO_ADDRESS.into(), ids, amounts, "")?;
         let mut i: u128 = 0;
         while i < ids.length {
@@ -776,29 +750,5 @@ impl<T: Storage<Data>> Internal for T {
         array[0] = element;
         return Ok(array)
     }
-
-    default fn _emit_transfer_single(
-        &self,
-        _: AccountId,
-        _: AccountId,
-        _: AccountId,
-        _: u128,
-        _: u128,
-    ) {
-    }
-
-    default fn _emit_transfer_batch(
-        &self,
-        _: AccountId,
-        _: AccountId,
-        _: AccountId,
-        _: Vec<u128>,
-        _: Vec<u128>,
-    ) {
-    }
-
-    default fn _emit_approval_for_all(&self, _: AccountId, _: AccountId, _: bool) {}
-
-    default fn _emit_uri(&self, _: String, _: u128) {}
 
 }

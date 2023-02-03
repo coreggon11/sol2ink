@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 use ink_prelude::vec::*;
@@ -24,12 +24,14 @@ use ink_prelude::vec::*;
 ///6. Remove liquidity one token
 ///   - Calculate withdraw one token
 ///   - getYD
-use openbrush::storage::Mapping;
-use openbrush::traits::{
-    AccountId,
-    AccountIdExt,
-    String,
-    ZERO_ADDRESS,
+use openbrush::traits::String;
+use openbrush::{
+    storage::Mapping,
+    traits::{
+        AccountId,
+        AccountIdExt,
+        ZERO_ADDRESS,
+    },
 };
 
 pub enum Error {

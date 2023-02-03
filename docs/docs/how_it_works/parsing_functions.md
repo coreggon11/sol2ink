@@ -3,11 +3,7 @@ sidebar_position: 5
 title: Parsing functions
 ---
 
-Now the parser knows every contract member and has the information about what the Solidity statements of functions and modifiers look like, in the form of `Statement::Raw`, so we will parse them into the correct format. For every statement, we will check which statement does it fit.
-
-### _
-
-`_` implies that at this point body of the modifier should be executed. So the program parses it as `Statement::ModifierBody`.
+All parsed functions may include `Statement` enum variant from Solang. We need to convert this to Sol2Ink `Statement`, so it is more suitable for the ink! contract generation. We do this to ease some steps in the code generation, as well as to actually easily build the output code from these inputs. We will go over some remarkable points regarding the functions parsing.
 
 ### Return statement
 
@@ -15,13 +11,13 @@ The mission is simple - to return a value. The functions of the generated contra
 
 ### Require
 
-Require statements are not available in Rust and ink!, so Sol2Ink will parse them as an if statement and return an error. But the require statement requires the condition to be true so that Sol2Ink will parse it as an inverted condition. Meaning `require(true)` will be parsed as 
+Require statements are not available in Rust and ink!, so Sol2Ink will parse them as an if statement and return an error. But the require statement requires the condition to be true, so Sol2Ink will parse it as an inverted condition. Meaning `require(true)` will be parsed as 
 ```Rust
-if(false) {
+if !(true) {
     return Err(Error(String::new()))
 }
 ```
-If the error message were defined in the Solidity contract, Sol2Ink would use this error message in the ink! contract as well, but if it were not provided, Sol2Ink would provide its error message.
+If the error message was defined in the Solidity contract, Sol2Ink will use this error message in the ink! contract as well, but if it was not provided, Sol2Ink will provide its own error message. Future versions of Sol2Ink will produce a nicer inverted conditions (so `require(true)` will produce `if false` instead of `if !(true)`). We work on a better experience and better code generation.
 
 ### Emit event
 
@@ -43,15 +39,15 @@ Binary operations ++ and -- are not available in Rust, so we parse them as addit
 
 ### Unchecked blocks
 
-A comment to check if everything is correct is inserted at the unchecked block's beginning and end.
+Unchecked blocks are parsed as normal code blocks.
 
 ### Try/catch blocks
 
-Try block is parsed as an `if true` block, adding the original try statement as a comment. Catch blocks are parsed as `else if false` blocks, adding the original catch statement as a comment.
+We will call the call from try, and check if the result is an error. If yes, we will return an error.
 
 ### Assembly blocks
 
-Sol2Ink parses assembly blocks as comments.
+Sol2Ink puts a comment about missing assembly block. We plan on implementing parsing of assembly block in the future.
 
 All other statements are parsed as expected:
 - declarations
@@ -59,5 +55,3 @@ All other statements are parsed as expected:
 - conditional blocks and one-line conditions
 - assignments
 - function calls
-
-If So2Ink reaches some specific statement that it cannot parse yet, it will parse it as a comment with a notice `Sol2Ink Not Implemented yet`.

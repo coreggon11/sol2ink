@@ -32,11 +32,7 @@ macro_rules! test_case_contract {
         let trait_file = test_file!("tests", "traits", format!("{}.rs", $mod_name));
 
         Command::new("cargo")
-            .args([
-                "+nightly",
-                "run",
-                format!("examples/contracts/{}.sol", $folder_name).as_str(),
-            ])
+            .args(["+nightly", "run", "examples"])
             .output()
             .expect("failed to execute process");
 

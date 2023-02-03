@@ -1,4 +1,4 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
@@ -62,7 +62,7 @@ impl<T: Storage<Data>> ERC721 for T {
 
     /// @dev See {IERC721-ownerOf}.
     fn owner_of(&self, token_id: u128) -> Result<AccountId, Error> {
-        let mut owner: AccountId = self.data().owners.get(&token_id).unwrap_or_default();
+        let mut owner: AccountId = self._owner_of(token_id)?;
         if !(self.data().owner != ZERO_ADDRESS.into()) {
             return Err(Error::Custom(String::from("ERC721: invalid token ID")))
         };
@@ -84,7 +84,7 @@ impl<T: Storage<Data>> ERC721 for T {
         self._require_minted(token_id)?;
         let mut base_uri: String = self._base_uri()?;
         return Ok(if Vec::<u8>::from(base_uri).length > 0 {
-            String::from(abi.encode_packed(base_uri, token_id.to_string()?)?)
+            <String>::from(abi.encode_packed(base_uri, token_id.to_string()?)?)
         } else {
             ""
         })
@@ -98,11 +98,11 @@ impl<T: Storage<Data>> ERC721 for T {
                 "ERC721: approval to current owner",
             )))
         };
-        if !(Self::env().caller() == self.data().owner
-            || self.is_approved_for_all(self.data().owner, Self::env().caller())?)
+        if !(msg_sender()? == self.data().owner
+            || self.is_approved_for_all(self.data().owner, msg_sender()?)?)
         {
             return Err(Error::Custom(String::from(
-                "ERC721: approve caller is not token owner nor approved for all",
+                "ERC721: approve caller is not token owner or approved for all",
             )))
         };
         self._approve(to, token_id)?;
@@ -121,7 +121,7 @@ impl<T: Storage<Data>> ERC721 for T {
 
     /// @dev See {IERC721-setApprovalForAll}.
     fn set_approval_for_all(&mut self, operator: AccountId, approved: bool) -> Result<(), Error> {
-        self._set_approval_for_all(Self::env().caller(), operator, approved)?;
+        self._set_approval_for_all(msg_sender()?, operator, approved)?;
         Ok(())
     }
 
@@ -141,16 +141,16 @@ impl<T: Storage<Data>> ERC721 for T {
         to: AccountId,
         token_id: u128,
     ) -> Result<(), Error> {
-        if !(self._is_approved_or_owner(Self::env().caller(), token_id)?) {
+        if !(self._is_approved_or_owner(msg_sender()?, token_id)?) {
             return Err(Error::Custom(String::from(
-                "ERC721: caller is not token owner nor approved",
+                "ERC721: caller is not token owner or approved",
             )))
         };
         self._transfer(from, to, token_id)?;
         Ok(())
     }
 
-    /// solhint-disable-next-line max-line-length
+    ///solhint-disable-next-line max-line-length
     /// @dev See {IERC721-safeTransferFrom}.
     fn safe_transfer_from(
         &mut self,
@@ -170,9 +170,9 @@ impl<T: Storage<Data>> ERC721 for T {
         token_id: u128,
         data: Vec<u8>,
     ) -> Result<(), Error> {
-        if !(self._is_approved_or_owner(Self::env().caller(), token_id)?) {
+        if !(self._is_approved_or_owner(msg_sender()?, token_id)?) {
             return Err(Error::Custom(String::from(
-                "ERC721: caller is not token owner nor approved",
+                "ERC721: caller is not token owner or approved",
             )))
         };
         self._safe_transfer(from, to, token_id, data)?;
@@ -210,6 +210,9 @@ pub trait Internal {
         token_id: u128,
         data: Vec<u8>,
     ) -> Result<(), Error>;
+
+    /// @dev Returns the owner of the `tokenId`. Does NOT revert if token doesn't exist
+    fn _owner_of(&self, token_id: u128) -> Result<AccountId, Error>;
 
     /// @dev Returns whether `tokenId` exists.
     ///
@@ -252,8 +255,14 @@ pub trait Internal {
     /// Emits a {Transfer} event.
     fn _mint(&mut self, to: AccountId, token_id: u128) -> Result<(), Error>;
 
+    /// Check that tokenId was not minted by `_beforeTokenTransfer` hook
+    /// Will not overflow unless all 2**256 token ids are minted to the same owner.
+    /// Given that tokens are minted one by one, it is impossible in practice that
+    /// this ever happens. Might change if we allow batch minting.
+    /// The ERC fails to describe this case.
     /// @dev Destroys `tokenId`.
     /// The approval is cleared when the token is burned.
+    /// This is an internal function that does not check if the sender is authorized to operate on the token.
     ///
     /// Requirements:
     ///
@@ -262,9 +271,12 @@ pub trait Internal {
     /// Emits a {Transfer} event.
     fn _burn(&mut self, token_id: u128) -> Result<(), Error>;
 
+    /// Update ownership in case tokenId was transferred by `_beforeTokenTransfer` hook
     /// Clear approvals
+    /// Cannot overflow, as that would require more tokens to be burned/transferred
+    /// out than the owner initially received through minting and transferring in.
     /// @dev Transfers `tokenId` from `from` to `to`.
-    /// As opposed to {transferFrom}, this imposes no restrictions on msg.sender.
+    ///  As opposed to {transferFrom}, this imposes no restrictions on msg.sender.
     ///
     /// Requirements:
     ///
@@ -274,7 +286,13 @@ pub trait Internal {
     /// Emits a {Transfer} event.
     fn _transfer(&mut self, from: AccountId, to: AccountId, token_id: u128) -> Result<(), Error>;
 
+    /// Check that tokenId was not transferred by `_beforeTokenTransfer` hook
     /// Clear approvals from the previous owner
+    /// `_balances[from]` cannot overflow for the same reason as described in `_burn`:
+    /// `from`'s balance is the number of token held, which is at least one before the current
+    /// transfer.
+    /// `_balances[to]` could overflow in the conditions described in `_mint`. That would require
+    /// all 2**256 token ids to be minted, which in practice is impossible.
     /// @dev Approve `to` to operate on `tokenId`
     ///
     /// Emits an {Approval} event.
@@ -310,46 +328,46 @@ pub trait Internal {
     ) -> Result<bool, Error>;
 
     ///@solidity memory-safe-assembly
-    /// @dev Hook that is called before any token transfer. This includes minting
-    /// and burning.
+    /// @dev Hook that is called before any token transfer. This includes minting and burning. If {ERC721Consecutive} is
+    /// used, the hook may be called as part of a consecutive (batch) mint, as indicated by `batchSize` greater than 1.
     ///
     /// Calling conditions:
     ///
-    /// - When `from` and `to` are both non-zero, ``from``'s `tokenId` will be
-    /// transferred to `to`.
-    /// - When `from` is zero, `tokenId` will be minted for `to`.
-    /// - When `to` is zero, ``from``'s `tokenId` will be burned.
+    /// - When `from` and `to` are both non-zero, ``from``'s tokens will be transferred to `to`.
+    /// - When `from` is zero, the tokens will be minted for `to`.
+    /// - When `to` is zero, ``from``'s tokens will be burned.
     /// - `from` and `to` are never both zero.
+    /// - `batchSize` is non-zero.
     ///
     /// To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
+    ///firstTokenId
     fn _before_token_transfer(
         &mut self,
         from: AccountId,
         to: AccountId,
-        token_id: u128,
+        _: u128,
+        batch_size: u128,
     ) -> Result<(), Error>;
 
-    /// @dev Hook that is called after any transfer of tokens. This includes
-    /// minting and burning.
+    /// @dev Hook that is called after any token transfer. This includes minting and burning. If {ERC721Consecutive} is
+    /// used, the hook may be called as part of a consecutive (batch) mint, as indicated by `batchSize` greater than 1.
     ///
     /// Calling conditions:
     ///
-    /// - when `from` and `to` are both non-zero.
+    /// - When `from` and `to` are both non-zero, ``from``'s tokens were transferred to `to`.
+    /// - When `from` is zero, the tokens were minted for `to`.
+    /// - When `to` is zero, ``from``'s tokens were burned.
     /// - `from` and `to` are never both zero.
+    /// - `batchSize` is non-zero.
     ///
     /// To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
     fn _after_token_transfer(
         &mut self,
         from: AccountId,
         to: AccountId,
-        token_id: u128,
+        first_token_id: u128,
+        batch_size: u128,
     ) -> Result<(), Error>;
-
-    fn _emit_transfer(&self, from: AccountId, to: AccountId, token_id: u128);
-
-    fn _emit_approval(&self, owner: AccountId, approved: AccountId, token_id: u128);
-
-    fn _emit_approval_for_all(&self, owner: AccountId, operator: AccountId, approved: bool);
 
 }
 
@@ -393,6 +411,11 @@ impl<T: Storage<Data>> Internal for T {
         Ok(())
     }
 
+    /// @dev Returns the owner of the `tokenId`. Does NOT revert if token doesn't exist
+    default fn _owner_of(&self, token_id: u128) -> Result<AccountId, Error> {
+        return Ok(self.data().owners.get(&token_id).unwrap_or_default())
+    }
+
     /// @dev Returns whether `tokenId` exists.
     ///
     /// Tokens can be managed by their owner or approved accounts via {approve} or {setApprovalForAll}.
@@ -400,7 +423,7 @@ impl<T: Storage<Data>> Internal for T {
     /// Tokens start existing when they are minted (`_mint`),
     /// and stop existing when they are burned (`_burn`).
     default fn _exists(&self, token_id: u128) -> Result<bool, Error> {
-        return Ok(self.data().owners.get(&token_id).unwrap_or_default() != ZERO_ADDRESS.into())
+        return Ok(self._owner_of(token_id)? != ZERO_ADDRESS.into())
     }
 
     /// @dev Returns whether `spender` is allowed to manage `tokenId`.
@@ -468,17 +491,26 @@ impl<T: Storage<Data>> Internal for T {
         if !(!self._exists(token_id)?) {
             return Err(Error::Custom(String::from("ERC721: token already minted")))
         };
-        self._before_token_transfer(ZERO_ADDRESS.into(), to, token_id)?;
+        self._before_token_transfer(ZERO_ADDRESS.into(), to, token_id, 1)?;
+        if !(!self._exists(token_id)?) {
+            return Err(Error::Custom(String::from("ERC721: token already minted")))
+        };
         let new_value = self.data().balances.get(&(to)).unwrap_or_default() + 1;
         self.data().balances.insert(&(to), &new_value);
         self.data().owners.insert(&(token_id), &to);
         self._emit_transfer(ZERO_ADDRESS.into(), to, token_id);
-        self._after_token_transfer(ZERO_ADDRESS.into(), to, token_id)?;
+        self._after_token_transfer(ZERO_ADDRESS.into(), to, token_id, 1)?;
         Ok(())
     }
 
+    /// Check that tokenId was not minted by `_beforeTokenTransfer` hook
+    /// Will not overflow unless all 2**256 token ids are minted to the same owner.
+    /// Given that tokens are minted one by one, it is impossible in practice that
+    /// this ever happens. Might change if we allow batch minting.
+    /// The ERC fails to describe this case.
     /// @dev Destroys `tokenId`.
     /// The approval is cleared when the token is burned.
+    /// This is an internal function that does not check if the sender is authorized to operate on the token.
     ///
     /// Requirements:
     ///
@@ -487,7 +519,8 @@ impl<T: Storage<Data>> Internal for T {
     /// Emits a {Transfer} event.
     default fn _burn(&mut self, token_id: u128) -> Result<(), Error> {
         let mut owner: AccountId = erc_721.owner_of(token_id)?;
-        self._before_token_transfer(self.data().owner, ZERO_ADDRESS.into(), token_id)?;
+        self._before_token_transfer(self.data().owner, ZERO_ADDRESS.into(), token_id, 1)?;
+        self.data().owner = erc_721.owner_of(token_id)?;
         self.data().token_approvals.remove(&(token_id));
         let new_value = self
             .data()
@@ -500,13 +533,16 @@ impl<T: Storage<Data>> Internal for T {
             .insert(&(self.data().owner), &new_value);
         self.data().owners.remove(&(token_id));
         self._emit_transfer(self.data().owner, ZERO_ADDRESS.into(), token_id);
-        self._after_token_transfer(self.data().owner, ZERO_ADDRESS.into(), token_id)?;
+        self._after_token_transfer(self.data().owner, ZERO_ADDRESS.into(), token_id, 1)?;
         Ok(())
     }
 
+    /// Update ownership in case tokenId was transferred by `_beforeTokenTransfer` hook
     /// Clear approvals
+    /// Cannot overflow, as that would require more tokens to be burned/transferred
+    /// out than the owner initially received through minting and transferring in.
     /// @dev Transfers `tokenId` from `from` to `to`.
-    /// As opposed to {transferFrom}, this imposes no restrictions on msg.sender.
+    ///  As opposed to {transferFrom}, this imposes no restrictions on msg.sender.
     ///
     /// Requirements:
     ///
@@ -530,7 +566,12 @@ impl<T: Storage<Data>> Internal for T {
                 "ERC721: transfer to the zero address",
             )))
         };
-        self._before_token_transfer(from, to, token_id)?;
+        self._before_token_transfer(from, to, token_id, 1)?;
+        if !(erc_721.owner_of(token_id)? == from) {
+            return Err(Error::Custom(String::from(
+                "ERC721: transfer from incorrect owner",
+            )))
+        };
         self.data().token_approvals.remove(&(token_id));
         let new_value = self.data().balances.get(&(from)).unwrap_or_default() - 1;
         self.data().balances.insert(&(from), &new_value);
@@ -538,11 +579,17 @@ impl<T: Storage<Data>> Internal for T {
         self.data().balances.insert(&(to), &new_value);
         self.data().owners.insert(&(token_id), &to);
         self._emit_transfer(from, to, token_id);
-        self._after_token_transfer(from, to, token_id)?;
+        self._after_token_transfer(from, to, token_id, 1)?;
         Ok(())
     }
 
+    /// Check that tokenId was not transferred by `_beforeTokenTransfer` hook
     /// Clear approvals from the previous owner
+    /// `_balances[from]` cannot overflow for the same reason as described in `_burn`:
+    /// `from`'s balance is the number of token held, which is at least one before the current
+    /// transfer.
+    /// `_balances[to]` could overflow in the conditions described in `_mint`. That would require
+    /// all 2**256 token ids to be minted, which in practice is impossible.
     /// @dev Approve `to` to operate on `tokenId`
     ///
     /// Emits an {Approval} event.
@@ -596,7 +643,7 @@ impl<T: Storage<Data>> Internal for T {
     ) -> Result<bool, Error> {
         if to.is_contract()? {
             if ierc_721_receiver(to)?
-                .on_erc_721_received(Self::env().caller(), from, token_id, data)?
+                .on_erc_721_received(msg_sender()?, from, token_id, data)?
                 .is_err()
             {
                 return Err(Error::Custom("Try failed"))
@@ -607,49 +654,59 @@ impl<T: Storage<Data>> Internal for T {
     }
 
     ///@solidity memory-safe-assembly
-    /// @dev Hook that is called before any token transfer. This includes minting
-    /// and burning.
+    /// @dev Hook that is called before any token transfer. This includes minting and burning. If {ERC721Consecutive} is
+    /// used, the hook may be called as part of a consecutive (batch) mint, as indicated by `batchSize` greater than 1.
     ///
     /// Calling conditions:
     ///
-    /// - When `from` and `to` are both non-zero, ``from``'s `tokenId` will be
-    /// transferred to `to`.
-    /// - When `from` is zero, `tokenId` will be minted for `to`.
-    /// - When `to` is zero, ``from``'s `tokenId` will be burned.
+    /// - When `from` and `to` are both non-zero, ``from``'s tokens will be transferred to `to`.
+    /// - When `from` is zero, the tokens will be minted for `to`.
+    /// - When `to` is zero, ``from``'s tokens will be burned.
     /// - `from` and `to` are never both zero.
+    /// - `batchSize` is non-zero.
     ///
     /// To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
+    ///firstTokenId
     default fn _before_token_transfer(
         &mut self,
         from: AccountId,
         to: AccountId,
-        token_id: u128,
+        _: u128,
+        batch_size: u128,
     ) -> Result<(), Error> {
+        if batch_size > 1 {
+            if from != ZERO_ADDRESS.into() {
+                let new_value = self.data().balances.get(&(from)).unwrap_or_default() - batch_size;
+                self.data().balances.insert(&(from), &new_value);
+            }
+            if to != ZERO_ADDRESS.into() {
+                let new_value = self.data().balances.get(&(to)).unwrap_or_default() + batch_size;
+                self.data().balances.insert(&(to), &new_value);
+            }
+        }
         Ok(())
     }
 
-    /// @dev Hook that is called after any transfer of tokens. This includes
-    /// minting and burning.
+    /// @dev Hook that is called after any token transfer. This includes minting and burning. If {ERC721Consecutive} is
+    /// used, the hook may be called as part of a consecutive (batch) mint, as indicated by `batchSize` greater than 1.
     ///
     /// Calling conditions:
     ///
-    /// - when `from` and `to` are both non-zero.
+    /// - When `from` and `to` are both non-zero, ``from``'s tokens were transferred to `to`.
+    /// - When `from` is zero, the tokens were minted for `to`.
+    /// - When `to` is zero, ``from``'s tokens were burned.
     /// - `from` and `to` are never both zero.
+    /// - `batchSize` is non-zero.
     ///
     /// To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
     default fn _after_token_transfer(
         &mut self,
         from: AccountId,
         to: AccountId,
-        token_id: u128,
+        first_token_id: u128,
+        batch_size: u128,
     ) -> Result<(), Error> {
         Ok(())
     }
-
-    default fn _emit_transfer(&self, _: AccountId, _: AccountId, _: u128) {}
-
-    default fn _emit_approval(&self, _: AccountId, _: AccountId, _: u128) {}
-
-    default fn _emit_approval_for_all(&self, _: AccountId, _: AccountId, _: bool) {}
 
 }

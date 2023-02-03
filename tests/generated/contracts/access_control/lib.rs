@@ -1,11 +1,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 /// SPDX-License-Identifier: MIT
-/// OpenZeppelin Contracts (last updated v4.7.0) (access/AccessControl.sol)
+/// OpenZeppelin Contracts (last updated v4.8.0) (access/AccessControl.sol)
 /// 3 ways to initialize a struct
 /// - calling it like a function
 /// key value mapping
@@ -21,14 +21,14 @@
 /// in the external API and be unique. The best way to achieve this is by
 /// using `public constant` hash digests:
 ///
-/// ```
+/// ```solidity
 /// bytes32 public constant MY_ROLE = keccak256("MY_ROLE");
 /// ```
 ///
 /// Roles can be used to represent a set of permissions. To restrict access to a
 /// function call, use {hasRole}:
 ///
-/// ```
+/// ```solidity
 /// function foo() public {
 ///     require(hasRole(MY_ROLE, msg.sender));
 ///     ...
@@ -73,51 +73,6 @@ pub mod access_control {
 
     pub const DEFAULT_ADMIN_ROLE: [u8; 32] = &hex::decode("0x00");
 
-    /// @dev Emitted when `newAdminRole` is set as ``role``'s admin role, replacing `previousAdminRole`
-    ///
-    /// `DEFAULT_ADMIN_ROLE` is the starting admin for all roles, despite
-    /// {RoleAdminChanged} not being emitted signaling this.
-    ///
-    /// _Available since v3.1._
-    #[ink(event)]
-    pub struct RoleAdminChanged {
-        #[ink(topic)]
-        role: [u8; 32],
-        #[ink(topic)]
-        previous_admin_role: [u8; 32],
-        #[ink(topic)]
-        new_admin_role: [u8; 32],
-    }
-
-    /// @dev Emitted when `account` is granted `role`.
-    ///
-    /// `sender` is the account that originated the contract call, an admin role
-    /// bearer except when using {AccessControl-_setupRole}.
-    #[ink(event)]
-    pub struct RoleGranted {
-        #[ink(topic)]
-        role: [u8; 32],
-        #[ink(topic)]
-        account: AccountId,
-        #[ink(topic)]
-        sender: AccountId,
-    }
-
-    /// @dev Emitted when `account` is revoked `role`.
-    ///
-    /// `sender` is the account that originated the contract call:
-    ///   - if using `revokeRole`, it is the admin role bearer
-    ///   - if using `renounceRole`, it is the role bearer (i.e. `account`)
-    #[ink(event)]
-    pub struct RoleRevoked {
-        #[ink(topic)]
-        role: [u8; 32],
-        #[ink(topic)]
-        account: AccountId,
-        #[ink(topic)]
-        sender: AccountId,
-    }
-
     #[ink(storage)]
     #[derive(Default, SpreadAllocate, Storage)]
     pub struct AccessControlContract {
@@ -127,37 +82,13 @@ pub mod access_control {
 
     impl AccessControl for AccessControlContract {}
 
-    impl access_control::Internal for AccessControlContract {
-        fn _emit_role_admin_changed(
-            &self,
-            role: [u8; 32],
-            previous_admin_role: [u8; 32],
-            new_admin_role: [u8; 32],
-        ) {
-            self.env().emit_event(RoleAdminChanged {
-                role,
-                previous_admin_role,
-                new_admin_role,
-            });
-        }
+    impl access_control::Internal for AccessControlContract {}
 
-        fn _emit_role_granted(&self, role: [u8; 32], account: AccountId, sender: AccountId) {
-            self.env().emit_event(RoleGranted {
-                role,
-                account,
-                sender,
-            });
-        }
+    impl Context for AccessControlContract {}
 
-        fn _emit_role_revoked(&self, role: [u8; 32], account: AccountId, sender: AccountId) {
-            self.env().emit_event(RoleRevoked {
-                role,
-                account,
-                sender,
-            });
-        }
+    impl IAccessControl for AccessControlContract {}
 
-    }
+    impl ERC165 for AccessControlContract {}
 
     impl AccessControlContract {
         #[ink(constructor)]

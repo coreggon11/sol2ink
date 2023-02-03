@@ -1,4 +1,4 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
@@ -188,7 +188,7 @@ impl<T: Storage<Data>> StableSwap for T {
         min_amount_out: u128,
     ) -> Result<u128, Error> {
         let mut amount_out = Default::default();
-        (amount_out) = self._calc_withdraw_one_token(shares, i)?;
+        (_, _) = self._calc_withdraw_one_token(shares, i)?;
         if !(amount_out >= min_amount_out) {
             return Err(Error::Custom(String::from("out < min")))
         };

@@ -1,4 +1,4 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
@@ -45,7 +45,7 @@ impl<T: Storage<Data>> example for T {
     /// fn parameters
     /// function can be declared pure
     fn systemd_pid(&self) -> Result<u32, Error> {
-        return Ok(u32::from(FIRST_PID))
+        return Ok(<u32>::from(FIRST_PID))
     }
 
     /// declaration
@@ -193,13 +193,13 @@ impl<T: Storage<Data>> Internal for T {
         let mut i: u16 = 1;
         while i < 10 {
             if (i % 3) == 0 {
-                n *= pid / u64::from(i);
+                n *= pid / <u64>::from(i);
             } else {
                 n /= 3;
             }
             i += 1;
         }
-        return Ok(state(n % u64::from(state.state_count))?)
+        return Ok(state(n % <u64>::from(state.state_count))?)
     }
 
     /// push

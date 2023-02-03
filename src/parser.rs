@@ -48,21 +48,17 @@ use solang_parser::{
         Type as SolangType,
         Unit,
         VariableAttribute,
-        VariableDeclaration,
         VariableDefinition,
         Visibility,
     },
 };
-use std::{
-    collections::{
-        HashMap,
-        HashSet,
-        VecDeque,
-    },
-    hash::Hash,
+use std::collections::{
+    HashMap,
+    HashSet,
+    VecDeque,
 };
 
-#[derive(Clone, Hash)]
+#[derive(Clone)]
 pub enum ParserOutput {
     Contract(String, Contract),
     Interface(String, Interface),
@@ -112,6 +108,9 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Removes slashes and asterisks from a comment and returns it as a String
+    ///
+    /// `original` the original comment
     pub fn filter_comment(&self, original: &SolangComment) -> String {
         match original {
             SolangComment::Line(_, content) => content.trim()[2..].to_owned(),
@@ -132,6 +131,9 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Parses a fil and returns the vec of ParserOutput or a ParserError
+    ///
+    /// `content` the content of a solidity file
     pub fn parse_file(&mut self, content: &str) -> Result<Vec<ParserOutput>, ParserError> {
         let token_tree = parse(content, 0).map_err(|_| ParserError::FileCorrupted)?;
 
@@ -164,6 +166,9 @@ impl<'a> Parser<'a> {
         Ok(output)
     }
 
+    /// Retrieves the comments from the Parser's RB Tree from the beginning until a key
+    ///
+    /// `until` key value where we stop iterating over the tree
     fn get_comments(&mut self, until: usize) -> Vec<String> {
         let mut comments = Vec::default();
         let mut removed = Vec::default();
@@ -180,6 +185,13 @@ impl<'a> Parser<'a> {
         comments
     }
 
+    /// Parses a contract definition and returns a ParserOutput
+    ///
+    /// `contract_definition` the Solang contract definition
+    ///
+    /// Returns `ParserOutput::Contract` if we are parsing a contract
+    /// Returns `ParserOutput::Library` if we are parsing a libraray
+    /// Returns `ParserOutput::Interface` if we are parsing an interface
     fn handle_contract_definition(
         &mut self,
         contract_definition: &ContractDefinition,
@@ -209,6 +221,12 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Parses a contract
+    ///
+    /// `contract_definition` the Solang contract definition
+    /// `comments` the documentation of the contract
+    ///
+    /// Returns the parsed contract
     fn parse_contract(
         &mut self,
         contract_definition: &ContractDefinition,
@@ -329,6 +347,12 @@ impl<'a> Parser<'a> {
         })
     }
 
+    /// Parses an interface
+    ///
+    /// `contract_definition` the Solang interface definition
+    /// `comments` the documentation of the interface
+    ///
+    /// Returns the parsed interface as an ink! trait definition
     fn parse_interface(
         &mut self,
         contract_definition: &ContractDefinition,
@@ -381,6 +405,12 @@ impl<'a> Parser<'a> {
         })
     }
 
+    /// Parses a library
+    ///
+    /// `contract_definition` the Solang library definition
+    /// `comments` the documentation of the library
+    ///
+    /// Returns the parsed library as a plain rust file
     fn parse_library(
         &mut self,
         contract_definition: &ContractDefinition,
@@ -464,6 +494,11 @@ impl<'a> Parser<'a> {
         })
     }
 
+    /// Parses a Solang struct definition to Sol2Ink struct definition
+    ///
+    /// `struct_definition` the Solang struct definition
+    ///
+    /// Returns the parsed `Struct` struct
     fn parse_struct(
         &mut self,
         struct_definition: &StructDefinition,
@@ -498,6 +533,11 @@ impl<'a> Parser<'a> {
         Ok(parsed_struct)
     }
 
+    /// Parses a Solang event definition to Sol2Ink evet definition
+    ///
+    /// `event_definition` the Solang event definition
+    ///
+    /// Returns the parsed `Event` struct
     fn parse_event(&mut self, event_definition: &EventDefinition) -> Result<Event, ParserError> {
         let name = self.parse_identifier(&event_definition.name);
 
@@ -530,6 +570,11 @@ impl<'a> Parser<'a> {
         Ok(parsed_event)
     }
 
+    /// Parses a Solang enum definition to Sol2Ink enum definition
+    ///
+    /// `enum_definition` the Solang enum definition
+    ///
+    /// Returns the parsed `Enum` struct
     fn parse_enum(&mut self, enum_definition: &EnumDefinition) -> Result<Enum, ParserError> {
         let name = self.parse_identifier(&enum_definition.name);
 
@@ -558,6 +603,11 @@ impl<'a> Parser<'a> {
         Ok(parsed_enum)
     }
 
+    /// Parses a Solang storage variable definition to Sol2Ink contract field definition
+    ///
+    /// `variable_definition` the Solang variable definition
+    ///
+    /// Returns the parsed `ContractField` struct
     fn parse_storage_field(
         &mut self,
         variable_definition: &VariableDefinition,
@@ -591,6 +641,11 @@ impl<'a> Parser<'a> {
         Ok(contract_field)
     }
 
+    /// Parses a Solang function definition to Sol2Ink function definition
+    ///
+    /// `function_definition` the Solang function definition
+    ///
+    /// Returns the parsed `Function` struct
     fn parse_function(
         &mut self,
         function_definition: &FunctionDefinition,
@@ -638,6 +693,11 @@ impl<'a> Parser<'a> {
         })
     }
 
+    /// Parses a Sol2Ink function header definition from Solang function definition
+    ///
+    /// `function_definition` the Solang function definition
+    ///
+    /// Returns the parsed `FunctionHeader` struct
     fn parse_function_header(
         &mut self,
         function_definition: &FunctionDefinition,
@@ -729,6 +789,12 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Parses from where a variable will be accessed
+    /// This affects if we call `Self::var`, `T::var` or `self.var`
+    ///
+    /// `function_definition` the Solang function definition
+    ///
+    /// Returns the corresponding `VariableAccessLocation` enum variant
     fn parse_variable_access_location(
         &self,
         function_definition: &FunctionDefinition,
@@ -740,6 +806,12 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Parses a Solang statement enum variant to Sol2Ink statement enum variant
+    ///
+    /// `statement` the original Solang statement enum variant
+    /// `location` the location where the statement is [being called](fn@parse_variable_access_location)
+    ///
+    /// Returns the parsed `Statement` enum variant
     fn parse_statement(
         &mut self,
         statement: &SolangStatement,
@@ -791,7 +863,9 @@ impl<'a> Parser<'a> {
                 Statement::Expression(parsed_expression)
             }
             SolangStatement::VariableDefinition(_, declaration, initial_value_maybe) => {
-                let parsed_declaration = self.parse_variable_declaration(declaration)?;
+                let parsed_name = self.parse_identifier(&declaration.name).to_case(Snake);
+                let parsed_type = Box::new(self.parse_type(&declaration.ty)?);
+                let parsed_declaration = Expression::VariableDeclaration(parsed_type, parsed_name);
                 let parsed_initial_value = initial_value_maybe
                     .as_ref()
                     .map(|expression| self.parse_expression(expression, location));
@@ -856,17 +930,12 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_variable_declaration(
-        &mut self,
-        variable_declaration: &VariableDeclaration,
-    ) -> Result<Expression, ParserError> {
-        let parsed_name = self
-            .parse_identifier(&variable_declaration.name)
-            .to_case(Snake);
-        let parsed_type = Box::new(self.parse_type(&variable_declaration.ty)?);
-        Ok(Expression::VariableDeclaration(parsed_type, parsed_name))
-    }
-
+    /// Parses a Solang expression enum variant to Sol2Ink expression enum variant
+    ///
+    /// `expression` the original Solang expression enum variant
+    /// `location` the location where the expression is [being called](fn@parse_variable_access_location)
+    ///
+    /// Returns the parsed `Expression` enum variant
     fn parse_expression(
         &mut self,
         expression: &SolangExpression,
@@ -992,7 +1061,7 @@ impl<'a> Parser<'a> {
                 if let SolangExpression::FunctionCallBlock(_, function, parameters) =
                     *function.clone()
                 {
-                    if let SolangStatement::Args(_, arguments) = *parameters.clone() {
+                    if let SolangStatement::Args(_, arguments) = *parameters {
                         let value_argument = arguments
                             .iter()
                             .map(|argument| {
@@ -1002,8 +1071,7 @@ impl<'a> Parser<'a> {
                                     self.parse_identifier(&Some(argument.name.clone()));
                                 (parsed_name, parsed_argument)
                             })
-                            .filter(|(name, _)| name == "value")
-                            .nth(0)
+                            .find(|(name, _)| name == "value")
                             .map(|option| Box::new(option.1));
                         boxed_expression!(parsed_function, &function);
                         return Expression::FunctionCall(
@@ -1337,6 +1405,12 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Parses multiple Solang expression enum variants to Sol2Ink expression enum variants
+    ///
+    /// `expressions` the original Solang expression enum variants
+    /// `location` the location where the expression is [being called](fn@parse_variable_access_location)
+    ///
+    /// Returns the vec of parsed `Expression` enum variant
     fn parse_expression_vec(
         &mut self,
         expressions: &[SolangExpression],
@@ -1348,6 +1422,15 @@ impl<'a> Parser<'a> {
             .collect()
     }
 
+    /// Converts a Solang `Expression::ArraySubscript` enum variant to Sol2Ink `Expression::MappingSubscript` enum variant
+    /// We do this to differentiate between arrays and mappings
+    ///
+    /// `array` the array we want to convert to mapping
+    /// `index_maybe` the index we were accessing within the ArraySubscript
+    /// `expression` the original Solang expression enum variant
+    /// `location` the location where the expression is [being called](fn@parse_variable_access_location)
+    ///
+    /// Returns the parsed `Expression` enum variant
     fn array_subscript_to_mapping_subscript(
         &mut self,
         array: &SolangExpression,
@@ -1373,6 +1456,11 @@ impl<'a> Parser<'a> {
         Expression::MappingSubscript(parsed_array, vec_indices)
     }
 
+    /// Parses a Solang `IdentifierPath` struct to String
+    ///
+    /// `identifier_path` the original Solang identifier
+    ///
+    /// Returns the parsed `String`
     fn parse_identifier_path(&self, identifier_path: &IdentifierPath) -> String {
         identifier_path
             .identifiers
@@ -1382,6 +1470,12 @@ impl<'a> Parser<'a> {
             .join("::")
     }
 
+    /// Converts a Solang `Expression::Type` enum variant to Sol2Ink `Type` enum variant
+    /// We do this to convert some Solidity specific types into ink! specific types
+    ///
+    /// `ty` the origina Solang `Expression::Type` enum variant
+    ///
+    /// Returns the parsed `Type` enum variant
     fn parse_type(&mut self, ty: &SolangExpression) -> Result<Type, ParserError> {
         match &ty {
             SolangExpression::Type(_, SolangType::Mapping(_, key_type, value_type)) => {
@@ -1431,21 +1525,34 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Converts a Solang `Type` enum variant to Sol2Ink `Type` enum variant
+    /// We do this to convert some Solidity specific types into ink! specific types
+    ///
+    /// `ty` the origina Solang `Type` enum variant
+    ///
+    /// Returns the parsed `Type` enum variant
     fn convert_solidity_type(&self, solidity_type: &SolangType) -> Type {
         match solidity_type {
             SolangType::Address | SolangType::AddressPayable => Type::AccountId,
             SolangType::Bool => Type::Bool,
             SolangType::String => Type::String,
-            SolangType::Int(original_bytes) => Type::Int(self.convert_int_bytes(original_bytes)),
-            SolangType::Uint(original_bytes) => Type::Uint(self.convert_int_bytes(original_bytes)),
+            SolangType::Int(original_bytes) => Type::Int(self.convert_int_bits(original_bytes)),
+            SolangType::Uint(original_bytes) => Type::Uint(self.convert_int_bits(original_bytes)),
             SolangType::Bytes(length) => Type::Bytes(*length),
             SolangType::DynamicBytes => Type::DynamicBytes,
             _ => Type::None,
         }
     }
 
-    fn convert_int_bytes(&self, original_bytes: &u16) -> u16 {
-        match *original_bytes {
+    /// Converts a Solidity integer size into rust integer size
+    /// Possible variants in Rust are 8, 16, 32, 64 and 128, we choose the nearest possible to fit
+    /// If the original size is greater than 128 bits, we make it 128 bits
+    ///
+    /// `original_bits` the origina size of the integer
+    ///
+    /// Returns the converted integer size
+    fn convert_int_bits(&self, original_bits: &u16) -> u16 {
+        match *original_bits {
             i if i <= 8 => 8,
             i if i <= 16 => 16,
             i if i <= 32 => 32,
@@ -1454,8 +1561,13 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_identifier(&self, variable_declaration: &Option<Identifier>) -> String {
-        match variable_declaration {
+    /// Parses a Solang `Identifier` struct to String
+    ///
+    /// `identifier` the original Solang identifier
+    ///
+    /// Returns the parsed `String`
+    fn parse_identifier(&self, identifier: &Option<Identifier>) -> String {
+        match identifier {
             Some(identifier) => identifier.name.clone(),
             None => String::from("_"),
         }
