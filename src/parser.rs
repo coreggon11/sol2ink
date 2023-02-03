@@ -1359,7 +1359,7 @@ impl<'a> Parser<'a> {
                     .join("");
                 Expression::HexLiteral(literal)
             }
-            SolangExpression::AddressLiteral(_, _) => todo!(),
+            SolangExpression::AddressLiteral(_, literal) => Expression::HexLiteral(literal.clone()),
             SolangExpression::Variable(identifier) => {
                 let parsed_identifier = self.parse_identifier(&Some(identifier.clone()));
                 if parsed_identifier == "_" {
