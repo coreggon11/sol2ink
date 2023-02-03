@@ -292,7 +292,8 @@ impl<'a> Parser<'a> {
                     match function_definition.ty {
                         FunctionTy::Constructor => constructor = parsed_function,
                         FunctionTy::Modifier => modifiers.push(parsed_function),
-                        _ => functions.push(parsed_function),
+                        FunctionTy::Function => functions.push(parsed_function),
+                        _ => (),
                     }
                 }
                 ContractPart::StructDefinition(struct_definition) => {
@@ -505,8 +506,13 @@ impl<'a> Parser<'a> {
             .fields
             .iter()
             .filter_map(|variable_declaration| {
+                let event_field_name = self.parse_identifier(&variable_declaration.name);
                 let event_field = EventField {
-                    name: self.parse_identifier(&variable_declaration.name),
+                    name: if event_field_name == "_" {
+                        String::from("anonymous")
+                    } else {
+                        event_field_name
+                    },
                     field_type: self.parse_type(&variable_declaration.ty).ok()?,
                     indexed: variable_declaration.indexed,
                     comments: self.get_comments(variable_declaration.loc.end()),
@@ -761,10 +767,7 @@ impl<'a> Parser<'a> {
                 dialect: _,
                 flags: _,
                 block: _,
-            } => {
-                println!("{statement:?}");
-                todo!()
-            }
+            } => Statement::Assembly,
             SolangStatement::Args(_, _) => {
                 println!("{statement:?}");
                 todo!()
@@ -984,26 +987,53 @@ impl<'a> Parser<'a> {
                 Expression::MemberAccess(parsed_expression, parsed_identifier)
             }
             SolangExpression::FunctionCall(_, function, args) => {
-                boxed_expression!(parsed_function, function);
-                let parsed_args = self.parse_expression_vec(args, location);
-                match *parsed_function.clone() {
-                    Expression::Type(ty) if let Type::AccountId = *ty.clone() => {
-                        if parsed_args.len() > 1 {
-                            unreachable!("Multiple parameters were provided to `address` call")
-                        }
-                        let account_id = &parsed_args[0];
-                        match account_id {
-                            Expression::NumberLiteral(number) if number == "0" => {
-                                self.imports.insert(Import::ZeroAddress);
-                            }
-                            _ => (),
-                        }
+                let parsed_args = self.parse_expression_vec(args, location.clone());
+
+                if let SolangExpression::FunctionCallBlock(_, function, parameters) =
+                    *function.clone()
+                {
+                    if let SolangStatement::Args(_, arguments) = *parameters.clone() {
+                        let value_argument = arguments
+                            .iter()
+                            .map(|argument| {
+                                let parsed_argument =
+                                    self.parse_expression(&argument.expr, location.clone());
+                                let parsed_name =
+                                    self.parse_identifier(&Some(argument.name.clone()));
+                                (parsed_name, parsed_argument)
+                            })
+                            .filter(|(name, _)| name == "value")
+                            .nth(0)
+                            .map(|option| Box::new(option.1));
+                        boxed_expression!(parsed_function, &function);
+                        return Expression::FunctionCall(
+                            parsed_function,
+                            parsed_args,
+                            value_argument,
+                        )
                     }
-                    _ => ()
+                    unreachable!("Only function is allowed here!");
+                } else {
+                    boxed_expression!(parsed_function, function);
+                    match *parsed_function.clone() {
+                        Expression::Type(ty) if let Type::AccountId = *ty.clone() => {
+                            if parsed_args.len() > 1 {
+                                unreachable!("Multiple parameters were provided to `address` call")
+                            }
+                            let account_id = &parsed_args[0];
+                            match account_id {
+                                Expression::NumberLiteral(number) if number == "0" => {
+                                    self.imports.insert(Import::ZeroAddress);
+                                }
+                                _ => (),
+                            }
+                        }
+                        _ => ()
+                    }
+                    Expression::FunctionCall(parsed_function, parsed_args, None)
                 }
-                Expression::FunctionCall(parsed_function, parsed_args)
             }
-            SolangExpression::FunctionCallBlock(_, _, _) => todo!(),
+            SolangExpression::FunctionCallBlock(_, _, _) => Expression::None,
             SolangExpression::NamedFunctionCall(_, expression, arguments) => {
                 boxed_expression!(parsed_expression, expression);
                 if let Expression::Variable(_, MemberType::Function, _) = *parsed_expression.clone()
@@ -1012,7 +1042,7 @@ impl<'a> Parser<'a> {
                         .iter()
                         .map(|argument| self.parse_expression(&argument.expr, location.clone()))
                         .collect();
-                    Expression::FunctionCall(parsed_expression, parsed_arguments)
+                    Expression::FunctionCall(parsed_expression, parsed_arguments, None)
                 } else {
                     let parsed_arguments = arguments
                         .iter()
@@ -1268,9 +1298,18 @@ impl<'a> Parser<'a> {
                 let list = parameters
                     .iter()
                     .map(|tuple| tuple.1.clone())
-                    .filter(|option| option.is_some())
-                    .map(|parameter| parameter.unwrap().ty)
-                    .map(|expression| self.parse_expression(&expression, location.clone()))
+                    .map(|parameter_maybe| {
+                        let name = self.parse_identifier(
+                            &parameter_maybe
+                                .map(|parameter| parameter.name)
+                                .unwrap_or(None),
+                        );
+                        Expression::Variable(
+                            name,
+                            MemberType::None(Box::new(Type::None)),
+                            location.clone(),
+                        )
+                    })
                     .collect();
                 Expression::List(list)
             }
@@ -1380,7 +1419,15 @@ impl<'a> Parser<'a> {
                     .map(|option| self.parse_expression(option, VariableAccessLocation::Any));
                 Ok(Type::Array(parsed_type, parsed_expression))
             }
-            _ => Err(ParserError::IncorrectTypeOfVariable),
+            SolangExpression::MemberAccess(_, from, identifier) => {
+                let parsed_expression = self.parse_expression(from, VariableAccessLocation::Any);
+                let parsed_identifier = self.parse_identifier(&Some(identifier.clone()));
+                Ok(Type::MemberAccess(parsed_expression, parsed_identifier))
+            }
+            _ => {
+                println!("{ty:?}");
+                Err(ParserError::IncorrectTypeOfVariable)
+            }
         }
     }
 

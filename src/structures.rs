@@ -206,7 +206,7 @@ pub struct FunctionParam {
 
 #[derive(Clone, Debug, Hash)]
 pub enum Statement {
-    Assembly(Vec<String>),
+    Assembly,
     Block(Vec<Statement>),
     Break,
     Continue,
@@ -252,7 +252,7 @@ pub enum Expression {
     BoolLiteral(bool),
     Delete(Box<Expression>),
     Divide(Box<Expression>, Box<Expression>),
-    FunctionCall(Box<Expression>, Vec<Expression>),
+    FunctionCall(Box<Expression>, Vec<Expression>, Option<Box<Expression>>),
     Equal(Box<Expression>, Box<Expression>),
     InvalidModifier(String, Vec<Expression>),
     Less(Box<Expression>, Box<Expression>),
@@ -304,6 +304,7 @@ pub enum Expression {
         Option<Box<Expression>>,
         Option<Box<Expression>>,
     ),
+    None,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -317,6 +318,7 @@ pub enum Type {
     Bytes(u8),
     DynamicBytes,
     Variable(String),
+    MemberAccess(Expression, String),
     Mapping(Vec<Type>, Box<Type>),
     None,
 }

@@ -40,6 +40,7 @@ use assembler::{
 };
 use file_utils::{
     create_structure,
+    get_solidity_files_from_directory,
     write_mod_files,
 };
 use parser::Parser;
@@ -92,18 +93,8 @@ fn main() {
                 }
             }
             CliInput::Directory(dir) => {
-                let files = Path::new(&dir).read_dir().unwrap();
-                let mut paths = vec![];
-
-                for file in files {
-                    let file = file.unwrap();
-                    let file = file.path();
-                    let file = file.to_str().unwrap();
-
-                    if file.ends_with(".sol") {
-                        paths.push(file.to_string());
-                    }
-                }
+                let paths = get_solidity_files_from_directory(&dir)
+                    .unwrap_or_else(|err| panic!("error: {err:?}"));
 
                 match run(&dir, &paths) {
                     Ok(_) => {}
