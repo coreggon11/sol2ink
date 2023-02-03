@@ -53,7 +53,6 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
     let contract_name = format_ident!("{}Contract", contract.name);
     let trait_name = format_ident!("{}", contract.name);
     let signature = signature();
-    let imports = Vec::from_iter(&contract.imports);
     let events = assemble_events(&contract.events);
     let storage = assemble_storage(&contract.name);
     let constructor = assemble_constructor(&contract.constructor, &contract.fields);
@@ -74,9 +73,6 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
         #(#[doc = #comments])*
         #[openbrush::contract]
         pub mod #mod_name {
-            #(#imports)*
-            use scale::Encode;
-            use scale::Decode;
             use ink_storage::traits::SpreadAllocate;
             use openbrush::traits::Storage;
             use generated::*;
@@ -89,7 +85,7 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
             _blank_!();
             impl #trait_name for #contract_name {}
             _blank_!();
-            impl #mod_name::Internal for #contract_name {
+            impl generated::impls:: #mod_name ::Internal for #contract_name {
                 #emit_functions
             }
 
@@ -186,7 +182,7 @@ pub fn assemble_trait(contract: &Contract) -> TokenStream {
     let imports = Vec::from_iter(&contract.imports);
     let enums = assemble_enums(&contract.enums);
     let structs = assemble_structs(&contract.structs);
-    let getters_trait = assemble_getters_trait(&contract.fields);
+    let getters_trait = assemble_getters_trait(&contract.fields, &contract.functions);
     let function_headers = assemble_function_headers(
         &contract
             .functions
@@ -478,11 +474,20 @@ fn assemble_getters(fields: &[ContractField]) -> TokenStream {
 
 /// Assembles the TokenStream of getter function descriptions for public fields of the contract storage
 /// from the parsed ContractField structs
-fn assemble_getters_trait(fields: &[ContractField]) -> TokenStream {
+fn assemble_getters_trait(fields: &[ContractField], functions: &[Function]) -> TokenStream {
     let mut output = TokenStream::new();
 
+    let mut function_mapping = HashMap::new();
+    for function in functions.iter().map(|function| &function.header.name) {
+        function_mapping.insert(function, ());
+    }
+
     // assemble storage fields
-    for field in fields.iter().filter(|field| !field.constant) {
+    for field in fields
+        .iter()
+        .filter(|field| !field.constant)
+        .filter(|field| function_mapping.contains_key(&field.name))
+    {
         let field_name = format_ident!("{}", field.name.to_case(Snake));
         let field_type = &field.field_type;
 
@@ -1525,7 +1530,11 @@ impl ToTokens for Expression {
                     MemberType::Variable(_) => {
                         let formatted_name =TokenStream::from_str(&format_expression( name,Snake))
                             .unwrap();
-                        quote!(#location.data(). #formatted_name)
+                        if let VariableAccessLocation::Constructor = location {
+                            quote!(#location.data. #formatted_name)
+                        } else {
+                            quote!(#location.data(). #formatted_name)
+                        }
                     }
                     MemberType::Function => {
                         let formatted_name =TokenStream::from_str(&format_expression(name,Snake))
@@ -1677,28 +1686,28 @@ impl ToTokens for Import {
             }
             Import::AccountId => {
                 quote!(
-                    use openbrush::traits::AccountId;
+                    pub use openbrush::traits::AccountId;
                 )
             }
             Import::Mapping => {
                 quote!(
-                    use openbrush::storage::Mapping;
+                    pub use openbrush::storage::Mapping;
                 )
             }
             Import::String => {
                 quote!(
-                    use openbrush::traits::String;
+                    pub use openbrush::traits::String;
                 )
             }
             Import::Vec => {
                 quote!(
-                    use ink_prelude::vec::*;
+                    pub use ink_prelude::vec::*;
                 )
             }
             Import::ZeroAddress => {
                 quote!(
-                    use openbrush::traits::ZERO_ADDRESS;
-                    use openbrush::traits::AccountIdExt;
+                    pub use openbrush::traits::ZERO_ADDRESS;
+                    pub use openbrush::traits::AccountIdExt;
                 )
             }
         })
