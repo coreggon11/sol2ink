@@ -1,6 +1,6 @@
 // MIT License
 
-// Copyright (c) 2022 727.ventures
+// Copyright (c) 2022 Supercolony
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -21,7 +21,7 @@
 // SOFTWARE.
 
 const INK_VERSION: &str = "~3.4.0";
-const SOL_2_INK_VERSION: &str = "2.0.0-beta";
+const SOL_2_INK_VERSION: &str = "2.0.0";
 // const OPENBRUSH_VERSION: &str = "2.3.0";
 
 pub fn generate_cargo_toml(package_name: &str, mod_name: Option<String>) -> String {
