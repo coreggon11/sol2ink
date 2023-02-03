@@ -1,9 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v2.0.0
-// https://github.com/727-Ventures/sol2ink
-
 pub use ink_prelude::vec::*;
 pub use openbrush::{
     storage::Mapping,
@@ -14,6 +11,9 @@ pub use openbrush::{
         ZERO_ADDRESS,
     },
 };
+
+// Generated with Sol2Ink v2.0.0
+// https://github.com/727-Ventures/sol2ink
 
 /// SPDX-License-Identifier: MIT
 /// Simplified version of Curve's stable swap AMM
@@ -34,6 +34,7 @@ pub use openbrush::{
 ///6. Remove liquidity one token
 ///   - Calculate withdraw one token
 ///   - getYD
+
 pub enum Error {
     Custom(String),
 }

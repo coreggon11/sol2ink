@@ -295,10 +295,11 @@ pub fn assemble_library(library: Library) -> TokenStream {
         #![cfg_attr(not(feature = "std"), no_std)]
         #![feature(min_specialization)]
         _blank_!();
-        #signature
         #(#imports)*
         _blank_!();
+        #signature
         #(#[doc = #comments])*
+        _blank_!();
         pub enum Error {
             Custom(String),
         }
