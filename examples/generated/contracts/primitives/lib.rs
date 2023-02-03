@@ -11,22 +11,8 @@ pub mod primitives {
         EmitEvent,
         Env,
     };
-    use ink_prelude::vec::*;
     use ink_storage::traits::SpreadAllocate;
-    use openbrush::{
-        storage::Mapping,
-        traits::{
-            AccountId,
-            AccountIdExt,
-            Storage,
-            String,
-            ZERO_ADDRESS,
-        },
-    };
-    use scale::{
-        Decode,
-        Encode,
-    };
+    use openbrush::traits::Storage;
 
 
     #[ink(storage)]
@@ -38,7 +24,7 @@ pub mod primitives {
 
     impl primitives for primitivesContract {}
 
-    impl primitives::Internal for primitivesContract {}
+    impl generated::impls::primitives::Internal for primitivesContract {}
 
     impl primitivesContract {
         #[ink(constructor)]

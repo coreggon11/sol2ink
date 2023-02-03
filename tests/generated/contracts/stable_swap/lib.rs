@@ -11,22 +11,8 @@ pub mod stable_swap {
         EmitEvent,
         Env,
     };
-    use ink_prelude::vec::*;
     use ink_storage::traits::SpreadAllocate;
-    use openbrush::{
-        storage::Mapping,
-        traits::{
-            AccountId,
-            AccountIdExt,
-            Storage,
-            String,
-            ZERO_ADDRESS,
-        },
-    };
-    use scale::{
-        Decode,
-        Encode,
-    };
+    use openbrush::traits::Storage;
 
     /// Number of tokens
     pub const N: u128 = 3;
@@ -55,7 +41,7 @@ pub mod stable_swap {
 
     impl StableSwap for StableSwapContract {}
 
-    impl stable_swap::Internal for StableSwapContract {}
+    impl generated::impls::stable_swap::Internal for StableSwapContract {}
 
     impl StableSwapContract {
         #[ink(constructor)]

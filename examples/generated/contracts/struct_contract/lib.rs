@@ -11,22 +11,8 @@ pub mod struct_contract {
         EmitEvent,
         Env,
     };
-    use ink_prelude::vec::*;
     use ink_storage::traits::SpreadAllocate;
-    use openbrush::{
-        storage::Mapping,
-        traits::{
-            AccountId,
-            AccountIdExt,
-            Storage,
-            String,
-            ZERO_ADDRESS,
-        },
-    };
-    use scale::{
-        Decode,
-        Encode,
-    };
+    use openbrush::traits::Storage;
 
 
     #[ink(event)]
@@ -50,7 +36,7 @@ pub mod struct_contract {
 
     impl StructContract for StructContractContract {}
 
-    impl struct_contract::Internal for StructContractContract {
+    impl generated::impls::struct_contract::Internal for StructContractContract {
         fn _emit_log(&self, sender: AccountId, message: String, priority: u8, status: Status) {
             self.env().emit_event(Log {
                 sender,

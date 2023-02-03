@@ -1,8 +1,8 @@
 // Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
-use ink_prelude::vec::*;
-use openbrush::{
+pub use ink_prelude::vec::*;
+pub use openbrush::{
     storage::Mapping,
     traits::{
         AccountId,
@@ -38,8 +38,5 @@ pub trait flipper {
     ///Simply returns the current value of our `bool`.
     #[ink(message)]
     fn get(&self) -> Result<bool, Error>;
-
-    #[ink(message)]
-    fn value(&self) -> bool;
 
 }

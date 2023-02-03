@@ -1,8 +1,8 @@
 // Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
-use ink_prelude::vec::*;
-use openbrush::{
+pub use ink_prelude::vec::*;
+pub use openbrush::{
     storage::Mapping,
     traits::{
         AccountId,
@@ -43,17 +43,4 @@ pub struct NestedTestStruct {
 pub type ArrayContractRef = dyn ArrayContract;
 
 #[openbrush::trait_definition]
-pub trait ArrayContract {
-    #[ink(message)]
-    fn storage_mapping(&self) -> Mapping<u128, u128>;
-
-    #[ink(message)]
-    fn storage_f_array(&self) -> Vec<u128>;
-
-    #[ink(message)]
-    fn storage_d_array(&self) -> Vec<u128>;
-
-    #[ink(message)]
-    fn storage_d_struct_array(&self) -> Vec<NestedTestStruct>;
-
-}
+pub trait ArrayContract {}

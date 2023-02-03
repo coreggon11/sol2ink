@@ -54,22 +54,8 @@ pub mod access_control {
         EmitEvent,
         Env,
     };
-    use ink_prelude::vec::*;
     use ink_storage::traits::SpreadAllocate;
-    use openbrush::{
-        storage::Mapping,
-        traits::{
-            AccountId,
-            AccountIdExt,
-            Storage,
-            String,
-            ZERO_ADDRESS,
-        },
-    };
-    use scale::{
-        Decode,
-        Encode,
-    };
+    use openbrush::traits::Storage;
 
     pub const DEFAULT_ADMIN_ROLE: [u8; 32] = &hex::decode("0x00");
 
@@ -82,7 +68,7 @@ pub mod access_control {
 
     impl AccessControl for AccessControlContract {}
 
-    impl access_control::Internal for AccessControlContract {}
+    impl generated::impls::access_control::Internal for AccessControlContract {}
 
     impl Context for AccessControlContract {}
 

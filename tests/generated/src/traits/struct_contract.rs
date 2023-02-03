@@ -1,8 +1,8 @@
 // Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
-use ink_prelude::vec::*;
-use openbrush::{
+pub use ink_prelude::vec::*;
+pub use openbrush::{
     storage::Mapping,
     traits::{
         AccountId,
@@ -63,11 +63,5 @@ pub trait StructContract {
 
     #[ink(message)]
     fn create_todo(&mut self, text: String, priority: u8, comment: String) -> Result<(), Error>;
-
-    #[ink(message)]
-    fn status(&self) -> Status;
-
-    #[ink(message)]
-    fn todos(&self) -> Vec<Todo>;
 
 }

@@ -5,13 +5,13 @@ pub use crate::{
     impls,
     traits::*,
 };
-use ink_prelude::vec::*;
-use openbrush::{
+pub use ink_prelude::vec::*;
+use openbrush::traits::Storage;
+pub use openbrush::{
     storage::Mapping,
     traits::{
         AccountId,
         AccountIdExt,
-        Storage,
         String,
         ZERO_ADDRESS,
     },

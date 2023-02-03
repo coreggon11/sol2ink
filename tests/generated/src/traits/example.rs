@@ -1,8 +1,8 @@
 // Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
-use ink_prelude::vec::*;
-use openbrush::{
+pub use ink_prelude::vec::*;
+pub use openbrush::{
     storage::Mapping,
     traits::{
         AccountId,
@@ -139,20 +139,5 @@ pub trait example {
     ///score card
     #[ink(message)]
     fn score_card(&self, c: Card) -> Result<u32, Error>;
-
-    #[ink(message)]
-    fn state(&self) -> State;
-
-    #[ink(message)]
-    fn pid(&self) -> i32;
-
-    #[ink(message)]
-    fn reaped(&self) -> u32;
-
-    #[ink(message)]
-    fn card_1(&self) -> Card;
-
-    #[ink(message)]
-    fn card_2(&self) -> Card;
 
 }

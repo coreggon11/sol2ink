@@ -18,22 +18,8 @@ pub mod erc_1155 {
         EmitEvent,
         Env,
     };
-    use ink_prelude::vec::*;
     use ink_storage::traits::SpreadAllocate;
-    use openbrush::{
-        storage::Mapping,
-        traits::{
-            AccountId,
-            AccountIdExt,
-            Storage,
-            String,
-            ZERO_ADDRESS,
-        },
-    };
-    use scale::{
-        Decode,
-        Encode,
-    };
+    use openbrush::traits::Storage;
 
 
     #[ink(storage)]
@@ -45,7 +31,7 @@ pub mod erc_1155 {
 
     impl ERC1155 for ERC1155Contract {}
 
-    impl erc_1155::Internal for ERC1155Contract {}
+    impl generated::impls::erc_1155::Internal for ERC1155Contract {}
 
     impl Context for ERC1155Contract {}
 

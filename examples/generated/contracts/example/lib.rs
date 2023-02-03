@@ -12,22 +12,8 @@ pub mod example {
         EmitEvent,
         Env,
     };
-    use ink_prelude::vec::*;
     use ink_storage::traits::SpreadAllocate;
-    use openbrush::{
-        storage::Mapping,
-        traits::{
-            AccountId,
-            AccountIdExt,
-            Storage,
-            String,
-            ZERO_ADDRESS,
-        },
-    };
-    use scale::{
-        Decode,
-        Encode,
-    };
+    use openbrush::traits::Storage;
 
     /// Constants
     pub const BAD_STATE: State = state.zombie;
@@ -42,19 +28,19 @@ pub mod example {
 
     impl example for exampleContract {}
 
-    impl example::Internal for exampleContract {}
+    impl generated::impls::example::Internal for exampleContract {}
 
     impl exampleContract {
         /// Our constructors
         #[ink(constructor)]
         pub fn new(pid: i32) -> Self {
             ink_lang::codegen::initialize_contract(|instance: &mut Self| {
-                instance.data().pid = pid;
+                instance.data.pid = pid;
                 self.reaped = 3;
-                self.card_1 = card(instance.data().value.two, suit.club)?;
+                self.card_1 = card(instance.data.value.two, suit.club)?;
                 self.card_2 = card {
                     s: suit.club,
-                    v: instance.data().value.two,
+                    v: instance.data.value.two,
                 };
             })
         }
