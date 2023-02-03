@@ -13,22 +13,8 @@ pub mod array_contract {
         EmitEvent,
         Env,
     };
-    use ink_prelude::vec::*;
     use ink_storage::traits::SpreadAllocate;
-    use openbrush::{
-        storage::Mapping,
-        traits::{
-            AccountId,
-            AccountIdExt,
-            Storage,
-            String,
-            ZERO_ADDRESS,
-        },
-    };
-    use scale::{
-        Decode,
-        Encode,
-    };
+    use openbrush::traits::Storage;
 
 
     #[ink(storage)]
@@ -40,7 +26,7 @@ pub mod array_contract {
 
     impl ArrayContract for ArrayContractContract {}
 
-    impl array_contract::Internal for ArrayContractContract {}
+    impl generated::impls::array_contract::Internal for ArrayContractContract {}
 
     impl ArrayContractContract {
         #[ink(constructor)]

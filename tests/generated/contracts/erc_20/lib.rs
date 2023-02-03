@@ -39,22 +39,8 @@ pub mod erc_20 {
         EmitEvent,
         Env,
     };
-    use ink_prelude::vec::*;
     use ink_storage::traits::SpreadAllocate;
-    use openbrush::{
-        storage::Mapping,
-        traits::{
-            AccountId,
-            AccountIdExt,
-            Storage,
-            String,
-            ZERO_ADDRESS,
-        },
-    };
-    use scale::{
-        Decode,
-        Encode,
-    };
+    use openbrush::traits::Storage;
 
 
     #[ink(storage)]
@@ -66,7 +52,7 @@ pub mod erc_20 {
 
     impl ERC20 for ERC20Contract {}
 
-    impl erc_20::Internal for ERC20Contract {}
+    impl generated::impls::erc_20::Internal for ERC20Contract {}
 
     impl Context for ERC20Contract {}
 
@@ -82,8 +68,8 @@ pub mod erc_20 {
         #[ink(constructor)]
         pub fn new(name: String, symbol: String) -> Self {
             ink_lang::codegen::initialize_contract(|instance: &mut Self| {
-                instance.data().name = name;
-                instance.data().symbol = symbol;
+                instance.data.name = name;
+                instance.data.symbol = symbol;
             })
         }
 

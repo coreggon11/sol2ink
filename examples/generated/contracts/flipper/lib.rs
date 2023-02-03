@@ -11,22 +11,8 @@ pub mod flipper {
         EmitEvent,
         Env,
     };
-    use ink_prelude::vec::*;
     use ink_storage::traits::SpreadAllocate;
-    use openbrush::{
-        storage::Mapping,
-        traits::{
-            AccountId,
-            AccountIdExt,
-            Storage,
-            String,
-            ZERO_ADDRESS,
-        },
-    };
-    use scale::{
-        Decode,
-        Encode,
-    };
+    use openbrush::traits::Storage;
 
 
     #[ink(storage)]
@@ -38,14 +24,14 @@ pub mod flipper {
 
     impl flipper for flipperContract {}
 
-    impl flipper::Internal for flipperContract {}
+    impl generated::impls::flipper::Internal for flipperContract {}
 
     impl flipperContract {
         ///Constructor that initializes the `bool` value to the given `init_value`.
         #[ink(constructor)]
         pub fn new(initvalue: bool) -> Self {
             ink_lang::codegen::initialize_contract(|instance: &mut Self| {
-                instance.data().value = initvalue;
+                instance.data.value = initvalue;
             })
         }
 

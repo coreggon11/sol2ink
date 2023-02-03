@@ -4,7 +4,6 @@
 // Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
-use ink_prelude::vec::*;
 /// SPDX-License-Identifier: MIT
 /// OpenZeppelin Contracts (last updated v4.6.0) (utils/math/SafeMath.sol)
 /// CAUTION
@@ -14,13 +13,14 @@ use ink_prelude::vec::*;
 ///
 /// NOTE: `SafeMath` is generally not needed starting with Solidity 0.8, since the compiler
 /// now has built in overflow checking.
-use openbrush::traits::ZERO_ADDRESS;
-use openbrush::{
+pub use ink_prelude::vec::*;
+pub use openbrush::{
     storage::Mapping,
     traits::{
         AccountId,
         AccountIdExt,
         String,
+        ZERO_ADDRESS,
     },
 };
 

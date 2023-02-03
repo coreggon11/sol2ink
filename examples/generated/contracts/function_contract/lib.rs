@@ -11,22 +11,8 @@ pub mod function_contract {
         EmitEvent,
         Env,
     };
-    use ink_prelude::vec::*;
     use ink_storage::traits::SpreadAllocate;
-    use openbrush::{
-        storage::Mapping,
-        traits::{
-            AccountId,
-            AccountIdExt,
-            Storage,
-            String,
-            ZERO_ADDRESS,
-        },
-    };
-    use scale::{
-        Decode,
-        Encode,
-    };
+    use openbrush::traits::Storage;
 
 
     #[ink(storage)]
@@ -38,13 +24,13 @@ pub mod function_contract {
 
     impl FunctionContract for FunctionContractContract {}
 
-    impl function_contract::Internal for FunctionContractContract {}
+    impl generated::impls::function_contract::Internal for FunctionContractContract {}
 
     impl FunctionContractContract {
         #[ink(constructor)]
         pub fn new() -> Self {
             ink_lang::codegen::initialize_contract(|instance: &mut Self| {
-                instance.data().owner = instance.env().caller();
+                instance.data.owner = instance.env().caller();
                 self.x = 10;
             })
         }

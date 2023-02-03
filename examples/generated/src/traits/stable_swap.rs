@@ -1,8 +1,8 @@
 // Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
-use ink_prelude::vec::*;
-use openbrush::{
+pub use ink_prelude::vec::*;
+pub use openbrush::{
     storage::Mapping,
     traits::{
         AccountId,
@@ -87,20 +87,5 @@ pub trait StableSwap {
         i: u128,
         min_amount_out: u128,
     ) -> Result<u128, Error>;
-
-    #[ink(message)]
-    fn tokens(&self) -> Vec<AccountId>;
-
-    #[ink(message)]
-    fn multipliers(&self) -> Vec<u128>;
-
-    #[ink(message)]
-    fn balances(&self) -> Vec<u128>;
-
-    #[ink(message)]
-    fn total_supply(&self) -> u128;
-
-    #[ink(message)]
-    fn balance_of(&self) -> Mapping<AccountId, u128>;
 
 }

@@ -1,8 +1,8 @@
 // Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
-use ink_prelude::vec::*;
-use openbrush::{
+pub use ink_prelude::vec::*;
+pub use openbrush::{
     storage::Mapping,
     traits::{
         AccountId,
@@ -79,17 +79,5 @@ pub trait FunctionContract {
 
     #[ink(message)]
     fn call_func_with_key_value(&self) -> Result<u128, Error>;
-
-    #[ink(message)]
-    fn owner(&self) -> AccountId;
-
-    #[ink(message)]
-    fn x(&self) -> u128;
-
-    #[ink(message)]
-    fn locked(&self) -> bool;
-
-    #[ink(message)]
-    fn arr(&self) -> Vec<u128>;
 
 }

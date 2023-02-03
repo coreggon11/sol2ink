@@ -1,8 +1,8 @@
 // Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
-use ink_prelude::vec::*;
-use openbrush::{
+pub use ink_prelude::vec::*;
+pub use openbrush::{
     storage::Mapping,
     traits::{
         AccountId,
@@ -93,14 +93,5 @@ pub trait ERC1155 {
         amounts: Vec<u128>,
         data: Vec<u8>,
     ) -> Result<(), Error>;
-
-    #[ink(message)]
-    fn balances(&self) -> Mapping<(u128, AccountId), u128>;
-
-    #[ink(message)]
-    fn operator_approvals(&self) -> Mapping<(AccountId, AccountId), bool>;
-
-    #[ink(message)]
-    fn uri(&self) -> String;
 
 }

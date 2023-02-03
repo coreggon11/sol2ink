@@ -31,11 +31,6 @@ macro_rules! test_case_contract {
         let impl_file = test_file!("tests", "impls", format!("{}.rs", $mod_name));
         let trait_file = test_file!("tests", "traits", format!("{}.rs", $mod_name));
 
-        Command::new("cargo")
-            .args(["+nightly", "run", "examples"])
-            .output()
-            .expect("failed to execute process");
-
         assert_eq!(
             contract_cargo,
             contract_file!("examples", $mod_name, "Cargo.toml")
@@ -57,56 +52,21 @@ macro_rules! test_case_contract {
 }
 
 #[test]
-fn erc20_is_not_changed() {
+fn examples_not_changed() {
+    Command::new("cargo")
+            .args(["+nightly", "run", "examples"])
+            .output()
+            .expect("failed to execute process");
+
     test_case_contract!("ERC20", "erc_20");
-}
-
-#[test]
-fn erc721_is_not_changed() {
     test_case_contract!("ERC721", "erc_721");
-}
-
-#[test]
-fn erc1155_is_not_changed() {
     test_case_contract!("ERC1155", "erc_1155");
-}
-
-#[test]
-fn access_control_is_not_changed() {
     test_case_contract!("AccessControl", "access_control");
-}
-
-#[test]
-fn solang_example_is_not_changed() {
     test_case_contract!("example", "example");
-}
-
-#[test]
-fn flipper_is_not_changed() {
     test_case_contract!("flipper", "flipper");
-}
-
-#[test]
-fn primitives_is_not_changed() {
     test_case_contract!("Primitives", "primitives");
-}
-
-#[test]
-fn array_contract_is_not_changed() {
     test_case_contract!("ArrayContract", "array_contract");
-}
-
-#[test]
-fn comment_contract_is_not_changed() {
     test_case_contract!("CommentContract", "comment_contract");
-}
-
-#[test]
-fn function_contract_is_not_changed() {
     test_case_contract!("FunctionContract", "function_contract");
-}
-
-#[test]
-fn struct_contract_is_not_changed() {
     test_case_contract!("StructContract", "struct_contract");
 }

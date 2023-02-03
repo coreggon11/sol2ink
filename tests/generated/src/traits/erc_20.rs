@@ -1,8 +1,8 @@
 // Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
-use ink_prelude::vec::*;
-use openbrush::{
+pub use ink_prelude::vec::*;
+pub use openbrush::{
     storage::Mapping,
     traits::{
         AccountId,
@@ -137,20 +137,5 @@ pub trait ERC20 {
         spender: AccountId,
         subtracted_value: u128,
     ) -> Result<bool, Error>;
-
-    #[ink(message)]
-    fn balances(&self) -> Mapping<AccountId, u128>;
-
-    #[ink(message)]
-    fn allowances(&self) -> Mapping<(AccountId, AccountId), u128>;
-
-    #[ink(message)]
-    fn total_supply(&self) -> u128;
-
-    #[ink(message)]
-    fn name(&self) -> String;
-
-    #[ink(message)]
-    fn symbol(&self) -> String;
 
 }
