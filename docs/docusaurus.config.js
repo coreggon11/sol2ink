@@ -9,7 +9,7 @@ const config = {
   title: 'Sol2Ink',
   tagline: 'Sol2Ink documentation',
   url: 'https://sol2ink.com',
-  baseUrl: '/',
+  baseUrl: '/sol2ink/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',
