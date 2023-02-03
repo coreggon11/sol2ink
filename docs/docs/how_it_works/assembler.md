@@ -15,7 +15,7 @@ pub enum Error {
     Custom(String),
 }
 ```
-This error will be used as the error type when returning results from the contract functions.
+This error will be used as the error type when returning results from the contract functions. In the future versions, we plan on creating an Error enum variant for each error a contract can produce. So instead of `Err(Error::Custom(String::from("No allowance")))` Sol2Ink will produce `Err(Error::NoAllowance)`.
 
 ### Storage
 
