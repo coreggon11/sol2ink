@@ -1,17 +1,16 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
     impls,
     traits::*,
 };
-use ink_prelude::vec::*;
-use openbrush::{
+use openbrush::traits::Storage;
+pub use openbrush::{
     storage::Mapping,
     traits::{
         AccountId,
         AccountIdExt,
-        Storage,
         String,
         ZERO_ADDRESS,
     },

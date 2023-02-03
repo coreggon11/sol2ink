@@ -1,21 +1,17 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v2.0.0-beta
+pub use openbrush::traits::{
+    AccountId,
+    AccountIdExt,
+    ZERO_ADDRESS,
+};
+
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
-use ink_prelude::vec::*;
 /// library containing some math for dealing with the liquidity shares of a pair, e.g. computing their exact value
 /// in terms of the underlying tokens
-use openbrush::traits::ZERO_ADDRESS;
-use openbrush::{
-    storage::Mapping,
-    traits::{
-        AccountId,
-        AccountIdExt,
-        String,
-    },
-};
 
 pub enum Error {
     Custom(String),
@@ -74,7 +70,7 @@ pub fn get_reserves_after_arbitrage(
 ) -> Result<(u128, u128), Error> {
     let mut reserve_a = Default::default();
     let mut reserve_b = Default::default();
-    (_, _) = uniswap_v_2_library.get_reserves(self.data().factory, token_a, token_b)?;
+    (_, _) = uniswap_v_2_library.get_reserves(factory, token_a, token_b)?;
     if !(reserve_a > 0 && reserve_b > 0) {
         return Err(Error::Custom(String::from(
             "UniswapV2ArbitrageLibrary: ZERO_PAIR_RESERVES",
@@ -118,16 +114,16 @@ pub fn compute_liquidity_value(
 ) -> Result<(u128, u128), Error> {
     let mut token_a_amount = Default::default();
     let mut token_b_amount = Default::default();
-    if fee_on && self.data().k_last > 0 {
+    if fee_on && k_last > 0 {
         let mut root_k: u128 = babylonian.sqrt(reserves_a.mul(reserves_b)?)?;
-        let mut root_k_last: u128 = babylonian.sqrt(self.data().k_last)?;
+        let mut root_k_last: u128 = babylonian.sqrt(k_last)?;
         if root_k > root_k_last {
-            let mut numerator_1: u128 = self.data().total_supply;
+            let mut numerator_1: u128 = total_supply;
             let mut numerator_2: u128 = root_k.sub(root_k_last)?;
             let mut denominator: u128 = root_k.mul(5)?.add(root_k_last)?;
             let mut fee_liquidity: u128 =
                 full_math.mul_div(numerator_1, numerator_2, denominator)?;
-            self.data().total_supply = self.data().total_supply.add(fee_liquidity)?;
+            total_supply = total_supply.add(fee_liquidity)?;
         }
     }
     return Ok((_, _))
@@ -145,21 +141,19 @@ pub fn get_liquidity_value(
 ) -> Result<(u128, u128), Error> {
     let mut token_a_amount = Default::default();
     let mut token_b_amount = Default::default();
-    (reserves_a, reserves_b) =
-        uniswap_v_2_library.get_reserves(self.data().factory, token_a, token_b)?;
+    (reserves_a, reserves_b) = uniswap_v_2_library.get_reserves(factory, token_a, token_b)?;
     let mut pair: IUniswapV2Pair =
-        i_uniswap_v_2_pair(uniswap_v_2_library.pair_for(self.data().factory, token_a, token_b)?)?;
-    let mut fee_on: bool =
-        i_uniswap_v_2_factory(self.data().factory)?.fee_to()? != ZERO_ADDRESS.into();
+        i_uniswap_v_2_pair(uniswap_v_2_library.pair_for(factory, token_a, token_b)?)?;
+    let mut fee_on: bool = i_uniswap_v_2_factory(factory)?.fee_to()? != ZERO_ADDRESS.into();
     let mut k_last: u128 = if fee_on { pair.k_last()? } else { 0 };
     let mut total_supply: u128 = pair.total_supply()?;
     return Ok(self._compute_liquidity_value(
         reserves_a,
         reserves_b,
-        self.data().total_supply,
+        total_supply,
         liquidity_amount,
         fee_on,
-        self.data().k_last,
+        k_last,
     )?)
 }
 
@@ -176,19 +170,18 @@ pub fn get_liquidity_value_after_arbitrage_to_price(
 ) -> Result<(u128, u128), Error> {
     let mut token_a_amount = Default::default();
     let mut token_b_amount = Default::default();
-    let mut fee_on: bool =
-        i_uniswap_v_2_factory(self.data().factory)?.fee_to()? != ZERO_ADDRESS.into();
+    let mut fee_on: bool = i_uniswap_v_2_factory(factory)?.fee_to()? != ZERO_ADDRESS.into();
     let mut pair: IUniswapV2Pair =
-        i_uniswap_v_2_pair(uniswap_v_2_library.pair_for(self.data().factory, token_a, token_b)?)?;
+        i_uniswap_v_2_pair(uniswap_v_2_library.pair_for(factory, token_a, token_b)?)?;
     let mut k_last: u128 = if fee_on { pair.k_last()? } else { 0 };
     let mut total_supply: u128 = pair.total_supply()?;
-    if !(self.data().total_supply >= liquidity_amount && liquidity_amount > 0) {
+    if !(total_supply >= liquidity_amount && liquidity_amount > 0) {
         return Err(Error::Custom(String::from(
             "ComputeLiquidityValue: LIQUIDITY_AMOUNT",
         )))
     };
     (reserves_a, reserves_b) = self._get_reserves_after_arbitrage(
-        self.data().factory,
+        factory,
         token_a,
         token_b,
         true_price_token_a,
@@ -197,10 +190,10 @@ pub fn get_liquidity_value_after_arbitrage_to_price(
     return Ok(self._compute_liquidity_value(
         reserves_a,
         reserves_b,
-        self.data().total_supply,
+        total_supply,
         liquidity_amount,
         fee_on,
-        self.data().k_last,
+        k_last,
     )?)
 }
 

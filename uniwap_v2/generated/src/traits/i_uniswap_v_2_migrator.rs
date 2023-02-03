@@ -1,16 +1,7 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
-use ink_prelude::vec::*;
-use openbrush::{
-    storage::Mapping,
-    traits::{
-        AccountId,
-        AccountIdExt,
-        String,
-        ZERO_ADDRESS,
-    },
-};
+pub use openbrush::traits::AccountId;
 
 #[openbrush::wrapper]
 pub type IUniswapV2MigratorRef = dyn IUniswapV2Migrator;

@@ -1,19 +1,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v2.0.0-beta
+pub use openbrush::traits::{
+    AccountId,
+    AccountIdExt,
+    ZERO_ADDRESS,
+};
+
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
-use ink_prelude::vec::*;
-use openbrush::{
-    storage::Mapping,
-    traits::{
-        AccountId,
-        AccountIdExt,
-        String,
-        ZERO_ADDRESS,
-    },
-};
 
 pub enum Error {
     Custom(String),
@@ -34,7 +30,7 @@ pub fn sort_tokens(
         )))
     };
     (_, _) = if token_a < token_b { (_, _) } else { (_, _) };
-    if !(self.data().token_0 != ZERO_ADDRESS.into()) {
+    if !(token_0 != ZERO_ADDRESS.into()) {
         return Err(Error::Custom(String::from(
             "UniswapV2Library: ZERO_ADDRESS",
         )))
@@ -53,17 +49,15 @@ pub fn pair_for(
     (token_0, token_1) = self._sort_tokens(token_a, token_b)?;
     pair = AccountId::from(<u128>::from(keccak_256(abi.encode_packed(
         &hex::decode("ff"),
-        self.data().factory,
-        keccak_256(abi.encode_packed(self.data().token_0, self.data().token_1)?)?,
+        factory,
+        keccak_256(abi.encode_packed(token_0, token_1)?)?,
         &hex::decode("96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f"),
     )?)?));
     Ok(pair)
 }
 
-/// if time has elapsed since the last update on the pair, mock the accumulated price values
 /// init code hash
 /// fetches and sorts the reserves for a pair
-/// subtraction overflow is desired
 pub fn get_reserves(
     &self,
     factory: AccountId,
@@ -74,19 +68,11 @@ pub fn get_reserves(
     let mut reserve_b = Default::default();
     (token_0, _) = self._sort_tokens(token_a, token_b)?;
     (reserve_0, reserve_1, _) =
-        i_uniswap_v_2_pair(self._pair_for(self.data().factory, token_a, token_b)?)?
-            .get_reserves()?;
-    (_, _) = if token_a == self.data().token_0 {
-        (_, _)
-    } else {
-        (_, _)
-    };
+        i_uniswap_v_2_pair(self._pair_for(factory, token_a, token_b)?)?.get_reserves()?;
+    (_, _) = if token_a == token_0 { (_, _) } else { (_, _) };
     Ok((reserve_a, reserve_b))
 }
 
-/// addition overflow is desired
-/// counterfactual
-/// counterfactual
 /// given some amount of an asset and pair reserves, returns an equivalent amount of the other asset
 pub fn quote(&self, amount_a: u128, reserve_a: u128, reserve_b: u128) -> Result<u128, Error> {
     let mut amount_b = Default::default();
@@ -169,8 +155,7 @@ pub fn get_amounts_out(
     amounts = vec![u128::default(); path.length];
     amounts[0] = amount_in;
     while i < path.length - 1 {
-        (reserve_in, reserve_out) =
-            self._get_reserves(self.data().factory, path[i], path[i + 1])?;
+        (reserve_in, reserve_out) = self._get_reserves(factory, path[i], path[i + 1])?;
         amounts[i + 1] = self._get_amount_out(amounts[i], reserve_in, reserve_out)?;
         i += 1;
     }
@@ -194,8 +179,7 @@ pub fn get_amounts_in(
     amounts[amounts.length - 1] = amount_out;
     let mut i: u128 = path.length - 1;
     while i > 0 {
-        (reserve_in, reserve_out) =
-            self._get_reserves(self.data().factory, path[i - 1], path[i])?;
+        (reserve_in, reserve_out) = self._get_reserves(factory, path[i - 1], path[i])?;
         amounts[i - 1] = self._get_amount_in(amounts[i], reserve_in, reserve_out)?;
         i -= 1;
     }

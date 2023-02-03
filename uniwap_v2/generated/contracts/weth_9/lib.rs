@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 /// Copyright (C) 2015, 2016, 2017 Dapphub
@@ -22,22 +22,8 @@ pub mod weth_9 {
         EmitEvent,
         Env,
     };
-    use ink_prelude::vec::*;
     use ink_storage::traits::SpreadAllocate;
-    use openbrush::{
-        storage::Mapping,
-        traits::{
-            AccountId,
-            AccountIdExt,
-            Storage,
-            String,
-            ZERO_ADDRESS,
-        },
-    };
-    use scale::{
-        Decode,
-        Encode,
-    };
+    use openbrush::traits::Storage;
 
 
     #[ink(event)]
@@ -81,7 +67,7 @@ pub mod weth_9 {
 
     impl WETH9 for WETH9Contract {}
 
-    impl weth_9::Internal for WETH9Contract {
+    impl generated::impls::weth_9::Internal for WETH9Contract {
         fn _emit_approval(&self, src: AccountId, guy: AccountId, wad: u128) {
             self.env().emit_event(Approval { src, guy, wad });
         }

@@ -1,8 +1,7 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
-use ink_prelude::vec::*;
-use openbrush::{
+pub use openbrush::{
     storage::Mapping,
     traits::{
         AccountId,
@@ -50,20 +49,5 @@ pub trait UniswapV2ERC20 {
         r: [u8; 32],
         s: [u8; 32],
     ) -> Result<(), Error>;
-
-    #[ink(message)]
-    fn total_supply(&self) -> u128;
-
-    #[ink(message)]
-    fn balance_of(&self) -> Mapping<AccountId, u128>;
-
-    #[ink(message)]
-    fn allowance(&self) -> Mapping<(AccountId, AccountId), u128>;
-
-    #[ink(message)]
-    fn domain_separator(&self) -> [u8; 32];
-
-    #[ink(message)]
-    fn nonces(&self) -> Mapping<AccountId, u128>;
 
 }

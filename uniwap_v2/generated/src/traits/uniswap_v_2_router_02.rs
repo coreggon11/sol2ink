@@ -1,15 +1,10 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
-use ink_prelude::vec::*;
-use openbrush::{
-    storage::Mapping,
-    traits::{
-        AccountId,
-        AccountIdExt,
-        String,
-        ZERO_ADDRESS,
-    },
+pub use openbrush::traits::{
+    AccountId,
+    AccountIdExt,
+    ZERO_ADDRESS,
 };
 use scale::{
     Decode,
@@ -80,7 +75,6 @@ pub trait UniswapV2Router02 {
         deadline: u128,
     ) -> Result<(u128, u128), Error>;
 
-    /// should never happen.
     #[ink(message)]
     fn remove_liquidity_with_permit(
         &mut self,
@@ -252,11 +246,5 @@ pub trait UniswapV2Router02 {
 
     #[ink(message)]
     fn get_amounts_in(&self, amount_out: u128, path: Vec<AccountId>) -> Result<Vec<u128>, Error>;
-
-    #[ink(message)]
-    fn factory(&self) -> AccountId;
-
-    #[ink(message)]
-    fn weth(&self) -> AccountId;
 
 }

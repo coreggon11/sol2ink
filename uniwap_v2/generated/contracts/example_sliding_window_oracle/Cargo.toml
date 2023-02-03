@@ -1,6 +1,6 @@
 [package]
 name = "example_sliding_window_oracle"
-version = "2.0.0-beta"
+version = "2.0.0"
 edition = "2021"
 authors = ["Sol2Ink"]
 

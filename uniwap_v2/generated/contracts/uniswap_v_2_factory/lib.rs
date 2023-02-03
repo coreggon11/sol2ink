@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 #[openbrush::contract]
@@ -11,21 +11,8 @@ pub mod uniswap_v_2_factory {
         EmitEvent,
         Env,
     };
-    use ink_prelude::vec::*;
     use ink_storage::traits::SpreadAllocate;
-    use openbrush::{
-        storage::Mapping,
-        traits::{
-            AccountId,
-            AccountIdExt,
-            Storage,
-            ZERO_ADDRESS,
-        },
-    };
-    use scale::{
-        Decode,
-        Encode,
-    };
+    use openbrush::traits::Storage;
 
 
     #[ink(event)]
@@ -47,7 +34,7 @@ pub mod uniswap_v_2_factory {
 
     impl UniswapV2Factory for UniswapV2FactoryContract {}
 
-    impl uniswap_v_2_factory::Internal for UniswapV2FactoryContract {
+    impl generated::impls::uniswap_v_2_factory::Internal for UniswapV2FactoryContract {
         fn _emit_pair_created(
             &self,
             token_0: AccountId,
@@ -71,7 +58,7 @@ pub mod uniswap_v_2_factory {
         #[ink(constructor)]
         pub fn new(fee_to_setter: AccountId) -> Self {
             ink_lang::codegen::initialize_contract(|instance: &mut Self| {
-                instance.data().fee_to_setter = fee_to_setter;
+                instance.data.fee_to_setter = fee_to_setter;
             })
         }
 

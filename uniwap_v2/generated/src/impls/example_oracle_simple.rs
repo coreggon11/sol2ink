@@ -1,21 +1,12 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
     impls,
     traits::*,
 };
-use ink_prelude::vec::*;
-use openbrush::{
-    storage::Mapping,
-    traits::{
-        AccountId,
-        AccountIdExt,
-        Storage,
-        String,
-        ZERO_ADDRESS,
-    },
-};
+pub use openbrush::traits::AccountId;
+use openbrush::traits::Storage;
 
 pub const STORAGE_KEY: u32 = openbrush::storage_unique_key!(Data);
 
@@ -36,10 +27,7 @@ pub struct Data {
 
 impl<T: Storage<Data>> ExampleOracleSimple for T {
     /// fetch the current accumulated price value (1 / 0)
-    /// scope for token{0,1}, avoids stack too deep errors
     /// fetch the current accumulated price value (0 / 1)
-    /// ensure that msg.sender is actually a V2 pair
-    /// this strategy is unidirectional
     /// ensure that there's liquidity in the pair
     fn update(&mut self) -> Result<(), Error> {
         (price_0_cumulative, price_1_cumulative, block_timestamp) = uniswap_v_2_oracle_library
@@ -63,13 +51,9 @@ impl<T: Storage<Data>> ExampleOracleSimple for T {
     }
 
     /// overflow is desired
-    /// this strategy only works with a V2 WETH pair
     /// ensure that at least one full period has passed since the last update
     /// overflow is desired, casting never truncates
-    /// get V1 exchange
     /// cumulative price is in (uq112x112 price * seconds) units so we simply wrap it after division by time elapsed
-    /// slippage parameter for V1, passed in by caller
-    /// fail if we didn't get enough ETH back to repay our flash loan
     /// note this will always return 0 before update has been called successfully for the first time.
     fn consult(&self, token: AccountId, amount_in: u128) -> Result<u128, Error> {
         let mut amount_out = Default::default();

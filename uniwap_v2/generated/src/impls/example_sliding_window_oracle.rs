@@ -1,20 +1,14 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
     impls,
     traits::*,
 };
-use ink_prelude::vec::*;
-use openbrush::{
+use openbrush::traits::Storage;
+pub use openbrush::{
     storage::Mapping,
-    traits::{
-        AccountId,
-        AccountIdExt,
-        Storage,
-        String,
-        ZERO_ADDRESS,
-    },
+    traits::AccountId,
 };
 
 pub const STORAGE_KEY: u32 = openbrush::storage_unique_key!(Data);
@@ -27,10 +21,8 @@ pub struct Data {
     pub window_size: u128,
     /// the number of observations stored for each pair, i.e. how many price observations are stored for the window.
     /// as granularity increases from 1, more frequent updates are needed, but moving averages become more precise.
-    /// true price is expressed as a ratio, so both values must be non-zero
     /// averages are computed over intervals with sizes in the range:
     ///   [windowSize - (windowSize / granularity) * 2, windowSize]
-    /// caller can specify 0 for either if they wish to swap in only one direction, but not both
     /// e.g. if the window size is 24 hours, and the granularity is 24, the oracle will return the average price for
     ///   the period:
     ///   [now - [22 hours, 24 hours], now]
@@ -44,7 +36,6 @@ pub struct Data {
 
 
 impl<T: Storage<Data>> ExampleSlidingWindowOracle for T {
-    /// spend up to the allowance of the token in
     /// returns the index of the observation corresponding to the given timestamp
     fn observation_index_of(&self, timestamp: u128) -> Result<u8, Error> {
         let mut index = Default::default();
@@ -52,9 +43,7 @@ impl<T: Storage<Data>> ExampleSlidingWindowOracle for T {
         return Ok(<u8>::from(epoch_period % self.data().granularity))
     }
 
-    /// keep the rest! (ETH)
     /// no overflow issue. if observationIndex + 1 overflows, result is still zero.
-    /// slippage parameter for V1, passed in by caller
     /// update the cumulative price for the observation at the current timestamp. each observation is updated at most
     /// once per epoch period.
     fn update(&mut self, token_a: AccountId, token_b: AccountId) -> Result<(), Error> {
@@ -63,13 +52,13 @@ impl<T: Storage<Data>> ExampleSlidingWindowOracle for T {
         let mut i: u128 = self
             .data()
             .pair_observations
-            .get(&self.data().pair)
+            .get(&pair)
             .unwrap_or_default()
             .length;
         while i < self.data().granularity {
             self.data()
                 .pair_observations
-                .get(&self.data().pair)
+                .get(&pair)
                 .unwrap_or_default()
                 .push()?;
             i += 1;
@@ -78,12 +67,12 @@ impl<T: Storage<Data>> ExampleSlidingWindowOracle for T {
         let mut observation: Observation = self
             .data()
             .pair_observations
-            .get(&(self.data().pair, observation_index))
+            .get(&(pair, observation_index))
             .unwrap_or_default();
         let mut time_elapsed: u128 = block.timestamp - observation.timestamp;
         if time_elapsed > self.data().period_size {
             (price_0_cumulative, price_1_cumulative, _) =
-                uniswap_v_2_oracle_library.current_cumulative_prices(self.data().pair)?;
+                uniswap_v_2_oracle_library.current_cumulative_prices(pair)?;
             observation.timestamp = block.timestamp;
             observation.price_0_cumulative = price_0_cumulative;
             observation.price_1_cumulative = price_1_cumulative;
@@ -104,8 +93,7 @@ impl<T: Storage<Data>> ExampleSlidingWindowOracle for T {
         let mut amount_out = Default::default();
         let mut pair: AccountId =
             uniswap_v_2_library.pair_for(self.data().factory, token_in, token_out)?;
-        let mut first_observation: Observation =
-            self._get_first_observation_in_window(self.data().pair)?;
+        let mut first_observation: Observation = self._get_first_observation_in_window(pair)?;
         let mut time_elapsed: u128 = block.timestamp - first_observation.timestamp;
         if !(time_elapsed <= self.data().window_size) {
             return Err(Error::Custom(String::from(
@@ -118,9 +106,9 @@ impl<T: Storage<Data>> ExampleSlidingWindowOracle for T {
             )))
         };
         (price_0_cumulative, price_1_cumulative, _) =
-            uniswap_v_2_oracle_library.current_cumulative_prices(self.data().pair)?;
+            uniswap_v_2_oracle_library.current_cumulative_prices(pair)?;
         (token_0, _) = uniswap_v_2_library.sort_tokens(token_in, token_out)?;
-        if self.data().token_0 == token_in {
+        if token_0 == token_in {
             return Ok(self._compute_amount_out(
                 first_observation.price_0_cumulative,
                 price_0_cumulative,
@@ -161,15 +149,10 @@ impl<T: Storage<Data>> ExampleSlidingWindowOracle for T {
 }
 
 pub trait Internal {
-    /// amountOutMin: we can skip computing this number because the math is tested
     /// returns the observation from the oldest epoch (at the beginning of the window) relative to the current time
-    /// return WETH to V2 pair
     fn _get_first_observation_in_window(&self, pair: AccountId) -> Result<Observation, Error>;
 
-    /// fail if we didn't get enough tokens back to repay our flash loan
     /// populate the array with empty observations (first call only)
-    /// return tokens to V2 pair
-    /// keep the rest! (tokens)
     /// get the observation for the current period
     /// we only want to commit updates once per period (i.e. windowSize / granularity)
     /// given the cumulative prices of the start and end of a period, and the length of the period, compute the average
@@ -185,9 +168,7 @@ pub trait Internal {
 }
 
 impl<T: Storage<Data>> Internal for T {
-    /// amountOutMin: we can skip computing this number because the math is tested
     /// returns the observation from the oldest epoch (at the beginning of the window) relative to the current time
-    /// return WETH to V2 pair
     default fn _get_first_observation_in_window(
         &self,
         pair: AccountId,
@@ -198,15 +179,12 @@ impl<T: Storage<Data>> Internal for T {
         first_observation = self
             .data()
             .pair_observations
-            .get(&(self.data().pair, first_observation_index))
+            .get(&(pair, first_observation_index))
             .unwrap_or_default();
         Ok(first_observation)
     }
 
-    /// fail if we didn't get enough tokens back to repay our flash loan
     /// populate the array with empty observations (first call only)
-    /// return tokens to V2 pair
-    /// keep the rest! (tokens)
     /// get the observation for the current period
     /// we only want to commit updates once per period (i.e. windowSize / granularity)
     /// given the cumulative prices of the start and end of a period, and the length of the period, compute the average

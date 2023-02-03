@@ -1,15 +1,9 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
-use ink_prelude::vec::*;
-use openbrush::{
+pub use openbrush::{
     storage::Mapping,
-    traits::{
-        AccountId,
-        AccountIdExt,
-        String,
-        ZERO_ADDRESS,
-    },
+    traits::AccountId,
 };
 use scale::{
     Decode,
@@ -37,14 +31,11 @@ pub type ExampleSlidingWindowOracleRef = dyn ExampleSlidingWindowOracle;
 
 #[openbrush::trait_definition]
 pub trait ExampleSlidingWindowOracle {
-    /// spend up to the allowance of the token in
     /// returns the index of the observation corresponding to the given timestamp
     #[ink(message)]
     fn observation_index_of(&self, timestamp: u128) -> Result<u8, Error>;
 
-    /// keep the rest! (ETH)
     /// no overflow issue. if observationIndex + 1 overflows, result is still zero.
-    /// slippage parameter for V1, passed in by caller
     /// update the cumulative price for the observation at the current timestamp. each observation is updated at most
     /// once per epoch period.
     #[ink(message)]
@@ -61,20 +52,5 @@ pub trait ExampleSlidingWindowOracle {
         amount_in: u128,
         token_out: AccountId,
     ) -> Result<u128, Error>;
-
-    #[ink(message)]
-    fn factory(&self) -> AccountId;
-
-    #[ink(message)]
-    fn window_size(&self) -> u128;
-
-    #[ink(message)]
-    fn granularity(&self) -> u8;
-
-    #[ink(message)]
-    fn period_size(&self) -> u128;
-
-    #[ink(message)]
-    fn pair_observations(&self) -> Mapping<AccountId, Vec<Observation>>;
 
 }

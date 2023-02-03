@@ -1,20 +1,16 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
     impls,
     traits::*,
 };
-use ink_prelude::vec::*;
-use openbrush::{
-    storage::Mapping,
-    traits::{
-        AccountId,
-        AccountIdExt,
-        Storage,
-        String,
-        ZERO_ADDRESS,
-    },
+pub use ink_prelude::vec::*;
+use openbrush::traits::Storage;
+pub use openbrush::traits::{
+    AccountId,
+    AccountIdExt,
+    ZERO_ADDRESS,
 };
 
 pub const STORAGE_KEY: u32 = openbrush::storage_unique_key!(Data);
@@ -88,10 +84,10 @@ impl<T: Storage<Data>> UniswapV2Pair for T {
         let mut amount_0: u128 = balance_0.sub(reserve_0)?;
         let mut amount_1: u128 = balance_1.sub(reserve_1)?;
         let mut fee_on: bool = self._mint_fee(reserve_0, reserve_1)?;
-        let mut total_supply: u128 = self.data().total_supply;
+        let mut total_supply: u128 = total_supply;
         if total_supply == 0 {
             liquidity = math.sqrt(amount_0.mul(amount_1)?)?.sub(MINIMUM_LIQUIDITY)?;
-            self._mint(ZERO_ADDRESS.into(), MINIMUM_LIQUIDITY)?;
+            mint(ZERO_ADDRESS.into(), MINIMUM_LIQUIDITY)?;
         } else {
             liquidity = math.min(
                 amount_0.mul(total_supply)? / reserve_0,
@@ -103,7 +99,7 @@ impl<T: Storage<Data>> UniswapV2Pair for T {
                 "UniswapV2: INSUFFICIENT_LIQUIDITY_MINTED",
             )))
         };
-        self._mint(to, liquidity)?;
+        mint(to, liquidity)?;
         self._update(balance_0, balance_1, reserve_0, reserve_1)?;
         if fee_on {
             self.data().k_last = <u128>::from(self.data().reserve_0).mul(self.data().reserve_1)?;
@@ -126,13 +122,9 @@ impl<T: Storage<Data>> UniswapV2Pair for T {
         let mut token_1: AccountId = self.data().token_1;
         let mut balance_0: u128 = ierc_20(token_0)?.balance_of(Self::env().account_id())?;
         let mut balance_1: u128 = ierc_20(token_1)?.balance_of(Self::env().account_id())?;
-        let mut liquidity: u128 = self
-            .data()
-            .balance_of
-            .get(&Self::env().account_id())
-            .unwrap_or_default();
+        let mut liquidity: u128 = balance_of[Self::env().account_id()];
         let mut fee_on: bool = self._mint_fee(reserve_0, reserve_1)?;
-        let mut total_supply: u128 = self.data().total_supply;
+        let mut total_supply: u128 = total_supply;
         amount_0 = liquidity.mul(balance_0)? / total_supply;
         amount_1 = liquidity.mul(balance_1)? / total_supply;
         if !(amount_0 > 0 && amount_1 > 0) {
@@ -140,7 +132,7 @@ impl<T: Storage<Data>> UniswapV2Pair for T {
                 "UniswapV2: INSUFFICIENT_LIQUIDITY_BURNED",
             )))
         };
-        self._burn(Self::env().account_id(), liquidity)?;
+        burn(Self::env().account_id(), liquidity)?;
         self._safe_transfer(token_0, to, amount_0)?;
         self._safe_transfer(token_1, to, amount_1)?;
         balance_0 = ierc_20(token_0)?.balance_of(Self::env().account_id())?;
@@ -386,19 +378,18 @@ impl<T: Storage<Data>> Internal for T {
     default fn _mint_fee(&mut self, reserve_0: u128, reserve_1: u128) -> Result<bool, Error> {
         let mut fee_on = Default::default();
         let mut fee_to: AccountId = i_uniswap_v_2_factory(self.data().factory)?.fee_to()?;
-        fee_on = self.data().fee_to != ZERO_ADDRESS.into();
+        fee_on = fee_to != ZERO_ADDRESS.into();
         let mut k_last: u128 = self.data().k_last;
         if fee_on {
             if k_last != 0 {
                 let mut root_k: u128 = math.sqrt(<u128>::from(reserve_0).mul(reserve_1)?)?;
                 let mut root_k_last: u128 = math.sqrt(k_last)?;
                 if root_k > root_k_last {
-                    let mut numerator: u128 =
-                        self.data().total_supply.mul(root_k.sub(root_k_last)?)?;
+                    let mut numerator: u128 = total_supply.mul(root_k.sub(root_k_last)?)?;
                     let mut denominator: u128 = root_k.mul(5)?.add(root_k_last)?;
                     let mut liquidity: u128 = numerator / denominator;
                     if liquidity > 0 {
-                        self._mint(self.data().fee_to, liquidity)?;
+                        mint(fee_to, liquidity)?;
                     }
                 }
             }

@@ -1,22 +1,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v2.0.0-beta
+
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
-use ink_prelude::vec::*;
 /// a library for handling binary fixed point numbers (https://en.wikipedia.org/wiki/Q_(number_format))
 /// range: [0, 2**112 - 1]
 /// resolution: 1 / 2**112
-use openbrush::traits::ZERO_ADDRESS;
-use openbrush::{
-    storage::Mapping,
-    traits::{
-        AccountId,
-        AccountIdExt,
-        String,
-    },
-};
 
 pub enum Error {
     Custom(String),

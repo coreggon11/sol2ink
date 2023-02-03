@@ -1,21 +1,13 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
     impls,
     traits::*,
 };
-use ink_prelude::vec::*;
-use openbrush::{
-    storage::Mapping,
-    traits::{
-        AccountId,
-        AccountIdExt,
-        Storage,
-        String,
-        ZERO_ADDRESS,
-    },
-};
+pub use ink_prelude::vec::*;
+pub use openbrush::traits::AccountId;
+use openbrush::traits::Storage;
 
 pub const STORAGE_KEY: u32 = openbrush::storage_unique_key!(Data);
 
@@ -43,29 +35,17 @@ impl<T: Storage<Data>> ExampleFlashSwap for T {
         let mut token_1: AccountId = i_uniswap_v_2_pair(Self::env().caller())?.token_1()?;
         assert(
             Self::env().caller()
-                == uniswap_v_2_library.pair_for(
-                    self.data().factory,
-                    self.data().token_0,
-                    self.data().token_1,
-                )?,
+                == uniswap_v_2_library.pair_for(self.data().factory, token_0, token_1)?,
         )?;
         assert(amount_0 == 0 || amount_1 == 0)?;
-        path[0] = if amount_0 == 0 {
-            self.data().token_0
-        } else {
-            self.data().token_1
-        };
-        path[1] = if amount_0 == 0 {
-            self.data().token_1
-        } else {
-            self.data().token_0
-        };
-        amount_token = if self.data().token_0 == AccountId::from(self.data().weth) {
+        path[0] = if amount_0 == 0 { token_0 } else { token_1 };
+        path[1] = if amount_0 == 0 { token_1 } else { token_0 };
+        amount_token = if token_0 == AccountId::from(self.data().weth) {
             amount_1
         } else {
             amount_0
         };
-        amount_eth = if self.data().token_0 == AccountId::from(self.data().weth) {
+        amount_eth = if token_0 == AccountId::from(self.data().weth) {
             amount_0
         } else {
             amount_1

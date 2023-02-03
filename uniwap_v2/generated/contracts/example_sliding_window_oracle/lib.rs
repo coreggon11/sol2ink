@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 /// sliding window oracle that uses observations collected over a window to provide moving price averages in the past
@@ -15,22 +15,8 @@ pub mod example_sliding_window_oracle {
         EmitEvent,
         Env,
     };
-    use ink_prelude::vec::*;
     use ink_storage::traits::SpreadAllocate;
-    use openbrush::{
-        storage::Mapping,
-        traits::{
-            AccountId,
-            AccountIdExt,
-            Storage,
-            String,
-            ZERO_ADDRESS,
-        },
-    };
-    use scale::{
-        Decode,
-        Encode,
-    };
+    use openbrush::traits::Storage;
 
 
     #[ink(storage)]
@@ -42,7 +28,10 @@ pub mod example_sliding_window_oracle {
 
     impl ExampleSlidingWindowOracle for ExampleSlidingWindowOracleContract {}
 
-    impl example_sliding_window_oracle::Internal for ExampleSlidingWindowOracleContract {}
+    impl generated::impls::example_sliding_window_oracle::Internal
+        for ExampleSlidingWindowOracleContract
+    {
+    }
 
     impl ExampleSlidingWindowOracleContract {
         #[ink(constructor)]
@@ -53,16 +42,16 @@ pub mod example_sliding_window_oracle {
                         "SlidingWindowOracle: GRANULARITY",
                     )))
                 };
-                if !((instance.data().period_size = window_size / granularity) * granularity
+                if !((instance.data.period_size = window_size / granularity) * granularity
                     == window_size)
                 {
                     return Err(Error::Custom(String::from(
                         "SlidingWindowOracle: WINDOW_NOT_EVENLY_DIVISIBLE",
                     )))
                 };
-                instance.data().factory = factory;
-                instance.data().window_size = window_size;
-                instance.data().granularity = granularity;
+                instance.data.factory = factory;
+                instance.data.window_size = window_size;
+                instance.data.granularity = granularity;
             })
         }
 

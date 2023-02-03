@@ -1,20 +1,15 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
     impls,
     traits::*,
 };
-use ink_prelude::vec::*;
-use openbrush::{
-    storage::Mapping,
-    traits::{
-        AccountId,
-        AccountIdExt,
-        Storage,
-        String,
-        ZERO_ADDRESS,
-    },
+use openbrush::traits::Storage;
+pub use openbrush::traits::{
+    AccountId,
+    AccountIdExt,
+    ZERO_ADDRESS,
 };
 
 pub const STORAGE_KEY: u32 = openbrush::storage_unique_key!(Data);
@@ -131,11 +126,7 @@ impl<T: Storage<Data>> UniswapV2Router01 for T {
         i_uniswap_v_2_pair(pair)?.transfer_from(Self::env().caller(), pair, liquidity)?;
         (amount_0, amount_1) = i_uniswap_v_2_pair(pair)?.burn(to)?;
         (token_0, _) = uniswap_v_2_library.sort_tokens(token_a, token_b)?;
-        (_, _) = if token_a == self.data().token_0 {
-            (_, _)
-        } else {
-            (_, _)
-        };
+        (_, _) = if token_a == token_0 { (_, _) } else { (_, _) };
         if !(amount_a >= amount_a_min) {
             return Err(Error::Custom(String::from(
                 "UniswapV2Router: INSUFFICIENT_A_AMOUNT",
@@ -177,7 +168,6 @@ impl<T: Storage<Data>> UniswapV2Router01 for T {
         Ok((amount_token, amount_eth))
     }
 
-    /// this also checks that totalSupply > 0
     fn remove_liquidity_with_permit(
         &mut self,
         token_a: AccountId,
@@ -576,11 +566,7 @@ impl<T: Storage<Data>> Internal for T {
             (input, output) = (_, _);
             (token_0, _) = uniswap_v_2_library.sort_tokens(input, output)?;
             let mut amount_out: u128 = amounts[i + 1];
-            (amount_0_out, amount_1_out) = if input == self.data().token_0 {
-                (_, _)
-            } else {
-                (_, _)
-            };
+            (amount_0_out, amount_1_out) = if input == token_0 { (_, _) } else { (_, _) };
             let mut to: AccountId = if i < path.length - 2 {
                 uniswap_v_2_library.pair_for(self.data().factory, output, path[i + 2])?
             } else {

@@ -1,15 +1,11 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
-use ink_prelude::vec::*;
-use openbrush::{
-    storage::Mapping,
-    traits::{
-        AccountId,
-        AccountIdExt,
-        String,
-        ZERO_ADDRESS,
-    },
+pub use ink_prelude::vec::*;
+pub use openbrush::traits::{
+    AccountId,
+    AccountIdExt,
+    ZERO_ADDRESS,
 };
 use scale::{
     Decode,
@@ -80,35 +76,5 @@ pub trait UniswapV2Pair {
     /// force reserves to match balances
     #[ink(message)]
     fn sync(&mut self) -> Result<(), Error>;
-
-    #[ink(message)]
-    fn factory(&self) -> AccountId;
-
-    #[ink(message)]
-    fn token_0(&self) -> AccountId;
-
-    #[ink(message)]
-    fn token_1(&self) -> AccountId;
-
-    #[ink(message)]
-    fn reserve_0(&self) -> u128;
-
-    #[ink(message)]
-    fn reserve_1(&self) -> u128;
-
-    #[ink(message)]
-    fn block_timestamp_last(&self) -> u32;
-
-    #[ink(message)]
-    fn price_0_cumulative_last(&self) -> u128;
-
-    #[ink(message)]
-    fn price_1_cumulative_last(&self) -> u128;
-
-    #[ink(message)]
-    fn k_last(&self) -> u128;
-
-    #[ink(message)]
-    fn unlocked(&self) -> u128;
 
 }

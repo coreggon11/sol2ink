@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 #[openbrush::contract]
@@ -11,22 +11,8 @@ pub mod uniswap_v_2_erc_20 {
         EmitEvent,
         Env,
     };
-    use ink_prelude::vec::*;
     use ink_storage::traits::SpreadAllocate;
-    use openbrush::{
-        storage::Mapping,
-        traits::{
-            AccountId,
-            AccountIdExt,
-            Storage,
-            String,
-            ZERO_ADDRESS,
-        },
-    };
-    use scale::{
-        Decode,
-        Encode,
-    };
+    use openbrush::traits::Storage;
 
     pub const NAME: String = "Uniswap V2";
     pub const SYMBOL: String = "UNI-V2";
@@ -62,7 +48,7 @@ pub mod uniswap_v_2_erc_20 {
 
     impl UniswapV2ERC20 for UniswapV2ERC20Contract {}
 
-    impl uniswap_v_2_erc_20::Internal for UniswapV2ERC20Contract {
+    impl generated::impls::uniswap_v_2_erc_20::Internal for UniswapV2ERC20Contract {
         fn _emit_approval(&self, owner: AccountId, spender: AccountId, value: u128) {
             self.env().emit_event(Approval {
                 owner,
@@ -84,7 +70,7 @@ pub mod uniswap_v_2_erc_20 {
         pub fn new() -> Self {
             ink_lang::codegen::initialize_contract(|instance: &mut Self| {
                 __comment__!("Assembly block here. Parsing assembly is not implemented yet");
-                instance . data () . domain_separator = keccak_256 (abi . encode (keccak_256 ("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)") ? , keccak_256 (Vec :: < u8 > :: from (NAME)) ? , keccak_256 (Vec :: < u8 > :: from ("1")) ? , chain_id , instance . env () . account_id ()) ?) ? ;
+                instance . data . domain_separator = keccak_256 (abi . encode (keccak_256 ("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)") ? , keccak_256 (Vec :: < u8 > :: from (NAME)) ? , keccak_256 (Vec :: < u8 > :: from ("1")) ? , chain_id , instance . env () . account_id ()) ?) ? ;
             })
         }
 

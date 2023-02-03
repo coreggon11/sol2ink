@@ -1,19 +1,16 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
     impls,
     traits::*,
 };
-use ink_prelude::vec::*;
-use openbrush::{
+use openbrush::traits::Storage;
+pub use openbrush::{
     storage::Mapping,
     traits::{
         AccountId,
-        AccountIdExt,
-        Storage,
         String,
-        ZERO_ADDRESS,
     },
 };
 
@@ -85,12 +82,10 @@ impl<T: Storage<Data>> WETH9 for T {
         return Ok(true)
     }
 
-    /// be a good blockchain citizen, reset allowance to 0
     fn transfer(&mut self, dst: AccountId, wad: u128) -> Result<bool, Error> {
         return Ok(self.transfer_from(Self::env().caller(), dst, wad)?)
     }
 
-    /// addLiquidityETH guarantees that all of amountETHV1 or amountTokenV1 will be used, hence this else is safe
     fn transfer_from(&mut self, src: AccountId, dst: AccountId, wad: u128) -> Result<bool, Error> {
         if !(self.data().balance_of.get(&src).unwrap_or_default() >= wad) {
             return Err(Error::Custom(String::from("")))

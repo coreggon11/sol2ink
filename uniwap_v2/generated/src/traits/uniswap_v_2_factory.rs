@@ -1,8 +1,8 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
-use ink_prelude::vec::*;
-use openbrush::{
+pub use ink_prelude::vec::*;
+pub use openbrush::{
     storage::Mapping,
     traits::{
         AccountId,
@@ -41,17 +41,5 @@ pub trait UniswapV2Factory {
 
     #[ink(message)]
     fn set_fee_to_setter(&mut self, fee_to_setter: AccountId) -> Result<(), Error>;
-
-    #[ink(message)]
-    fn fee_to(&self) -> AccountId;
-
-    #[ink(message)]
-    fn fee_to_setter(&self) -> AccountId;
-
-    #[ink(message)]
-    fn get_pair(&self) -> Mapping<(AccountId, AccountId), AccountId>;
-
-    #[ink(message)]
-    fn all_pairs(&self) -> Vec<AccountId>;
 
 }

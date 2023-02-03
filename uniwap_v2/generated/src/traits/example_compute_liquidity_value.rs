@@ -1,16 +1,7 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
-use ink_prelude::vec::*;
-use openbrush::{
-    storage::Mapping,
-    traits::{
-        AccountId,
-        AccountIdExt,
-        String,
-        ZERO_ADDRESS,
-    },
-};
+pub use openbrush::traits::AccountId;
 use scale::{
     Decode,
     Encode,
@@ -69,8 +60,5 @@ pub trait ExampleComputeLiquidityValue {
         true_price_token_b: u128,
         liquidity_amount: u128,
     ) -> Result<u128, Error>;
-
-    #[ink(message)]
-    fn factory(&self) -> AccountId;
 
 }

@@ -1,21 +1,12 @@
-// Generated with Sol2Ink v2.0.0-beta
+// Generated with Sol2Ink v2.0.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
     impls,
     traits::*,
 };
-use ink_prelude::vec::*;
-use openbrush::{
-    storage::Mapping,
-    traits::{
-        AccountId,
-        AccountIdExt,
-        Storage,
-        String,
-        ZERO_ADDRESS,
-    },
-};
+pub use openbrush::traits::AccountId;
+use openbrush::traits::Storage;
 
 pub const STORAGE_KEY: u32 = openbrush::storage_unique_key!(Data);
 
@@ -36,9 +27,9 @@ impl<T: Storage<Data>> RouterEventEmitter for T {
         to: AccountId,
         deadline: u128,
     ) -> Result<(), Error> {
-        (success, return_data) = self.data().router.delegatecall(
+        (success, return_data) = router.delegatecall(
             abi.encode_with_selector(
-                i_uniswap_v_2_router_01(self.data().router)?
+                i_uniswap_v_2_router_01(router)?
                     .swap_exact_tokens_for_tokens
                     .selector,
                 amount_in,
@@ -62,9 +53,9 @@ impl<T: Storage<Data>> RouterEventEmitter for T {
         to: AccountId,
         deadline: u128,
     ) -> Result<(), Error> {
-        (success, return_data) = self.data().router.delegatecall(
+        (success, return_data) = router.delegatecall(
             abi.encode_with_selector(
-                i_uniswap_v_2_router_01(self.data().router)?
+                i_uniswap_v_2_router_01(router)?
                     .swap_tokens_for_exact_tokens
                     .selector,
                 amount_out,
@@ -87,9 +78,9 @@ impl<T: Storage<Data>> RouterEventEmitter for T {
         to: AccountId,
         deadline: u128,
     ) -> Result<(), Error> {
-        (success, return_data) = self.data().router.delegatecall(
+        (success, return_data) = router.delegatecall(
             abi.encode_with_selector(
-                i_uniswap_v_2_router_01(self.data().router)?
+                i_uniswap_v_2_router_01(router)?
                     .swap_exact_eth_for_tokens
                     .selector,
                 amount_out_min,
@@ -112,9 +103,9 @@ impl<T: Storage<Data>> RouterEventEmitter for T {
         to: AccountId,
         deadline: u128,
     ) -> Result<(), Error> {
-        (success, return_data) = self.data().router.delegatecall(
+        (success, return_data) = router.delegatecall(
             abi.encode_with_selector(
-                i_uniswap_v_2_router_01(self.data().router)?
+                i_uniswap_v_2_router_01(router)?
                     .swap_tokens_for_exact_eth
                     .selector,
                 amount_out,
@@ -138,9 +129,9 @@ impl<T: Storage<Data>> RouterEventEmitter for T {
         to: AccountId,
         deadline: u128,
     ) -> Result<(), Error> {
-        (success, return_data) = self.data().router.delegatecall(
+        (success, return_data) = router.delegatecall(
             abi.encode_with_selector(
-                i_uniswap_v_2_router_01(self.data().router)?
+                i_uniswap_v_2_router_01(router)?
                     .swap_exact_tokens_for_eth
                     .selector,
                 amount_in,
@@ -163,9 +154,9 @@ impl<T: Storage<Data>> RouterEventEmitter for T {
         to: AccountId,
         deadline: u128,
     ) -> Result<(), Error> {
-        (success, return_data) = self.data().router.delegatecall(
+        (success, return_data) = router.delegatecall(
             abi.encode_with_selector(
-                i_uniswap_v_2_router_01(self.data().router)?
+                i_uniswap_v_2_router_01(router)?
                     .swap_eth_for_exact_tokens
                     .selector,
                 amount_out,
