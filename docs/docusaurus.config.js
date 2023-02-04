@@ -8,7 +8,7 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 const config = {
   title: 'Sol2Ink',
   tagline: 'Sol2Ink documentation',
-  url: 'https://sol2ink.com',
+  url: 'https://727-ventures.github.io/sol2ink/',
   baseUrl: '/sol2ink/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
