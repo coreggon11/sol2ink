@@ -9,6 +9,8 @@ One of our many tasks is to help projects and teams migrate their smart contract
 we found out that the transition process may be unnecessarily long, and if we had a tool that would transpile a Solidity file to Rust and ink!,
 we would save much time. And that is how the idea of Sol2Ink was born.
 
+Sol2Ink uses [Solang parser](https://github.com/hyperledger/solang) to parse Solidity contracts.
+
 ### Capabilities
 
 Sol2Ink can parse Solidity files into ink! project while leveraging the power of [OpenBrush](https://github.com/727-Ventures/openbrush-contracts). You can either parse a single file by providing the path to the file, or a whole folder by providing the path to teh folder. In the latter case, Sol2Ink will parse all Solidity files in the selected folder file tree and add them to one big ink! project. The output of Sol2Ink is a folder called `generated` with the following file structure:
