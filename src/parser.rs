@@ -1500,6 +1500,9 @@ impl<'a> Parser<'a> {
                 self.imports.insert(Import::Mapping);
                 Ok(Type::Mapping(parsed_key_types, Box::new(parsed_value_type)))
             }
+            SolangExpression::Type(_, SolangType::Function { .. }) => {
+                todo!("Function as a parameter")
+            }
             SolangExpression::Type(_, solidity_type) => {
                 let converted_type = self.convert_solidity_type(solidity_type);
                 match converted_type {
