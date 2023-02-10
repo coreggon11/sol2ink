@@ -1707,6 +1707,19 @@ mod tests {
         };
     }
 
+    macro_rules! contract_field {
+        ($field_type: expr, $name: expr, $initial_value: expr, $constant: expr, $public: expr) => {
+            ContractField {
+                field_type: $field_type,
+                name: $name.to_string(),
+                comments: Vec::default(),
+                initial_value: $initial_value,
+                constant: $constant,
+                public: $public,
+            }
+        };
+    }
+
     #[test]
     fn one_contract_definition() {
         initialize_parser!(parser);
@@ -2016,6 +2029,72 @@ mod tests {
             }
         } else {
             unreachable!("Contract expected here")
+        }
+    }
+
+    #[test]
+    fn contract_with_attributes() {
+        initialize_parser!(parser);
+        let output = parser.parse_file(
+            r#"
+            contract Contract {
+                string public name;
+                uint public age;
+                address payable owner;
+                uint constant FEE = 1 ether;
+            }
+            "#,
+        );
+        assert!(output.is_ok());
+
+        let output_ok = output.unwrap();
+        assert_eq!(output_ok.len(), 1);
+
+        if let ParserOutput::Contract(_, contract) = &output_ok[0] {
+            assert_eq!(
+                contract.fields[0],
+                contract_field!(Type::String, "name", None, false, true)
+            );
+            assert_eq!(
+                contract.fields[1],
+                contract_field!(Type::Uint(128), "age", None, false, true)
+            );
+            assert_eq!(
+                contract.fields[2],
+                contract_field!(Type::AccountId, "owner", None, false, false)
+            );
+            assert_eq!(
+                contract.fields[3],
+                contract_field!(
+                    Type::Uint(128),
+                    "FEE",
+                    Some(Expression::Unit(
+                        Box::new(Expression::NumberLiteral(String::from("1"))),
+                        1000000000000000000
+                    )),
+                    true,
+                    false
+                )
+            );
+        } else {
+            unreachable!("Only contract allowed here!")
+        }
+    }
+
+    #[test]
+    fn empty_contract_definition() {
+        initialize_parser!(parser);
+        let output = parser.parse_file("contract Contract {}");
+        assert!(output.is_ok());
+
+        let output_ok = output.unwrap();
+        assert_eq!(output_ok.len(), 1);
+        if let ParserOutput::Contract(_, contract) = &output_ok[0] {
+            assert!(contract.fields.is_empty());
+            assert!(contract.functions.is_empty());
+            assert!(contract.base.is_empty());
+            assert!(contract.enums.is_empty());
+            assert!(contract.events.is_empty());
         }
     }
 }

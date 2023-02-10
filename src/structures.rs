@@ -72,7 +72,7 @@ pub struct Interface {
     pub comments: Vec<String>,
 }
 
-#[derive(Clone,Debug)]
+#[derive(Clone,Debug, Eq, PartialEq)]
 pub struct ContractField {
     pub field_type: Type,
     pub name: String,
