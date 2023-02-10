@@ -28,7 +28,7 @@ where
     T: UniswapV2Router02,
     F: FnOnce(&mut T) -> Result<R, Error>,
 {
-    if !(deadline >= block.timestamp) {
+    if !(deadline >= T::env().block_timestamp()) {
         return Err(Error::Custom(String::from("UniswapV2Router: EXPIRED")))
     };
     body(instance);

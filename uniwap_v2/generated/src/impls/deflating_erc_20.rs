@@ -78,7 +78,7 @@ impl<T: Storage<Data>> DeflatingERC20 for T {
         r: [u8; 32],
         s: [u8; 32],
     ) -> Result<(), Error> {
-        if !(deadline >= block.timestamp) {
+        if !(deadline >= Self::env().block_timestamp()) {
             return Err(Error::Custom(String::from("EXPIRED")))
         };
         let mut digest: [u8; 32] = keccak_256(abi.encode_packed(

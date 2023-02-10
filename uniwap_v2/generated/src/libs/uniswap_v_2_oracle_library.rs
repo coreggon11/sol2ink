@@ -15,7 +15,7 @@ pub enum Error {
 
 /// helper function that returns the current block timestamp within the range of uint32, i.e. [0, 2**32 - 1]
 pub fn current_block_timestamp(&self) -> Result<u32, Error> {
-    return Ok(<u32>::from(block.timestamp % 2.pow(32)))
+    return Ok(<u32>::from(Self::env().block_timestamp() % 2.pow(32)))
 }
 
 /// produces the cumulative price using counterfactuals to save gas and avoid a call to sync.
