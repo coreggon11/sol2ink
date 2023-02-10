@@ -25,7 +25,7 @@ use std::collections::{
     HashSet,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum MemberType {
     Variable(Box<Type>),
     Constant,
@@ -34,7 +34,7 @@ pub enum MemberType {
     None(Box<Type>),
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default,Debug)]
 pub struct Contract {
     pub name: String,
     pub fields: Vec<ContractField>,
@@ -49,7 +49,7 @@ pub struct Contract {
     pub base: Vec<String>,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default,Debug)]
 pub struct Library {
     pub name: String,
     pub fields: Vec<ContractField>,
@@ -61,7 +61,7 @@ pub struct Library {
     pub libraray_doc: Vec<String>,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default,Debug)]
 pub struct Interface {
     pub name: String,
     pub events: Vec<Event>,
@@ -72,7 +72,7 @@ pub struct Interface {
     pub comments: Vec<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub struct ContractField {
     pub field_type: Type,
     pub name: String,
@@ -82,14 +82,14 @@ pub struct ContractField {
     pub public: bool,
 }
 
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub struct Event {
     pub name: String,
     pub fields: Vec<EventField>,
     pub comments: Vec<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub struct EventField {
     pub indexed: bool,
     pub field_type: Type,
@@ -97,20 +97,20 @@ pub struct EventField {
     pub comments: Vec<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub struct Enum {
     pub name: String,
     pub values: Vec<EnumValue>,
     pub comments: Vec<String>,
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone,Debug)]
 pub struct EnumValue {
     pub name: String,
     pub comments: Vec<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub struct Struct {
     pub name: String,
     pub fields: Vec<StructField>,
@@ -131,7 +131,7 @@ pub struct Function {
     pub invalid_modifiers: HashMap<(String, String), Function>,
 }
 
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Debug, Eq, PartialEq)]
 pub struct FunctionHeader {
     pub name: String,
     pub params: Vec<FunctionParam>,
@@ -144,13 +144,13 @@ pub struct FunctionHeader {
     pub invalid_modifiers: Vec<Expression>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FunctionParam {
     pub name: String,
     pub param_type: Type,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Statement {
     Assembly,
     Block(Vec<Statement>),
@@ -176,14 +176,14 @@ pub enum Statement {
     While(Expression, Box<Statement>),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum VariableAccessLocation {
     Constructor,
     Modifier,
     Any,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Expression {
     Add(Box<Expression>, Box<Expression>),
     And(Box<Expression>, Box<Expression>),
@@ -253,7 +253,7 @@ pub enum Expression {
     None,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Type {
     AccountId,
     Array(Box<Type>, Option<Expression>),

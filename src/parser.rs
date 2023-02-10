@@ -58,7 +58,7 @@ use std::collections::{
     VecDeque,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ParserOutput {
     Contract(String, Contract),
     Interface(String, Interface),
@@ -69,7 +69,7 @@ pub enum ParserOutput {
 #[derive(Debug, Eq, PartialEq)]
 pub enum ParserError {
     FileError(String),
-    FileCorrupted,
+    FileCorrupted(Vec<String>),
 
     ContractNameNotFound,
     StructNameNotFound,
@@ -142,7 +142,9 @@ impl<'a> Parser<'a> {
     ///
     /// `content` the content of a solidity file
     pub fn parse_file(&mut self, content: &str) -> Result<Vec<ParserOutput>, ParserError> {
-        let token_tree = parse(content, 0).map_err(|_| ParserError::FileCorrupted)?;
+        let token_tree = parse(content, 0).map_err(|errors| {
+            ParserError::FileCorrupted(errors.iter().map(|error| error.message.clone()).collect())
+        })?;
 
         let mut output = Vec::new();
         let source_unit = token_tree.0;
@@ -1655,5 +1657,365 @@ fn function_call_in_expression(expresion: &Expression) -> bool {
                 .any(|output| output)
         }
         _ => false,
+    }
+}
+
+#[macro_export]
+macro_rules! initialize_parser {
+    ($parser: ident) => {
+        let mut fields_map = HashMap::new();
+        let mut modifier_map = HashMap::new();
+        let mut imports = HashSet::new();
+        let mut comments = RBTree::new();
+
+        let mut $parser = Parser::new(
+            &mut fields_map,
+            &mut modifier_map,
+            &mut imports,
+            &mut comments,
+        );
+    };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! function_header {
+        (
+            $name: expr,
+            $params: expr,
+            $external: expr,
+            $view: expr,
+            $payable: expr,
+            $return_params: expr,
+            $comments: expr,
+            $modifiers: expr,
+            $invalid_modifiers: expr
+        ) => {
+            FunctionHeader {
+                name: $name.to_string(),
+                params: $params,
+                external: $external,
+                view: $view,
+                payable: $payable,
+                return_params: $return_params,
+                comments: $comments,
+                modifiers: $modifiers,
+                invalid_modifiers: $invalid_modifiers,
+            }
+        };
+    }
+
+    #[test]
+    fn one_contract_definition() {
+        initialize_parser!(parser);
+        let output = parser.parse_file("contract Contract {}");
+        assert!(output.is_ok());
+
+        let output_ok = output.unwrap();
+        assert_eq!(output_ok.len(), 1);
+    }
+
+    #[test]
+    fn multiple_contract_definitions() {
+        initialize_parser!(parser);
+        let output =
+            parser.parse_file("contract Contract {} interface Interface {} library Library {}");
+        assert!(output.is_ok());
+
+        let output_ok = output.unwrap();
+        assert_eq!(output_ok.len(), 3);
+    }
+
+    #[test]
+    fn no_contract_definitions() {
+        initialize_parser!(parser);
+        let output = parser.parse_file("/// This is an empty Solidity file");
+        assert!(output.is_ok());
+
+        let output_ok = output.unwrap();
+        assert_eq!(output_ok.len(), 0);
+    }
+
+    #[test]
+    fn corrupted_file() {
+        initialize_parser!(parser);
+        let output = parser.parse_file("contract { uint abc = 123; }");
+        assert_eq!(
+            output.err().unwrap(),
+            ParserError::FileCorrupted(vec![String::from(
+                r#"unrecognised token '{', expected "case", "default", "error", "leave", "revert", "switch", identifier"#
+            )])
+        );
+    }
+
+    #[test]
+    fn contract_with_function() {
+        initialize_parser!(parser);
+        let output = parser.parse_file(
+            r#"
+            contract A { 
+                function fun_1() external {}
+                function fun_2() external view {}
+                function fun_3() external payable {}
+                function fun_4() internal {}
+            }
+            "#,
+        );
+        assert!(output.is_ok());
+
+        let output_ok = output.unwrap();
+
+        let contract_a = &output_ok[0];
+
+        if let ParserOutput::Contract(_, contract) = contract_a {
+            assert!(contract.base.is_empty());
+            assert_eq!(contract.functions.len(), 4);
+            assert_eq!(
+                contract.functions[0].header,
+                function_header!(
+                    "fun_1",
+                    Vec::default(),
+                    true,
+                    false,
+                    false,
+                    Vec::default(),
+                    Vec::default(),
+                    Vec::default(),
+                    Vec::default()
+                )
+            );
+            assert_eq!(
+                contract.functions[1].header,
+                function_header!(
+                    "fun_2",
+                    Vec::default(),
+                    true,
+                    true,
+                    false,
+                    Vec::default(),
+                    Vec::default(),
+                    Vec::default(),
+                    Vec::default()
+                )
+            );
+            assert_eq!(
+                contract.functions[2].header,
+                function_header!(
+                    "fun_3",
+                    Vec::default(),
+                    true,
+                    false,
+                    true,
+                    Vec::default(),
+                    Vec::default(),
+                    Vec::default(),
+                    Vec::default()
+                )
+            );
+            assert_eq!(
+                contract.functions[3].header,
+                function_header!(
+                    "fun_4",
+                    Vec::default(),
+                    false,
+                    false,
+                    false,
+                    Vec::default(),
+                    Vec::default(),
+                    Vec::default(),
+                    Vec::default()
+                )
+            );
+        } else {
+            unreachable!("Contract expected here")
+        }
+    }
+
+    #[test]
+    fn contract_with_base() {
+        initialize_parser!(parser);
+        let output = parser.parse_file(r#"contract A is B, C, D { }"#);
+        assert!(output.is_ok());
+
+        let output_ok = output.unwrap();
+
+        let contract_a = &output_ok[0];
+
+        if let ParserOutput::Contract(_, contract) = contract_a {
+            assert_eq!(contract.base.len(), 3);
+            assert_eq!(contract.base[0], "B");
+            assert_eq!(contract.base[1], "C");
+            assert_eq!(contract.base[2], "D");
+        } else {
+            unreachable!("Contract expected here")
+        }
+    }
+
+    #[test]
+    fn arithmetic_operations_work() {
+        initialize_parser!(parser);
+        let output = parser.parse_file(
+            r#"
+                contract A { 
+                    function do_math(uint b, uint c) internal returns (uint) { 
+                        uint result = b + c; 
+                        result = b - c; 
+                        result += b * c; 
+                        result -= b / c; 
+                        result *= b % c; 
+                        result /= result; 
+                        return result;
+                    } 
+                }
+                "#,
+        );
+        assert!(output.is_ok());
+
+        let output_ok = output.unwrap();
+
+        let contract_a = &output_ok[0];
+
+        if let ParserOutput::Contract(_, contract) = contract_a {
+            if let Some(Statement::Block(body)) = &contract.functions[0].body {
+                assert_eq!(
+                    body[0],
+                    Statement::VariableDefinition(
+                        Expression::VariableDeclaration(
+                            Box::new(Type::Uint(128)),
+                            String::from("result")
+                        ),
+                        Some(Expression::Add(
+                            Box::new(Expression::Variable(
+                                String::from("b"),
+                                MemberType::None(Box::new(Type::None)),
+                                VariableAccessLocation::Any
+                            )),
+                            Box::new(Expression::Variable(
+                                String::from("c"),
+                                MemberType::None(Box::new(Type::None)),
+                                VariableAccessLocation::Any
+                            )),
+                        ))
+                    )
+                );
+                assert_eq!(
+                    body[1],
+                    Statement::Expression(Expression::Assign(
+                        Box::new(Expression::Variable(
+                            String::from("result"),
+                            MemberType::None(Box::new(Type::None)),
+                            VariableAccessLocation::Any
+                        )),
+                        Box::new(Expression::Subtract(
+                            Box::new(Expression::Variable(
+                                String::from("b"),
+                                MemberType::None(Box::new(Type::None)),
+                                VariableAccessLocation::Any
+                            )),
+                            Box::new(Expression::Variable(
+                                String::from("c"),
+                                MemberType::None(Box::new(Type::None)),
+                                VariableAccessLocation::Any
+                            )),
+                        ))
+                    ))
+                );
+                assert_eq!(
+                    body[2],
+                    Statement::Expression(Expression::AssignAdd(
+                        Box::new(Expression::Variable(
+                            String::from("result"),
+                            MemberType::None(Box::new(Type::None)),
+                            VariableAccessLocation::Any
+                        )),
+                        Box::new(Expression::Multiply(
+                            Box::new(Expression::Variable(
+                                String::from("b"),
+                                MemberType::None(Box::new(Type::None)),
+                                VariableAccessLocation::Any
+                            )),
+                            Box::new(Expression::Variable(
+                                String::from("c"),
+                                MemberType::None(Box::new(Type::None)),
+                                VariableAccessLocation::Any
+                            )),
+                        ))
+                    ))
+                );
+                assert_eq!(
+                    body[3],
+                    Statement::Expression(Expression::AssignSubtract(
+                        Box::new(Expression::Variable(
+                            String::from("result"),
+                            MemberType::None(Box::new(Type::None)),
+                            VariableAccessLocation::Any
+                        )),
+                        Box::new(Expression::Divide(
+                            Box::new(Expression::Variable(
+                                String::from("b"),
+                                MemberType::None(Box::new(Type::None)),
+                                VariableAccessLocation::Any
+                            )),
+                            Box::new(Expression::Variable(
+                                String::from("c"),
+                                MemberType::None(Box::new(Type::None)),
+                                VariableAccessLocation::Any
+                            )),
+                        ))
+                    ))
+                );
+                assert_eq!(
+                    body[4],
+                    Statement::Expression(Expression::AssignMultiply(
+                        Box::new(Expression::Variable(
+                            String::from("result"),
+                            MemberType::None(Box::new(Type::None)),
+                            VariableAccessLocation::Any
+                        )),
+                        Box::new(Expression::Modulo(
+                            Box::new(Expression::Variable(
+                                String::from("b"),
+                                MemberType::None(Box::new(Type::None)),
+                                VariableAccessLocation::Any
+                            )),
+                            Box::new(Expression::Variable(
+                                String::from("c"),
+                                MemberType::None(Box::new(Type::None)),
+                                VariableAccessLocation::Any
+                            )),
+                        ))
+                    ))
+                );
+                assert_eq!(
+                    body[5],
+                    Statement::Expression(Expression::AssignDivide(
+                        Box::new(Expression::Variable(
+                            String::from("result"),
+                            MemberType::None(Box::new(Type::None)),
+                            VariableAccessLocation::Any
+                        )),
+                        Box::new(Expression::Variable(
+                            String::from("result"),
+                            MemberType::None(Box::new(Type::None)),
+                            VariableAccessLocation::Any
+                        )),
+                    ))
+                );
+                assert_eq!(
+                    body[6],
+                    Statement::Return(Some(Expression::Variable(
+                        String::from("result"),
+                        MemberType::None(Box::new(Type::None)),
+                        VariableAccessLocation::Any
+                    )))
+                );
+            } else {
+                unreachable!("Body should not be empty")
+            }
+        } else {
+            unreachable!("Contract expected here")
+        }
     }
 }

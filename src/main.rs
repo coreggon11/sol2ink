@@ -114,17 +114,7 @@ fn main() {
 /// `home` the home directory of a single file, or the directory we are parsing
 /// `path` the paths to the files we want to parse
 fn run(home: &str, path: &[String]) -> Result<(), ParserError> {
-    let mut fields_map = HashMap::new();
-    let mut modifier_map = HashMap::new();
-    let mut imports = HashSet::new();
-    let mut comments = RBTree::new();
-
-    let mut parser = Parser::new(
-        &mut fields_map,
-        &mut modifier_map,
-        &mut imports,
-        &mut comments,
-    );
+    initialize_parser!(parser);
 
     create_structure(home)?;
     let mut impls = Vec::default();
