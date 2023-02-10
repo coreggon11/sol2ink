@@ -357,7 +357,7 @@ impl<T: Storage<Data>> Internal for T {
         if !(balance_0 <= <u128>::from(-1) && balance_1 <= <u128>::from(-1)) {
             return Err(Error::Custom(String::from("UniswapV2: OVERFLOW")))
         };
-        let mut block_timestamp: u32 = <u32>::from(block.timestamp % 2.pow(32));
+        let mut block_timestamp: u32 = <u32>::from(Self::env().block_timestamp() % 2.pow(32));
         let mut time_elapsed: u32 = block_timestamp - self.data().block_timestamp_last;
         if time_elapsed > 0 && reserve_0 != 0 && reserve_1 != 0 {
             self.data().price_0_cumulative_last +=

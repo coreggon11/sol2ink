@@ -63,17 +63,17 @@ impl<T: Storage<Data>> ExampleSlidingWindowOracle for T {
                 .push()?;
             i += 1;
         }
-        let mut observation_index: u8 = self.observation_index_of(block.timestamp)?;
+        let mut observation_index: u8 = self.observation_index_of(Self::env().block_timestamp())?;
         let mut observation: Observation = self
             .data()
             .pair_observations
             .get(&(pair, observation_index))
             .unwrap_or_default();
-        let mut time_elapsed: u128 = block.timestamp - observation.timestamp;
+        let mut time_elapsed: u128 = Self::env().block_timestamp() - observation.timestamp;
         if time_elapsed > self.data().period_size {
             (price_0_cumulative, price_1_cumulative, _) =
                 uniswap_v_2_oracle_library.current_cumulative_prices(pair)?;
-            observation.timestamp = block.timestamp;
+            observation.timestamp = Self::env().block_timestamp();
             observation.price_0_cumulative = price_0_cumulative;
             observation.price_1_cumulative = price_1_cumulative;
         }
@@ -94,7 +94,7 @@ impl<T: Storage<Data>> ExampleSlidingWindowOracle for T {
         let mut pair: AccountId =
             uniswap_v_2_library.pair_for(self.data().factory, token_in, token_out)?;
         let mut first_observation: Observation = self._get_first_observation_in_window(pair)?;
-        let mut time_elapsed: u128 = block.timestamp - first_observation.timestamp;
+        let mut time_elapsed: u128 = Self::env().block_timestamp() - first_observation.timestamp;
         if !(time_elapsed <= self.data().window_size) {
             return Err(Error::Custom(String::from(
                 "SlidingWindowOracle: MISSING_HISTORICAL_OBSERVATION",
@@ -174,7 +174,7 @@ impl<T: Storage<Data>> Internal for T {
         pair: AccountId,
     ) -> Result<Observation, Error> {
         let mut first_observation = Default::default();
-        let mut observation_index: u8 = self.observation_index_of(block.timestamp)?;
+        let mut observation_index: u8 = self.observation_index_of(Self::env().block_timestamp())?;
         let mut first_observation_index: u8 = (observation_index + 1) % self.data().granularity;
         first_observation = self
             .data()

@@ -1249,6 +1249,15 @@ impl ToTokens for Statement {
 /// Returns the TokenStream of an `Expression` enum variant
 impl ToTokens for Expression {
     fn to_tokens(&self, tokens: &mut TokenStream) {
+        macro_rules! transform_location {
+            ($to_declare:ident, $location: expr) => {
+                let $to_declare = match $location {
+                    VariableAccessLocation::Constructor => quote!(instance.),
+                    VariableAccessLocation::Modifier => quote!(T::),
+                    VariableAccessLocation::Any => quote!(Self::),
+                };
+            }
+        }
         tokens.extend(match self {
             Expression::Add(left, right) => quote!( #left + #right),
             Expression::ArraySubscript(expression, index) => {
@@ -1427,15 +1436,27 @@ impl ToTokens for Expression {
             Expression::MemberAccess(left, member) => {
                 match *left.clone() {
                     Expression::Variable(name, _,location) if name == "msg" => {
-                        let location = match location {
-                            VariableAccessLocation::Constructor => quote!(instance.),
-                            VariableAccessLocation::Modifier => quote!(T::),
-                            VariableAccessLocation::Any => quote!(Self::),
-                        };
+                        transform_location!(location, location);
                         match member.as_str() {
                             "sender" => quote!(#location env().caller()),
                             "value" => quote!(#location env().transferred_value()),
+                            "gas" => quote!(#location env().gas_left()),
+                            "sig" => todo!("Function selector (msg.sig)"),
+                            "data" => todo!("Function data (msg.data)"),
                             _ => panic!("msg.{member} is not implemented!"),
+                        }
+                    }
+                    Expression::Variable(name, _,location) if name == "block" => {
+                        transform_location!(location, location);
+                        match member.as_str() {
+                            "number" => quote!(#location env().block_number()),
+                            "timestamp" => quote!(#location env().block_timestamp()),
+                            "basefee" => todo!("block.basefee"),
+                            "chainid" => todo!("block.chainid"),
+                            "coinbase" => todo!("block.coinbase"),
+                            "difficulty" => todo!("block.difficulty"),
+                            "gaslimit" => todo!("block.gaslimit"),
+                            _ => panic!("block.{member} is not implemented!"),
                         }
                     }
                     _ => {
