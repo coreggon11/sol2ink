@@ -1,4 +1,4 @@
-![Sol2!nk](https://user-images.githubusercontent.com/43150707/215464954-13e4c8d8-96b4-49da-996c-3e79b8344b3a.png)
+![Sol2!nk](https://user-images.githubusercontent.com/88630083/218825861-af6d659c-25e9-4324-a927-7746be434dd1.png)
 
 ## Summary
 
