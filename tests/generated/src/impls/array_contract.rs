@@ -1,4 +1,4 @@
-// Generated with Sol2Ink v2.0.0
+// Generated with Sol2Ink v2.1.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
@@ -47,7 +47,7 @@ impl<T: Storage<Data>> Internal for T {
         function_d_array[self.data().storage_f_array.length] = element;
         self.data().storage_f_array[1] = 0;
         self.data().storage_d_array[self.data().storage_f_array.length] = 0;
-        self.data().storage_mapping.insert(&(1), &element);
+        self.data().storage_mapping.insert(&(1), &(element));
         function_d_array[1 + element] = self.data().storage_f_array[0];
         function_d_array[1 / element] = self.data().storage_d_array[1 + element];
         element = self

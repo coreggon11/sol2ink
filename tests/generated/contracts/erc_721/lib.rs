@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v2.0.0
+// Generated with Sol2Ink v2.1.0
 // https://github.com/727-Ventures/sol2ink
 
 /// SPDX-License-Identifier: MIT
@@ -12,24 +12,21 @@
 #[openbrush::contract]
 pub mod erc_721 {
     use generated::*;
-    use ink_lang::codegen::{
+    use ink::lang::codegen::{
         EmitEvent,
         Env,
     };
-    use ink_storage::traits::SpreadAllocate;
     use openbrush::traits::Storage;
 
 
     #[ink(storage)]
-    #[derive(Default, SpreadAllocate, Storage)]
+    #[derive(Default, Storage)]
     pub struct ERC721Contract {
         #[storage_field]
         data: impls::Data,
     }
 
     impl ERC721 for ERC721Contract {}
-
-    impl generated::impls::erc_721::Internal for ERC721Contract {}
 
     impl Context for ERC721Contract {}
 
@@ -43,10 +40,10 @@ pub mod erc_721 {
         /// @dev Initializes the contract by setting a `name` and a `symbol` to the token collection.
         #[ink(constructor)]
         pub fn new(name: String, symbol: String) -> Self {
-            ink_lang::codegen::initialize_contract(|instance: &mut Self| {
-                instance.data.name = name;
-                instance.data.symbol = symbol;
-            })
+            let mut instance = Self::default();
+            instance.data.name = name;
+            instance.data.symbol = symbol;
+            instance
         }
 
     }

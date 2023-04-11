@@ -1,22 +1,21 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v2.0.0
+// Generated with Sol2Ink v2.1.0
 // https://github.com/727-Ventures/sol2ink
 
 #[openbrush::contract]
 pub mod primitives {
     use generated::*;
-    use ink_lang::codegen::{
+    use ink::lang::codegen::{
         EmitEvent,
         Env,
     };
-    use ink_storage::traits::SpreadAllocate;
     use openbrush::traits::Storage;
 
 
     #[ink(storage)]
-    #[derive(Default, SpreadAllocate, Storage)]
+    #[derive(Default, Storage)]
     pub struct primitivesContract {
         #[storage_field]
         data: impls::Data,
@@ -24,12 +23,11 @@ pub mod primitives {
 
     impl primitives for primitivesContract {}
 
-    impl generated::impls::primitives::Internal for primitivesContract {}
-
     impl primitivesContract {
         #[ink(constructor)]
         pub fn new() -> Self {
-            ink_lang::codegen::initialize_contract(|instance: &mut Self| {})
+            let mut instance = Self::default();
+            instance
         }
 
     }

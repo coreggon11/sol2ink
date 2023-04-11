@@ -1,4 +1,4 @@
-// Generated with Sol2Ink v2.0.0
+// Generated with Sol2Ink v2.1.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use openbrush::traits::AccountId;

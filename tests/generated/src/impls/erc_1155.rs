@@ -1,11 +1,11 @@
-// Generated with Sol2Ink v2.0.0
+// Generated with Sol2Ink v2.1.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
     impls,
     traits::*,
 };
-pub use ink_prelude::vec::*;
+pub use ink::prelude::vec::*;
 use openbrush::traits::Storage;
 pub use openbrush::{
     storage::Mapping,
@@ -377,7 +377,7 @@ impl<T: Storage<Data>> Internal for T {
         };
         self.data()
             .balances
-            .insert(&(id, from), &from_balance - amount);
+            .insert(&(id, from), &(from_balance - amount));
         let new_value = self.data().balances.get(&(id, to)).unwrap_or_default() + amount;
         self.data().balances.insert(&(id, to), &new_value);
         self._emit_transfer_single(operator, from, to, id, amount);
@@ -426,7 +426,7 @@ impl<T: Storage<Data>> Internal for T {
             };
             self.data()
                 .balances
-                .insert(&(id, from), &from_balance - amount);
+                .insert(&(id, from), &(from_balance - amount));
             let new_value = self.data().balances.get(&(id, to)).unwrap_or_default() + amount;
             self.data().balances.insert(&(id, to), &new_value);
             i += 1;
@@ -573,7 +573,7 @@ impl<T: Storage<Data>> Internal for T {
         };
         self.data()
             .balances
-            .insert(&(id, from), &from_balance - amount);
+            .insert(&(id, from), &(from_balance - amount));
         self._emit_transfer_single(operator, from, ZERO_ADDRESS.into(), id, amount);
         self._after_token_transfer(operator, from, ZERO_ADDRESS.into(), ids, amounts, "")?;
         Ok(())
@@ -616,7 +616,7 @@ impl<T: Storage<Data>> Internal for T {
             };
             self.data()
                 .balances
-                .insert(&(id, from), &from_balance - amount);
+                .insert(&(id, from), &(from_balance - amount));
             i += 1;
         }
         self._emit_transfer_batch(operator, from, ZERO_ADDRESS.into(), ids, amounts);
@@ -640,7 +640,7 @@ impl<T: Storage<Data>> Internal for T {
         };
         self.data()
             .operator_approvals
-            .insert(&(owner, operator), &approved);
+            .insert(&(owner, operator), &(approved));
         self._emit_approval_for_all(owner, operator, approved);
         Ok(())
     }

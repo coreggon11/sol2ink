@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v2.0.0
+// Generated with Sol2Ink v2.1.0
 // https://github.com/727-Ventures/sol2ink
 
 /// SPDX-License-Identifier: MIT
@@ -35,24 +35,60 @@
 #[openbrush::contract]
 pub mod erc_20 {
     use generated::*;
-    use ink_lang::codegen::{
+    use ink::lang::codegen::{
         EmitEvent,
         Env,
     };
-    use ink_storage::traits::SpreadAllocate;
     use openbrush::traits::Storage;
 
 
+    /// @dev Emitted when `value` tokens are moved from one account (`from`) to
+    /// another (`to`).
+    ///
+    /// Note that `value` may be zero.
+    #[ink(event)]
+    pub struct Transfer {
+        #[ink(topic)]
+        from: AccountId,
+        #[ink(topic)]
+        to: AccountId,
+        value: u128,
+    }
+
+    /// @dev Emitted when the allowance of a `spender` for an `owner` is set by
+    /// a call to {approve}. `value` is the new allowance.
+    #[ink(event)]
+    pub struct Approval {
+        #[ink(topic)]
+        owner: AccountId,
+        #[ink(topic)]
+        spender: AccountId,
+        value: u128,
+    }
+
     #[ink(storage)]
-    #[derive(Default, SpreadAllocate, Storage)]
+    #[derive(Default, Storage)]
     pub struct ERC20Contract {
         #[storage_field]
         data: impls::Data,
     }
 
     impl ERC20 for ERC20Contract {}
+    impl generated::impls::erc_20::Internal for ERC20Contract {
 
-    impl generated::impls::erc_20::Internal for ERC20Contract {}
+        fn _emit_transfer(&self, from: AccountId, to: AccountId, value: u128) {
+            self.env().emit_event(Transfer { from, to, value });
+        }
+
+        fn _emit_approval(&self, owner: AccountId, spender: AccountId, value: u128) {
+            self.env().emit_event(Approval {
+                owner,
+                spender,
+                value,
+            });
+        }
+
+    }
 
     impl Context for ERC20Contract {}
 
@@ -67,10 +103,10 @@ pub mod erc_20 {
         /// construction.
         #[ink(constructor)]
         pub fn new(name: String, symbol: String) -> Self {
-            ink_lang::codegen::initialize_contract(|instance: &mut Self| {
-                instance.data.name = name;
-                instance.data.symbol = symbol;
-            })
+            let mut instance = Self::default();
+            instance.data.name = name;
+            instance.data.symbol = symbol;
+            instance
         }
 
     }

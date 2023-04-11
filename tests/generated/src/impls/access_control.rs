@@ -1,4 +1,4 @@
-// Generated with Sol2Ink v2.0.0
+// Generated with Sol2Ink v2.1.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
@@ -247,7 +247,7 @@ impl<T: Storage<Data>> Internal for T {
                 .get(&role)
                 .unwrap_or_default()
                 .members
-                .insert(&(account), &true);
+                .insert(&(account), &(true));
             self._emit_role_granted(role, account, msg_sender()?);
         }
         Ok(())
@@ -265,7 +265,7 @@ impl<T: Storage<Data>> Internal for T {
                 .get(&role)
                 .unwrap_or_default()
                 .members
-                .insert(&(account), &false);
+                .insert(&(account), &(false));
             self._emit_role_revoked(role, account, msg_sender()?);
         }
         Ok(())

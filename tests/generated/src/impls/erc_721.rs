@@ -1,11 +1,11 @@
-// Generated with Sol2Ink v2.0.0
+// Generated with Sol2Ink v2.1.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
     impls,
     traits::*,
 };
-pub use ink_prelude::vec::*;
+pub use ink::prelude::vec::*;
 use openbrush::traits::Storage;
 pub use openbrush::{
     storage::Mapping,
@@ -491,7 +491,7 @@ impl<T: Storage<Data>> Internal for T {
         };
         let new_value = self.data().balances.get(&(to)).unwrap_or_default() + 1;
         self.data().balances.insert(&(to), &new_value);
-        self.data().owners.insert(&(token_id), &to);
+        self.data().owners.insert(&(token_id), &(to));
         self._emit_transfer(ZERO_ADDRESS.into(), to, token_id);
         self._after_token_transfer(ZERO_ADDRESS.into(), to, token_id, 1)?;
         Ok(())
@@ -564,7 +564,7 @@ impl<T: Storage<Data>> Internal for T {
         self.data().balances.insert(&(from), &new_value);
         let new_value = self.data().balances.get(&(to)).unwrap_or_default() + 1;
         self.data().balances.insert(&(to), &new_value);
-        self.data().owners.insert(&(token_id), &to);
+        self.data().owners.insert(&(token_id), &(to));
         self._emit_transfer(from, to, token_id);
         self._after_token_transfer(from, to, token_id, 1)?;
         Ok(())
@@ -581,7 +581,7 @@ impl<T: Storage<Data>> Internal for T {
     ///
     /// Emits an {Approval} event.
     default fn _approve(&mut self, to: AccountId, token_id: u128) -> Result<(), Error> {
-        self.data().token_approvals.insert(&(token_id), &to);
+        self.data().token_approvals.insert(&(token_id), &(to));
         self._emit_approval(erc_721.owner_of(token_id)?, to, token_id);
         Ok(())
     }
@@ -600,7 +600,7 @@ impl<T: Storage<Data>> Internal for T {
         };
         self.data()
             .operator_approvals
-            .insert(&(owner, operator), &approved);
+            .insert(&(owner, operator), &(approved));
         self._emit_approval_for_all(owner, operator, approved);
         Ok(())
     }

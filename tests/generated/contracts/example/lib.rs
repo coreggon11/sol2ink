@@ -1,18 +1,17 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v2.0.0
+// Generated with Sol2Ink v2.1.0
 // https://github.com/727-Ventures/sol2ink
 
 /// example.sol
 #[openbrush::contract]
 pub mod example {
     use generated::*;
-    use ink_lang::codegen::{
+    use ink::lang::codegen::{
         EmitEvent,
         Env,
     };
-    use ink_storage::traits::SpreadAllocate;
     use openbrush::traits::Storage;
 
     /// Constants
@@ -20,7 +19,7 @@ pub mod example {
     pub const FIRST_PID: i32 = 1;
 
     #[ink(storage)]
-    #[derive(Default, SpreadAllocate, Storage)]
+    #[derive(Default, Storage)]
     pub struct exampleContract {
         #[storage_field]
         data: impls::Data,
@@ -28,21 +27,19 @@ pub mod example {
 
     impl example for exampleContract {}
 
-    impl generated::impls::example::Internal for exampleContract {}
-
     impl exampleContract {
         /// Our constructors
         #[ink(constructor)]
         pub fn new(pid: i32) -> Self {
-            ink_lang::codegen::initialize_contract(|instance: &mut Self| {
-                instance.data.pid = pid;
-                self.reaped = 3;
-                self.card_1 = card(value.two, suit.club)?;
-                self.card_2 = card {
-                    s: suit.club,
-                    v: value.two,
-                };
-            })
+            let mut instance = Self::default();
+            instance.data.pid = pid;
+            self.reaped = 3;
+            self.card_1 = card(value.two, suit.club)?;
+            self.card_2 = card {
+                s: suit.club,
+                v: value.two,
+            };
+            instance
         }
 
     }

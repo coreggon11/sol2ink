@@ -1,4 +1,4 @@
-// Generated with Sol2Ink v2.0.0
+// Generated with Sol2Ink v2.1.0
 // https://github.com/727-Ventures/sol2ink
 
 pub use crate::{
@@ -74,7 +74,7 @@ impl<T: Storage<Data>> ERC20 for T {
     /// - `to` cannot be the zero address.
     /// - the caller must have a balance of at least `amount`.
     fn transfer(&mut self, to: AccountId, amount: u128) -> Result<bool, Error> {
-        let mut owner: AccountId = msg_sender()?;
+        let mut owner: AccountId = Self::env().caller();
         self._transfer(owner, to, amount)?;
         return Ok(true)
     }
@@ -97,7 +97,7 @@ impl<T: Storage<Data>> ERC20 for T {
     ///
     /// - `spender` cannot be the zero address.
     fn approve(&mut self, spender: AccountId, amount: u128) -> Result<bool, Error> {
-        let mut owner: AccountId = msg_sender()?;
+        let mut owner: AccountId = Self::env().caller();
         self._approve(owner, spender, amount)?;
         return Ok(true)
     }
@@ -122,7 +122,7 @@ impl<T: Storage<Data>> ERC20 for T {
         to: AccountId,
         amount: u128,
     ) -> Result<bool, Error> {
-        let mut spender: AccountId = msg_sender()?;
+        let mut spender: AccountId = Self::env().caller();
         self._spend_allowance(from, spender, amount)?;
         self._transfer(from, to, amount)?;
         return Ok(true)
@@ -139,7 +139,7 @@ impl<T: Storage<Data>> ERC20 for T {
     ///
     /// - `spender` cannot be the zero address.
     fn increase_allowance(&mut self, spender: AccountId, added_value: u128) -> Result<bool, Error> {
-        let mut owner: AccountId = msg_sender()?;
+        let mut owner: AccountId = Self::env().caller();
         self._approve(
             owner,
             spender,
@@ -165,7 +165,7 @@ impl<T: Storage<Data>> ERC20 for T {
         spender: AccountId,
         subtracted_value: u128,
     ) -> Result<bool, Error> {
-        let mut owner: AccountId = msg_sender()?;
+        let mut owner: AccountId = Self::env().caller();
         let mut current_allowance: u128 = self.allowance(owner, spender)?;
         if !(current_allowance >= subtracted_value) {
             return Err(Error::Custom(String::from(
@@ -283,6 +283,10 @@ pub trait Internal {
         amount: u128,
     ) -> Result<(), Error>;
 
+    fn _emit_transfer(&self, from: AccountId, to: AccountId, value: u128);
+
+    fn _emit_approval(&self, owner: AccountId, spender: AccountId, value: u128);
+
 }
 
 impl<T: Storage<Data>> Internal for T {
@@ -321,7 +325,9 @@ impl<T: Storage<Data>> Internal for T {
                 "ERC20: transfer amount exceeds balance",
             )))
         };
-        self.data().balances.insert(&(from), &from_balance - amount);
+        self.data()
+            .balances
+            .insert(&(from), &(from_balance - amount));
         let new_value = self.data().balances.get(&(to)).unwrap_or_default() + amount;
         self.data().balances.insert(&(to), &new_value);
         self._emit_transfer(from, to, amount);
@@ -379,7 +385,7 @@ impl<T: Storage<Data>> Internal for T {
         };
         self.data()
             .balances
-            .insert(&(account), &account_balance - amount);
+            .insert(&(account), &(account_balance - amount));
         self.data().total_supply -= amount;
         self._emit_transfer(account, ZERO_ADDRESS.into(), amount);
         self._after_token_transfer(account, ZERO_ADDRESS.into(), amount)?;
@@ -414,7 +420,7 @@ impl<T: Storage<Data>> Internal for T {
                 "ERC20: approve to the zero address",
             )))
         };
-        self.data().allowances.insert(&(owner, spender), &amount);
+        self.data().allowances.insert(&(owner, spender), &(amount));
         self._emit_approval(owner, spender, amount);
         Ok(())
     }
@@ -482,5 +488,9 @@ impl<T: Storage<Data>> Internal for T {
     ) -> Result<(), Error> {
         Ok(())
     }
+
+    default fn _emit_transfer(&self, _: AccountId, _: AccountId, _: u128) {}
+
+    default fn _emit_approval(&self, _: AccountId, _: AccountId, _: u128) {}
 
 }

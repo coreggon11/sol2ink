@@ -64,6 +64,16 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
         .iter()
         .map(|base| TokenStream::from_str(base).unwrap())
         .collect::<Vec<_>>();
+    let internal = if emit_functions.is_empty() {
+        quote!()
+    } else {
+        quote!(
+            impl generated::impls:: #mod_name ::Internal for #contract_name {
+                _blank_!();
+                #emit_functions
+            }
+        )
+    };
 
     let contract = quote! {
         #![cfg_attr(not(feature = "std"), no_std)]
@@ -73,22 +83,17 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
         #(#[doc = #comments])*
         #[openbrush::contract]
         pub mod #mod_name {
-            use ink_storage::traits::SpreadAllocate;
             use openbrush::traits::Storage;
             use generated::*;
-            use ink_lang::codegen::Env;
-            use ink_lang::codegen::EmitEvent;
+            use ink::lang::codegen::Env;
+            use ink::lang::codegen::EmitEvent;
             _blank_!();
             #constants
             #events
             #storage
             _blank_!();
             impl #trait_name for #contract_name {}
-            _blank_!();
-            impl generated::impls:: #mod_name ::Internal for #contract_name {
-                #emit_functions
-            }
-
+            #internal
             #(_blank_!(); impl #base for #contract_name {})*
 
             _blank_!();
@@ -509,7 +514,7 @@ fn assemble_storage(contract_name: &String) -> TokenStream {
 
     output.extend(quote! {
         #[ink(storage)]
-        #[derive(Default, SpreadAllocate, Storage)]
+        #[derive(Default, Storage)]
         pub struct #contract_name {
             #[storage_field]
             data: impls::Data,
@@ -647,9 +652,9 @@ fn assemble_constructor(constructor: &Function, fields: &[ContractField]) -> Tok
         #comments
         #[ink(constructor)]
         pub fn new(#params) -> Self{
-            ink_lang::codegen::initialize_contract(|instance: &mut Self| {
-                #body
-            })
+            let mut instance = Self::default();
+            #body
+            instance
         }
         _blank_!();
     });
@@ -709,13 +714,10 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
         );
 
         // assemble view
-        view.extend(
-            TokenStream::from_str(match function.header.view {
-                true => "&self",
-                false => "&mut self",
-            })
-            .unwrap(),
-        );
+        view.extend(match function.header.view {
+            true => quote!(&self),
+            false => quote!(&mut self),
+        });
 
         // assemble params
         for param in function.header.params.iter() {
@@ -1027,13 +1029,10 @@ fn assemble_function_headers(function_headers: &[FunctionHeader]) -> TokenStream
         );
 
         // assemble view
-        view.extend(
-            TokenStream::from_str(match header.view {
-                true => "&self",
-                false => "&mut self",
-            })
-            .unwrap(),
-        );
+        view.extend(match header.view {
+            true => quote!(&self),
+            false => quote!(&mut self),
+        });
 
         // assemble params
         for param in header.params.iter() {
@@ -1266,7 +1265,7 @@ impl ToTokens for Expression {
             Expression::Assign(variable, value) => {
                 match *variable.clone() {
                     Expression::MappingSubscript(mapping, indices) => {
-                        quote! (#mapping .insert(&(#(#indices),*), & #value) )
+                        quote! (#mapping .insert(&(#(#indices),*), & (#value)) )
                     }
                     _ => quote!( #variable = #value ),
                 }
@@ -1723,7 +1722,7 @@ impl ToTokens for Import {
             }
             Import::Vec => {
                 quote!(
-                    pub use ink_prelude::vec::*;
+                    pub use ink::prelude::vec::*;
                 )
             }
             Import::ZeroAddress => {

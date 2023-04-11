@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v2.0.0
+// Generated with Sol2Ink v2.1.0
 // https://github.com/727-Ventures/sol2ink
 
 /// SPDX-License-Identifier: MIT
@@ -45,25 +45,22 @@
 #[openbrush::contract]
 pub mod access_control {
     use generated::*;
-    use ink_lang::codegen::{
+    use ink::lang::codegen::{
         EmitEvent,
         Env,
     };
-    use ink_storage::traits::SpreadAllocate;
     use openbrush::traits::Storage;
 
     pub const DEFAULT_ADMIN_ROLE: [u8; 32] = &hex::decode("0x00");
 
     #[ink(storage)]
-    #[derive(Default, SpreadAllocate, Storage)]
+    #[derive(Default, Storage)]
     pub struct AccessControlContract {
         #[storage_field]
         data: impls::Data,
     }
 
     impl AccessControl for AccessControlContract {}
-
-    impl generated::impls::access_control::Internal for AccessControlContract {}
 
     impl Context for AccessControlContract {}
 
@@ -74,7 +71,8 @@ pub mod access_control {
     impl AccessControlContract {
         #[ink(constructor)]
         pub fn new() -> Self {
-            ink_lang::codegen::initialize_contract(|instance: &mut Self| {})
+            let mut instance = Self::default();
+            instance
         }
 
     }

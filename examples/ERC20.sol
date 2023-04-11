@@ -46,6 +46,20 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
     string private _symbol;
 
     /**
+     * @dev Emitted when `value` tokens are moved from one account (`from`) to
+     * another (`to`).
+     *
+     * Note that `value` may be zero.
+     */
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
+    /**
+     * @dev Emitted when the allowance of a `spender` for an `owner` is set by
+     * a call to {approve}. `value` is the new allowance.
+     */
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+
+    /**
      * @dev Sets the values for {name} and {symbol}.
      *
      * All two of these values are immutable: they can only be set once during
@@ -111,7 +125,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * - the caller must have a balance of at least `amount`.
      */
     function transfer(address to, uint256 amount) public virtual override returns (bool) {
-        address owner = _msgSender();
+        address owner = msg.sender;
         _transfer(owner, to, amount);
         return true;
     }
@@ -134,7 +148,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * - `spender` cannot be the zero address.
      */
     function approve(address spender, uint256 amount) public virtual override returns (bool) {
-        address owner = _msgSender();
+        address owner = msg.sender;
         _approve(owner, spender, amount);
         return true;
     }
@@ -156,7 +170,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * `amount`.
      */
     function transferFrom(address from, address to, uint256 amount) public virtual override returns (bool) {
-        address spender = _msgSender();
+        address spender = msg.sender;
         _spendAllowance(from, spender, amount);
         _transfer(from, to, amount);
         return true;
@@ -175,7 +189,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * - `spender` cannot be the zero address.
      */
     function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
-        address owner = _msgSender();
+        address owner = msg.sender;
         _approve(owner, spender, allowance(owner, spender) + addedValue);
         return true;
     }
@@ -195,7 +209,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * `subtractedValue`.
      */
     function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
-        address owner = _msgSender();
+        address owner = msg.sender;
         uint256 currentAllowance = allowance(owner, spender);
         require(currentAllowance >= subtractedValue, "ERC20: decreased allowance below zero");
         unchecked {
