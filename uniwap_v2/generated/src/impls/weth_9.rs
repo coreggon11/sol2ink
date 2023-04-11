@@ -1,5 +1,5 @@
-// Generated with Sol2Ink v2.0.0
-// https://github.com/727-Ventures/sol2ink
+// Generated with Sol2Ink v2.1.0
+// https://github.com/Brushfam/sol2ink
 
 pub use crate::{
     impls,
@@ -77,7 +77,7 @@ impl<T: Storage<Data>> WETH9 for T {
     fn approve(&mut self, guy: AccountId, wad: u128) -> Result<bool, Error> {
         self.data()
             .allowance
-            .insert(&(Self::env().caller(), guy), &wad);
+            .insert(&(Self::env().caller(), guy), &(wad));
         self._emit_approval(Self::env().caller(), guy, wad);
         return Ok(true)
     }

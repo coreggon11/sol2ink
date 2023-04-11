@@ -2,7 +2,7 @@
 #![feature(min_specialization)]
 
 // Generated with Sol2Ink v2.1.0
-// https://github.com/727-Ventures/sol2ink
+// https://github.com/Brushfam/sol2ink
 
 /// SPDX-License-Identifier: MIT
 /// OpenZeppelin Contracts (last updated v4.8.0) (token/ERC1155/ERC1155.sol)

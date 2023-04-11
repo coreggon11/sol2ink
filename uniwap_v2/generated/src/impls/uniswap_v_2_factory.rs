@@ -1,11 +1,11 @@
-// Generated with Sol2Ink v2.0.0
-// https://github.com/727-Ventures/sol2ink
+// Generated with Sol2Ink v2.1.0
+// https://github.com/Brushfam/sol2ink
 
 pub use crate::{
     impls,
     traits::*,
 };
-pub use ink_prelude::vec::*;
+pub use ink::prelude::vec::*;
 use openbrush::traits::Storage;
 pub use openbrush::{
     storage::Mapping,
@@ -58,8 +58,8 @@ impl<T: Storage<Data>> UniswapV2Factory for T {
         let mut salt: [u8; 32] = keccak_256(abi.encode_packed(token_0, token_1)?)?;
         __comment__!("Assembly block here. Parsing assembly is not implemented yet");
         i_uniswap_v_2_pair(pair)?.initialize(token_0, token_1)?;
-        self.data().get_pair.insert(&(token_0, token_1), &pair);
-        self.data().get_pair.insert(&(token_1, token_0), &pair);
+        self.data().get_pair.insert(&(token_0, token_1), &(pair));
+        self.data().get_pair.insert(&(token_1, token_0), &(pair));
         self.data().all_pairs.push(pair)?;
         self._emit_pair_created(token_0, token_1, pair, self.data().all_pairs.length);
         Ok(pair)

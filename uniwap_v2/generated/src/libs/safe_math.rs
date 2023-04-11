@@ -2,8 +2,8 @@
 #![feature(min_specialization)]
 
 
-// Generated with Sol2Ink v2.0.0
-// https://github.com/727-Ventures/sol2ink
+// Generated with Sol2Ink v2.1.0
+// https://github.com/Brushfam/sol2ink
 
 /// a library for performing overflow-safe math, courtesy of DappHub (https://github.com/dapphub/ds-math)
 

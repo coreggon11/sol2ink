@@ -1091,7 +1091,7 @@ fn assemble_function_headers(function_headers: &[FunctionHeader]) -> TokenStream
 fn signature() -> TokenStream {
     const VERSION: &str = env!("CARGO_PKG_VERSION");
     let version = &format!("Generated with Sol2Ink v{VERSION}\n");
-    let link = "https://github.com/727-Ventures/sol2ink\n";
+    let link = "https://github.com/Brushfam/sol2ink\n";
     quote! {
         _comment_!(#version);
         _comment_!(#link);

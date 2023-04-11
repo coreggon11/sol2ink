@@ -1,5 +1,5 @@
-// Generated with Sol2Ink v2.0.0
-// https://github.com/727-Ventures/sol2ink
+// Generated with Sol2Ink v2.1.0
+// https://github.com/Brushfam/sol2ink
 
 pub use crate::{
     impls,
@@ -56,12 +56,12 @@ impl<T: Storage<Data>> UniswapV2ERC20 for T {
         {
             self.data().allowance.insert(
                 &(from, Self::env().caller()),
-                &self
+                &(self
                     .data()
                     .allowance
                     .get(&(from, Self::env().caller()))
                     .unwrap_or_default()
-                    .sub(value)?,
+                    .sub(value)?),
             );
         }
         self._transfer(from, to, value)?;
@@ -143,12 +143,12 @@ impl<T: Storage<Data>> Internal for T {
         self.data().total_supply = self.data().total_supply.add(value)?;
         self.data().balance_of.insert(
             &(to),
-            &self
+            &(self
                 .data()
                 .balance_of
                 .get(&to)
                 .unwrap_or_default()
-                .add(value)?,
+                .add(value)?),
         );
         self._emit_transfer(ZERO_ADDRESS.into(), to, value);
         Ok(())
@@ -157,12 +157,12 @@ impl<T: Storage<Data>> Internal for T {
     default fn _burn(&mut self, from: AccountId, value: u128) -> Result<(), Error> {
         self.data().balance_of.insert(
             &(from),
-            &self
+            &(self
                 .data()
                 .balance_of
                 .get(&from)
                 .unwrap_or_default()
-                .sub(value)?,
+                .sub(value)?),
         );
         self.data().total_supply = self.data().total_supply.sub(value)?;
         self._emit_transfer(from, ZERO_ADDRESS.into(), value);
@@ -175,7 +175,7 @@ impl<T: Storage<Data>> Internal for T {
         spender: AccountId,
         value: u128,
     ) -> Result<(), Error> {
-        self.data().allowance.insert(&(owner, spender), &value);
+        self.data().allowance.insert(&(owner, spender), &(value));
         self._emit_approval(owner, spender, value);
         Ok(())
     }
@@ -188,21 +188,21 @@ impl<T: Storage<Data>> Internal for T {
     ) -> Result<(), Error> {
         self.data().balance_of.insert(
             &(from),
-            &self
+            &(self
                 .data()
                 .balance_of
                 .get(&from)
                 .unwrap_or_default()
-                .sub(value)?,
+                .sub(value)?),
         );
         self.data().balance_of.insert(
             &(to),
-            &self
+            &(self
                 .data()
                 .balance_of
                 .get(&to)
                 .unwrap_or_default()
-                .add(value)?,
+                .add(value)?),
         );
         self._emit_transfer(from, to, value);
         Ok(())

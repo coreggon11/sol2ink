@@ -40,7 +40,7 @@ pub fn generate_cargo_toml(package_name: &str, mod_name: Option<String>) -> Stri
     ));
     out.push_str("scale = { package = \"parity-scale-codec\", version = \"3\", default-features = false, features = [\"derive\"] }\n");
     out.push_str("scale-info = { version = \"2.3\", default-features = false, features = [\"derive\"], optional = true }\n");
-    out.push_str(&format!("openbrush = {{ git = \"https://github.com/727-Ventures/openbrush-contracts\", tag = \"{}\", default-features = false, features = [] }}\n", OPENBRUSH_VERSION));
+    out.push_str(&format!("openbrush = {{ git = \"https://github.com/Brushfam/openbrush-contracts\", tag = \"{}\", default-features = false, features = [] }}\n", OPENBRUSH_VERSION));
     out.push('\n');
 
     if let Some(mod_name) = mod_name.clone() {

@@ -3,7 +3,7 @@
 
 
 // Generated with Sol2Ink v2.1.0
-// https://github.com/727-Ventures/sol2ink
+// https://github.com/Brushfam/sol2ink
 
 /// SPDX-License-Identifier: MIT
 /// Simplified version of Curve's stable swap AMM

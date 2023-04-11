@@ -1,17 +1,16 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v2.0.0
-// https://github.com/727-Ventures/sol2ink
+// Generated with Sol2Ink v2.1.0
+// https://github.com/Brushfam/sol2ink
 
 #[openbrush::contract]
 pub mod deflating_erc_20 {
     use generated::*;
-    use ink_lang::codegen::{
+    use ink::lang::codegen::{
         EmitEvent,
         Env,
     };
-    use ink_storage::traits::SpreadAllocate;
     use openbrush::traits::Storage;
 
     pub const NAME: String = "Deflating Test Token";
@@ -40,15 +39,15 @@ pub mod deflating_erc_20 {
     }
 
     #[ink(storage)]
-    #[derive(Default, SpreadAllocate, Storage)]
+    #[derive(Default, Storage)]
     pub struct DeflatingERC20Contract {
         #[storage_field]
         data: impls::Data,
     }
 
     impl DeflatingERC20 for DeflatingERC20Contract {}
-
     impl generated::impls::deflating_erc_20::Internal for DeflatingERC20Contract {
+
         fn _emit_approval(&self, owner: AccountId, spender: AccountId, value: u128) {
             self.env().emit_event(Approval {
                 owner,
@@ -66,11 +65,11 @@ pub mod deflating_erc_20 {
     impl DeflatingERC20Contract {
         #[ink(constructor)]
         pub fn new(total_supply: u128) -> Self {
-            ink_lang::codegen::initialize_contract(|instance: &mut Self| {
-                __comment__!("Assembly block here. Parsing assembly is not implemented yet");
-                instance . data . domain_separator = keccak_256 (abi . encode (keccak_256 ("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)") ? , keccak_256 (Vec :: < u8 > :: from (NAME)) ? , keccak_256 (Vec :: < u8 > :: from ("1")) ? , chain_id , instance . env () . account_id ()) ?) ? ;
-                instance._mint(instance.env().caller(), total_supply)?;
-            })
+            let mut instance = Self::default();
+            __comment__!("Assembly block here. Parsing assembly is not implemented yet");
+            instance . data . domain_separator = keccak_256 (abi . encode (keccak_256 ("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)") ? , keccak_256 (Vec :: < u8 > :: from (NAME)) ? , keccak_256 (Vec :: < u8 > :: from ("1")) ? , chain_id , instance . env () . account_id ()) ?) ? ;
+            instance._mint(instance.env().caller(), total_supply)?;
+            instance
         }
 
     }

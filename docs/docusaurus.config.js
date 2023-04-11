@@ -8,12 +8,12 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 const config = {
   title: 'Sol2Ink',
   tagline: 'Sol2Ink documentation',
-  url: 'https://727-ventures.github.io/sol2ink/',
+  url: 'https://Brushfam.github.io/sol2ink/',
   baseUrl: '/sol2ink/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',
-  organizationName: '727-Ventures', 
+  organizationName: 'Brushfam', 
   projectName: 'sol2ink',
   deploymentBranch: 'gh-pages',
 
@@ -34,7 +34,7 @@ const config = {
           position: 'right'
         },
         {
-          href: 'https://github.com/727-Ventures/sol2ink',
+          href: 'https://github.com/Brushfam/sol2ink',
           className: 'header-github-link',
           position: 'right'
         }
@@ -57,7 +57,7 @@ const config = {
         docs: {
           routeBasePath: '/',
           sidebarPath: require.resolve('./sidebars.js'),
-          editUrl: 'https://github.com/727-Ventures/sol2ink/tree/main/docs'
+          editUrl: 'https://github.com/Brushfam/sol2ink/tree/main/docs'
         },
         theme: {
           customCss: [require.resolve('./src/css/custom.scss')]

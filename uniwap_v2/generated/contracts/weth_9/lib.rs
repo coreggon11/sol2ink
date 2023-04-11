@@ -1,8 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(min_specialization)]
 
-// Generated with Sol2Ink v2.0.0
-// https://github.com/727-Ventures/sol2ink
+// Generated with Sol2Ink v2.1.0
+// https://github.com/Brushfam/sol2ink
 
 /// Copyright (C) 2015, 2016, 2017 Dapphub
 /// This program is free software: you can redistribute it and/or modify
@@ -18,11 +18,10 @@
 #[openbrush::contract]
 pub mod weth_9 {
     use generated::*;
-    use ink_lang::codegen::{
+    use ink::lang::codegen::{
         EmitEvent,
         Env,
     };
-    use ink_storage::traits::SpreadAllocate;
     use openbrush::traits::Storage;
 
 
@@ -59,15 +58,15 @@ pub mod weth_9 {
     }
 
     #[ink(storage)]
-    #[derive(Default, SpreadAllocate, Storage)]
+    #[derive(Default, Storage)]
     pub struct WETH9Contract {
         #[storage_field]
         data: impls::Data,
     }
 
     impl WETH9 for WETH9Contract {}
-
     impl generated::impls::weth_9::Internal for WETH9Contract {
+
         fn _emit_approval(&self, src: AccountId, guy: AccountId, wad: u128) {
             self.env().emit_event(Approval { src, guy, wad });
         }
@@ -89,11 +88,11 @@ pub mod weth_9 {
     impl WETH9Contract {
         #[ink(constructor)]
         pub fn new() -> Self {
-            ink_lang::codegen::initialize_contract(|instance: &mut Self| {
-                self.name = "Wrapped Ether";
-                self.symbol = "WETH";
-                self.decimals = 18;
-            })
+            let mut instance = Self::default();
+            self.name = "Wrapped Ether";
+            self.symbol = "WETH";
+            self.decimals = 18;
+            instance
         }
 
     }
