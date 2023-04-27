@@ -34,7 +34,7 @@ pub enum MemberType {
     None(Box<Type>),
 }
 
-#[derive(Clone, Default,Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct Contract {
     pub name: String,
     pub fields: Vec<ContractField>,
@@ -49,7 +49,7 @@ pub struct Contract {
     pub base: Vec<String>,
 }
 
-#[derive(Clone, Default,Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct Library {
     pub name: String,
     pub fields: Vec<ContractField>,
@@ -61,7 +61,7 @@ pub struct Library {
     pub libraray_doc: Vec<String>,
 }
 
-#[derive(Clone, Default,Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct Interface {
     pub name: String,
     pub events: Vec<Event>,
@@ -72,7 +72,7 @@ pub struct Interface {
     pub comments: Vec<String>,
 }
 
-#[derive(Clone,Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContractField {
     pub field_type: Type,
     pub name: String,
@@ -82,14 +82,14 @@ pub struct ContractField {
     pub public: bool,
 }
 
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct Event {
     pub name: String,
     pub fields: Vec<EventField>,
     pub comments: Vec<String>,
 }
 
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct EventField {
     pub indexed: bool,
     pub field_type: Type,
@@ -97,20 +97,20 @@ pub struct EventField {
     pub comments: Vec<String>,
 }
 
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct Enum {
     pub name: String,
     pub values: Vec<EnumValue>,
     pub comments: Vec<String>,
 }
 
-#[derive(Default, Clone,Debug)]
+#[derive(Default, Clone, Debug)]
 pub struct EnumValue {
     pub name: String,
     pub comments: Vec<String>,
 }
 
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct Struct {
     pub name: String,
     pub fields: Vec<StructField>,
