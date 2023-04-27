@@ -31,7 +31,7 @@ You can use Sol2Ink either with cargo run or by running the binary of Sol2Ink.
 
 # Capabilities
 
-Sol2Ink can parse Solidity files into ink! project while leveraging the power of [OpenBrush](https://github.com/727-Ventures/openbrush-contracts). You can either parse a single file by providing the path to the file, or a whole folder by providing the path to teh folder. In the latter case, Sol2Ink will parse all Solidity files in the selected folder file tree and add them to one big ink! project. The output of Sol2Ink is a folder called `generated` with the following file structure:
+Sol2Ink can parse Solidity files into ink! project while leveraging the power of [OpenBrush](https://github.com/Brushfam/openbrush-contracts). You can either parse a single file by providing the path to the file, or a whole folder by providing the path to teh folder. In the latter case, Sol2Ink will parse all Solidity files in the selected folder file tree and add them to one big ink! project. The output of Sol2Ink is a folder called `generated` with the following file structure:
 
 ```shell
 ├── contracts
