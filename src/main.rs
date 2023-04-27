@@ -81,7 +81,7 @@ fn main() {
     for file in files {
         match file {
             CliInput::SolidityFile(file) => {
-                let file_path = Path::new(&file);
+                let file_path = Path::new(&file).canonicalize().unwrap();
                 let file_home = file_path.parent().unwrap().to_str().unwrap();
                 match run(file_home, &[file.clone()]) {
                     Ok(_) => {
