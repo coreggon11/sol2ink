@@ -56,6 +56,18 @@ In this structure, we suppose we were parsing a directory which contains a contr
 
 This version of Sol2Ink is able to parse any contract, however, it may produce some compile-time issues. These will need to be fixed by the developer and future versions of Sol2Ink will aim to produce fully compilable code. The point of Sol2Ink currently is to save time on re-writing the code and makes the developer go over the generated code and fix it to make it work.
 
+# Known issues
+
+Here are some issues which Sol2Ink has, but we are working on fixing them!
+
+- **instantiation of contracts** (`Contract c = new Contract();`) will not get translated and will panic. We recommend removing such calls from your code and convert these lines manually.
+- **returning a function call** (`return anotherFunction();`) will not get translated and will panic. We recommend removing such calls from your code and convert these lines manually.
+- **casting to payable address** (`addr = payable(address(0));`) will not get translated and will panic. We recommend removing casting to payable from your contracts as this is not needed in ink! anyway.
+- **overloading functions** (`function a() external {} function a(uint) external {}`) will get translated correctly, but will not build as this is not supported in Rust.
+- **Solidty abi functions** (`abi.encode(), abi.decode()`) might not be translated 100% correctly.
+
+Did you find a mentioned not mentioned in this list? Open an issue and we will be happy to hear about it and fix it! 
+
 # Future development
 
 - [x] Sol2Ink CLI
@@ -67,7 +79,6 @@ This version of Sol2Ink is able to parse any contract, however, it may produce s
 - [x] Produce ink! contracts with ink! 4
 - [ ] Produce fully compilable contracts
 - [ ] Sol2Ink Web Application with interface
-- [ ] Make the parsed contracts 
 
 # Examples
 
