@@ -25,21 +25,13 @@
 
 extern crate core;
 
-pub mod assembler;
 pub mod cli;
 pub mod file_utils;
 pub mod parser;
 pub mod structures;
 pub mod toml_builder;
 
-use assembler::{
-    assemble_lib,
-    assemble_mod,
-};
-use file_utils::{
-    get_solidity_files_from_directory,
-    write_mod_files,
-};
+use file_utils::get_solidity_files_from_directory;
 use parser::Parser;
 
 use crate::{
@@ -124,36 +116,19 @@ fn run(home: &str, path: &[String]) -> Result<(), ParserError> {
         for output in output {
             match output {
                 ParserOutput::Contract(name, contract) => {
-                    let ink_contract = assembler::assemble_contract(&contract);
-                    let implementation = assembler::assemble_impl(&contract);
-                    let trait_definition = assembler::assemble_trait(&contract);
-
                     impls.push(name.clone());
                     traits.push(name.clone());
 
-                    file_utils::write_contract_files(
-                        ink_contract,
-                        implementation,
-                        trait_definition,
-                        &contract.name,
-                        home,
-                    )?;
                     println!("File saved!");
                 }
                 ParserOutput::Interface(name, interface) => {
-                    let ink_trait = assembler::assemble_interface(interface);
-
                     traits.push(name.clone());
 
-                    file_utils::write_trait(ink_trait, home, &name)?;
                     println!("File saved!");
                 }
                 ParserOutput::Library(name, library) => {
-                    let lib = assembler::assemble_library(library);
-
                     libs.push(name.clone());
 
-                    file_utils::write_library(lib, home, &name)?;
                     println!("File saved!");
                 }
                 _ => {}
@@ -162,13 +137,6 @@ fn run(home: &str, path: &[String]) -> Result<(), ParserError> {
 
         parser.clear();
     }
-
-    let impls_mod = assemble_mod(&impls);
-    let traits_mod = assemble_mod(&traits);
-    let libs_mod = assemble_mod(&libs);
-    let lib = assemble_lib();
-
-    write_mod_files(home, impls_mod, traits_mod, libs_mod, lib)?;
 
     Ok(())
 }

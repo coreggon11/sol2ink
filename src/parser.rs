@@ -33,8 +33,6 @@ use solang_parser::{
         ContractDefinition,
         ContractPart,
         ContractTy,
-        EnumDefinition,
-        EventDefinition,
         Expression as SolangExpression,
         FunctionAttribute,
         FunctionDefinition,
@@ -44,7 +42,6 @@ use solang_parser::{
         Mutability,
         SourceUnitPart,
         Statement as SolangStatement,
-        StructDefinition,
         Type as SolangType,
         Unit,
         VariableAttribute,
@@ -216,44 +213,29 @@ impl<'a> Parser<'a> {
         let mut constructor: Function = Default::default();
         let mut modifiers: Vec<Function> = Default::default();
 
-        // first we register all members of the contract
+        // first we need to know functions and storage fields that exist
         for part in contract_definition.parts.iter() {
             match part {
                 ContractPart::VariableDefinition(variable_definition) => {
-                    let field_type = self.parse_type(&variable_definition.ty)?;
                     let name = self.parse_identifier(&variable_definition.name);
-                    let constant = variable_definition
-                        .attrs
-                        .iter()
-                        .any(|item| matches!(item, VariableAttribute::Constant(_)));
-                    self.members_map.insert(
-                        name,
-                        if constant {
-                            MemberType::Constant
-                        } else {
-                            MemberType::Variable(Box::new(field_type))
-                        },
-                    );
+                    if variable_definition.attrs.iter().any(|item| {
+                        matches!(
+                            item,
+                            VariableAttribute::Constant(_) | VariableAttribute::Immutable(_)
+                        )
+                    }) {
+                        // we do not care about consants and immutables as they do not change state of the contract so we skip
+                        continue
+                    }
+                    self.members_map.insert(name, MemberType::StorageField);
                 }
                 ContractPart::FunctionDefinition(function_definition) => {
                     let fn_name = self.parse_identifier(&function_definition.name);
-                    let external = function_definition.attributes.iter().any(|attribute| {
-                        matches!(
-                            attribute,
-                            FunctionAttribute::Visibility(Visibility::External(_))
-                                | FunctionAttribute::Visibility(Visibility::Public(_))
-                        )
-                    });
                     match function_definition.ty {
                         FunctionTy::Function => {
-                            self.members_map.insert(
-                                fn_name.clone(),
-                                if external {
-                                    MemberType::Function
-                                } else {
-                                    MemberType::FunctionPrivate
-                                },
-                            );
+                            let function_header = self.parse_function_header(function_definition);
+                            self.members_map
+                                .insert(fn_name.clone(), MemberType::Function(function_header));
                         }
                         FunctionTy::Modifier => {
                             self.modifiers_map
@@ -309,27 +291,10 @@ impl<'a> Parser<'a> {
     ) -> Result<Interface, ParserError> {
         let name = self.parse_identifier(&contract_definition.name);
 
-        let mut structs: Vec<Struct> = Default::default();
-        let mut events: Vec<Event> = Default::default();
-        let mut enums: Vec<Enum> = Default::default();
         let mut function_headers: Vec<FunctionHeader> = Default::default();
 
         for part in contract_definition.parts.iter() {
             match part {
-                ContractPart::Annotation(_) => println!("Anottation: {part:?}"),
-                ContractPart::StructDefinition(struct_definition) => {
-                    let parsed_struct = self.parse_struct(struct_definition)?;
-                    structs.push(parsed_struct);
-                }
-                ContractPart::EventDefinition(event_definition) => {
-                    let parsed_event = self.parse_event(event_definition)?;
-                    events.push(parsed_event);
-                }
-                ContractPart::EnumDefinition(enum_definition) => {
-                    let parsed_enum = self.parse_enum(enum_definition)?;
-                    enums.push(parsed_enum);
-                }
-                ContractPart::ErrorDefinition(_) => {}
                 ContractPart::FunctionDefinition(function_definition) => {
                     if function_definition.ty == FunctionTy::Function {
                         let header = self.parse_function_header(function_definition);
@@ -345,9 +310,6 @@ impl<'a> Parser<'a> {
 
         Ok(Interface {
             name,
-            events,
-            enums,
-            structs,
             function_headers,
             imports: self.imports.clone(),
         })
@@ -365,165 +327,44 @@ impl<'a> Parser<'a> {
     ) -> Result<Library, ParserError> {
         let name = self.parse_identifier(&contract_definition.name);
 
-        let mut fields: Vec<ContractField> = Default::default();
-        let mut events: Vec<Event> = Default::default();
-        let mut enums: Vec<Enum> = Default::default();
-        let mut structs: Vec<Struct> = Default::default();
         let mut functions: Vec<Function> = Default::default();
 
         // first we register all members of the contract
         for part in contract_definition.parts.iter() {
             if let ContractPart::FunctionDefinition(function_definition) = part {
                 let fn_name = self.parse_identifier(&function_definition.name);
-                let external = function_definition.attributes.iter().any(|attribute| {
-                    matches!(
-                        attribute,
-                        FunctionAttribute::Visibility(Visibility::External(_))
-                            | FunctionAttribute::Visibility(Visibility::Public(_))
-                    )
-                });
-                self.members_map.insert(
-                    fn_name.clone(),
-                    if external {
-                        MemberType::Function
-                    } else {
-                        MemberType::FunctionPrivate
-                    },
-                );
+                match function_definition.ty {
+                    FunctionTy::Function => {
+                        let function_header = self.parse_function_header(function_definition);
+                        self.members_map
+                            .insert(fn_name.clone(), MemberType::Function(function_header));
+                    }
+                    FunctionTy::Modifier => {
+                        self.modifiers_map
+                            .insert(fn_name.clone(), *function_definition.clone());
+                    }
+                    _ => (),
+                }
             }
         }
 
         for part in contract_definition.parts.iter() {
             match part {
-                ContractPart::Annotation(_) => println!("Anottation: {part:?}"),
-                ContractPart::StructDefinition(struct_definition) => {
-                    let parsed_struct = self.parse_struct(struct_definition)?;
-                    structs.push(parsed_struct);
-                }
-                ContractPart::EventDefinition(event_definition) => {
-                    let parsed_event = self.parse_event(event_definition)?;
-                    events.push(parsed_event);
-                }
-                ContractPart::EnumDefinition(enum_definition) => {
-                    let parsed_enum = self.parse_enum(enum_definition)?;
-                    enums.push(parsed_enum);
-                }
-                ContractPart::ErrorDefinition(_) => {}
                 ContractPart::FunctionDefinition(function_definition) => {
                     if function_definition.ty == FunctionTy::Function {
                         let parsed_function = self.parse_function(function_definition)?;
                         functions.push(parsed_function)
                     }
                 }
-                ContractPart::TypeDefinition(_) => {}
-                ContractPart::Using(_) => {}
-                ContractPart::StraySemicolon(_) => {}
-                ContractPart::VariableDefinition(variable_definition) => {
-                    let parsed_field = self.parse_storage_field(variable_definition)?;
-                    self.members_map.insert(
-                        parsed_field.name.clone(),
-                        MemberType::Variable(Box::new(parsed_field.field_type.clone())),
-                    );
-                    fields.push(parsed_field);
-                }
+                _ => {}
             }
         }
 
         Ok(Library {
             name,
-            fields,
-            events,
-            enums,
-            structs,
             functions,
             imports: self.imports.clone(),
         })
-    }
-
-    /// Parses a Solang struct definition to Sol2Ink struct definition
-    ///
-    /// `struct_definition` the Solang struct definition
-    ///
-    /// Returns the parsed `Struct` struct
-    fn parse_struct(
-        &mut self,
-        struct_definition: &StructDefinition,
-    ) -> Result<Struct, ParserError> {
-        let name = self.parse_identifier(&struct_definition.name);
-
-        let fields: Vec<StructField> = struct_definition
-            .fields
-            .iter()
-            .filter_map(|variable_declaration| {
-                let name = self.parse_identifier(&variable_declaration.name);
-                let ty = self.parse_type(&variable_declaration.ty).ok()?;
-                self.members_map
-                    .insert(name.clone(), MemberType::None(Box::new(ty.clone())));
-                let struct_field = StructField {
-                    name,
-                    field_type: ty,
-                };
-                Some(struct_field)
-            })
-            .collect();
-
-        let parsed_struct = Struct { name, fields };
-
-        Ok(parsed_struct)
-    }
-
-    /// Parses a Solang event definition to Sol2Ink evet definition
-    ///
-    /// `event_definition` the Solang event definition
-    ///
-    /// Returns the parsed `Event` struct
-    fn parse_event(&mut self, event_definition: &EventDefinition) -> Result<Event, ParserError> {
-        let name = self.parse_identifier(&event_definition.name);
-
-        let fields: Vec<EventField> = event_definition
-            .fields
-            .iter()
-            .filter_map(|variable_declaration| {
-                let event_field_name = self.parse_identifier(&variable_declaration.name);
-                let event_field = EventField {
-                    name: if event_field_name == "_" {
-                        String::from("anonymous")
-                    } else {
-                        event_field_name
-                    },
-                    field_type: self.parse_type(&variable_declaration.ty).ok()?,
-                    indexed: variable_declaration.indexed,
-                };
-                Some(event_field)
-            })
-            .collect();
-
-        let parsed_event = Event { name, fields };
-
-        Ok(parsed_event)
-    }
-
-    /// Parses a Solang enum definition to Sol2Ink enum definition
-    ///
-    /// `enum_definition` the Solang enum definition
-    ///
-    /// Returns the parsed `Enum` struct
-    fn parse_enum(&mut self, enum_definition: &EnumDefinition) -> Result<Enum, ParserError> {
-        let name = self.parse_identifier(&enum_definition.name);
-
-        let values: Vec<EnumValue> = enum_definition
-            .values
-            .iter()
-            .map(|enum_value| {
-                EnumValue {
-                    name: self.parse_identifier(enum_value),
-                }
-            })
-            .collect();
-
-        let parsed_enum = Enum { name, values };
-
-        Ok(parsed_enum)
     }
 
     /// Parses a Solang storage variable definition to Sol2Ink contract field definition
@@ -915,28 +756,8 @@ impl<'a> Parser<'a> {
                         match self.members_map.get(&parsed_identifier) {
                             Some(ty) => {
                                 match ty {
-                                    MemberType::Variable(variable_type)
-                                    | MemberType::None(variable_type) => {
-                                        match *variable_type.clone() {
-                                            Type::Mapping(_, _) => {
-                                                self.array_subscript_to_mapping_subscript(
-                                                    array,
-                                                    index_maybe,
-                                                    location,
-                                                )
-                                            }
-                                            _ => {
-                                                boxed_expression!(parsed_array, array);
-                                                maybe_boxed_expression!(
-                                                    parsed_index_maybe,
-                                                    index_maybe
-                                                );
-                                                Expression::ArraySubscript(
-                                                    parsed_array,
-                                                    parsed_index_maybe,
-                                                )
-                                            }
-                                        }
+                                    MemberType::StorageField => {
+                                        todo!()
                                     }
                                     _ => {
                                         boxed_expression!(parsed_array, array);
@@ -1024,7 +845,8 @@ impl<'a> Parser<'a> {
             SolangExpression::FunctionCallBlock(_, _, _) => Expression::None,
             SolangExpression::NamedFunctionCall(_, expression, arguments) => {
                 boxed_expression!(parsed_expression, expression);
-                if let Expression::Variable(_, MemberType::Function, _) = *parsed_expression.clone()
+                if let Expression::Variable(_, Some(MemberType::Function(_)), _) =
+                    *parsed_expression.clone()
                 {
                     let parsed_arguments = arguments
                         .iter()
@@ -1278,9 +1100,8 @@ impl<'a> Parser<'a> {
                 if parsed_identifier == "_" {
                     return Expression::ModifierBody
                 }
-                let none = MemberType::None(Box::new(Type::None));
-                let member_type = self.members_map.get(&parsed_identifier).unwrap_or(&none);
-                Expression::Variable(parsed_identifier, member_type.clone(), location)
+                let member_type = self.members_map.get(&parsed_identifier);
+                Expression::Variable(parsed_identifier, member_type.cloned(), location)
             }
             SolangExpression::List(_, parameters) => {
                 let list = parameters
@@ -1292,11 +1113,7 @@ impl<'a> Parser<'a> {
                                 .map(|parameter| parameter.name)
                                 .unwrap_or(None),
                         );
-                        Expression::Variable(
-                            name,
-                            MemberType::None(Box::new(Type::None)),
-                            location.clone(),
-                        )
+                        Expression::Variable(name, None, location.clone())
                     })
                     .collect();
                 Expression::List(list)

@@ -27,11 +27,8 @@ use std::collections::{
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum MemberType {
-    Variable(Box<Type>),
-    Constant,
-    Function,
-    FunctionPrivate,
-    None(Box<Type>),
+    StorageField,
+    Function(FunctionHeader),
 }
 
 #[derive(Clone, Default, Debug)]
@@ -47,10 +44,6 @@ pub struct Contract {
 #[derive(Clone, Default, Debug)]
 pub struct Library {
     pub name: String,
-    pub fields: Vec<ContractField>,
-    pub events: Vec<Event>,
-    pub enums: Vec<Enum>,
-    pub structs: Vec<Struct>,
     pub functions: Vec<Function>,
     pub imports: HashSet<Import>,
 }
@@ -58,9 +51,6 @@ pub struct Library {
 #[derive(Clone, Default, Debug)]
 pub struct Interface {
     pub name: String,
-    pub events: Vec<Event>,
-    pub enums: Vec<Enum>,
-    pub structs: Vec<Struct>,
     pub function_headers: Vec<FunctionHeader>,
     pub imports: HashSet<Import>,
 }
@@ -213,7 +203,7 @@ pub enum Expression {
     Ternary(Box<Expression>, Box<Expression>, Box<Expression>),
     This(VariableAccessLocation),
     Type(Box<Type>),
-    Variable(String, MemberType, VariableAccessLocation),
+    Variable(String, Option<MemberType>, VariableAccessLocation),
     VariableDeclaration(Box<Type>, String),
     ShiftLeft(Box<Expression>, Box<Expression>),
     ShiftRight(Box<Expression>, Box<Expression>),
