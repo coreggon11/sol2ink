@@ -53,26 +53,14 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
     let contract_name = format_ident!("{}Contract", contract.name);
     let trait_name = format_ident!("{}", contract.name);
     let signature = signature();
-    let events = assemble_events(&contract.events);
     let storage = assemble_storage(&contract.name);
     let constructor = assemble_constructor(&contract.constructor, &contract.fields);
     let constants = assemble_constants(&contract.fields);
-    let emit_functions = assemble_contract_emit_functions(&contract.events);
     let base = contract
         .base
         .iter()
         .map(|base| TokenStream::from_str(base).unwrap())
         .collect::<Vec<_>>();
-    let internal = if emit_functions.is_empty() {
-        quote!()
-    } else {
-        quote!(
-            impl generated::impls:: #mod_name ::Internal for #contract_name {
-                _blank_!();
-                #emit_functions
-            }
-        )
-    };
 
     let contract = quote! {
         #![cfg_attr(not(feature = "std"), no_std)]
@@ -87,11 +75,9 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
             use ink::lang::codegen::EmitEvent;
             _blank_!();
             #constants
-            #events
             #storage
             _blank_!();
             impl #trait_name for #contract_name {}
-            #internal
             #(_blank_!(); impl #base for #contract_name {})*
 
             _blank_!();
@@ -108,7 +94,6 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
 pub fn assemble_impl(contract: &Contract) -> TokenStream {
     let trait_name = format_ident!("{}", contract.name);
     let signature = signature();
-    let imports = Vec::from_iter(&contract.imports);
     let data = assemble_data_struct(&contract.fields);
     let getters = assemble_getters(&contract.fields);
     let mut modifiers_map = HashMap::new();
@@ -142,7 +127,6 @@ pub fn assemble_impl(contract: &Contract) -> TokenStream {
             .collect::<Vec<_>>(),
         false,
     );
-    let (emit_function_headers, impl_emit_functions) = assemble_emit_functions(&contract.events);
     let modifiers = assemble_modifiers(&contract.modifiers, &trait_name);
 
     let contract = quote! {
@@ -151,7 +135,6 @@ pub fn assemble_impl(contract: &Contract) -> TokenStream {
             impls,
             traits::*,
         };
-        #(#imports)*
         use openbrush::traits::Storage;
         _blank_!();
         #data
@@ -165,12 +148,10 @@ pub fn assemble_impl(contract: &Contract) -> TokenStream {
         _blank_!();
         pub trait Internal {
             #internal_trait
-            #emit_function_headers
         }
         _blank_!();
         impl<T: Storage<Data>> Internal for T {
             #internal_functions
-            #impl_emit_functions
         }
     };
 
@@ -182,9 +163,6 @@ pub fn assemble_trait(contract: &Contract) -> TokenStream {
     let trait_name = TokenStream::from_str(&contract.name).unwrap();
     let ref_name = TokenStream::from_str(&format!("{}Ref", contract.name)).unwrap();
     let signature = signature();
-    let imports = Vec::from_iter(&contract.imports);
-    let enums = assemble_enums(&contract.enums);
-    let structs = assemble_structs(&contract.structs);
     let getters_trait = assemble_getters_trait(&contract.fields, &contract.functions);
     let function_headers = assemble_function_headers(
         &contract
@@ -198,7 +176,6 @@ pub fn assemble_trait(contract: &Contract) -> TokenStream {
 
     quote! {
         #signature
-        #(#imports)*
         use scale::{
             Decode,
             Encode,
@@ -209,10 +186,6 @@ pub fn assemble_trait(contract: &Contract) -> TokenStream {
         pub enum Error {
             Custom(String),
         }
-        _blank_!();
-        #enums
-        _blank_!();
-        #structs
         _blank_!();
         #[openbrush::wrapper]
         pub type #ref_name = dyn #trait_name;
@@ -784,83 +757,6 @@ fn has_return_statement(statement: &Option<Statement>) -> bool {
         }
         None => false,
     }
-}
-
-/// Assembles the TokenStream of internal emit functions of the contracts, which emit events
-/// Returns the default implementation of such functions with empty body, which is then added to the implementation of the Internal trait
-/// as well as the function definitions, which is used in the Internal trait definition
-/// The TokenStream is generated based on the parsed events
-fn assemble_emit_functions(events: &[Event]) -> (TokenStream, TokenStream) {
-    let mut default_output = TokenStream::new();
-    let mut impl_output = TokenStream::new();
-
-    for event in events.iter() {
-        let event_name =
-            TokenStream::from_str(&format!("_emit_{}", &event.name.to_case(Snake))).unwrap();
-        let mut event_args = TokenStream::new();
-        let mut unnamed_event_args = TokenStream::new();
-
-        // assemble event fields
-        for event_field in event.fields.iter() {
-            let event_field_name = format_ident!("{}", format_expression(&event_field.name, Snake));
-            let event_field_type = &event_field.field_type;
-
-            event_args.extend(quote! {
-                #event_field_name: #event_field_type,
-            });
-
-            unnamed_event_args.extend(quote! {
-                _: #event_field_type,
-            });
-        }
-
-        default_output.extend(quote! {
-            fn #event_name (&self, #event_args );
-            _blank_!();
-        });
-        impl_output.extend(quote! {
-            default fn #event_name (&self, #unnamed_event_args ) {}
-            _blank_!();
-        });
-    }
-
-    (default_output, impl_output)
-}
-
-/// Assembles the TokenStream of contract's emit functions, which then emit events
-/// The TokenStream is generated based on the parsed events
-fn assemble_contract_emit_functions(events: &[Event]) -> TokenStream {
-    let mut output = TokenStream::new();
-
-    for event in events.iter() {
-        let fn_name =
-            TokenStream::from_str(&format!("_emit_{}", &event.name.to_case(Snake))).unwrap();
-        let mut event_args = TokenStream::new();
-        let mut event_params = TokenStream::new();
-        let event_name = TokenStream::from_str(&event.name).unwrap();
-
-        // assemble event fields
-        for event_field in event.fields.iter() {
-            let event_field_name = format_ident!("{}", format_expression(&event_field.name, Snake));
-            let event_field_type = &event_field.field_type;
-
-            event_params.extend(quote! {
-                #event_field_name: #event_field_type,
-            });
-            event_args.extend(quote! {
-                #event_field_name,
-            });
-        }
-
-        output.extend(quote! {
-            fn #fn_name (&self, #event_params ) {
-                self.env().emit_event(#event_name { #event_args });
-            }
-            _blank_!();
-        });
-    }
-
-    output
 }
 
 /// Assembles the TokenStream of conract's modifiers from the parsed Function structs

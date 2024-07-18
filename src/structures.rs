@@ -39,11 +39,7 @@ pub struct Contract {
     pub name: String,
     pub fields: Vec<ContractField>,
     pub constructor: Function,
-    pub events: Vec<Event>,
-    pub enums: Vec<Enum>,
-    pub structs: Vec<Struct>,
     pub functions: Vec<Function>,
-    pub imports: HashSet<Import>,
     pub modifiers: Vec<Function>,
     pub base: Vec<String>,
 }
