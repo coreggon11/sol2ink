@@ -36,6 +36,7 @@ pub struct Contract {
     pub functions: Vec<Function>,
     pub modifiers: Vec<Function>,
     pub base: Vec<String>,
+    pub is_abstract: bool,
 }
 
 #[derive(Clone, Default, Debug)]

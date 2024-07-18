@@ -20,56 +20,73 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-const INK_VERSION: &str = "~4.1.0";
-const OPENBRUSH_VERSION: &str = "3.1.0";
+use crate::structures::Contract;
 
-pub fn generate_cargo_toml(package_name: &str, mod_name: Option<String>) -> String {
+pub fn generate_mermaid(vec: Vec<Contract>) -> String {
     let mut out = String::new();
-    const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-    out.push_str("[package]\n");
-    out.push_str(&format!("name = \"{}\"\n", package_name));
-    out.push_str(&format!("version = \"{}\"\n", VERSION));
-    out.push_str("edition = \"2021\"\n");
-    out.push_str("authors = [\"Sol2Ink\"]\n");
-    out.push('\n');
-    out.push_str("[dependencies]\n");
-    out.push_str(&format!(
-        "ink = {{ version = \"{}\", default-features = false }}\n",
-        INK_VERSION
-    ));
-    out.push_str("scale = { package = \"parity-scale-codec\", version = \"3\", default-features = false, features = [\"derive\"] }\n");
-    out.push_str("scale-info = { version = \"2.3\", default-features = false, features = [\"derive\"], optional = true }\n");
-    out.push_str(&format!("openbrush = {{ git = \"https://github.com/Brushfam/openbrush-contracts\", tag = \"{}\", default-features = false, features = [] }}\n", OPENBRUSH_VERSION));
-    out.push('\n');
+    out.push_str("graph TD");
 
-    if let Some(mod_name) = mod_name.clone() {
-        out.push_str(mod_name.as_str());
-        out.push_str(" = { path = \"../../src\", default-features = false }\n");
+    for contract in vec {
+        out.push_str(format!("subgraph {}", contract.name.clone()).as_str());
+
+        for storage_field in contract.fields {
+            out.push_str(
+                format!(
+                    "{}[({})]:::storage",
+                    storage_field.name.clone(),
+                    storage_field.name.clone()
+                )
+                .as_str(),
+            )
+        }
+
+        for function in contract.functions.clone() {
+            out.push_str(
+                format!(
+                    "{}[{}]:::{}",
+                    function.header.name.clone(),
+                    function.header.name.clone(),
+                    match (function.header.external, function.header.view) {
+                        (true, true) => "external_view",
+                        (true, false) => "external",
+                        (false, true) => "internal_view",
+                        (false, false) => "internal",
+                    }
+                )
+                .as_str(),
+            )
+        }
+
+        for function in contract.functions.clone() {
+            for call in function.calls {
+                match call {
+                    crate::structures::Call::Read(member)
+                    | crate::structures::Call::Write(member) => {
+                        out.push_str(
+                            format!("{} --> {}", function.header.name.clone(), member).as_str(),
+                        );
+                    }
+                    crate::structures::Call::ReadStorage(member) => {
+                        out.push_str(
+                            format!("{} -.-> {}", function.header.name.clone(), member).as_str(),
+                        );
+                    }
+                }
+            }
+        }
     }
 
-    out.push('\n');
-    out.push_str("[lib]\n");
-    out.push_str(&format!("name = \"{}\"\n", package_name));
-    out.push_str("path = \"lib.rs\"\n");
-    if mod_name.is_some() {
-        out.push_str("crate-type = [\"cdylib\"]\n");
-    }
-    out.push('\n');
-    out.push_str("[features]\n");
-    out.push_str("default = [\"std\"]\n");
-    out.push_str("std = [\n");
-    out.push_str("\"ink/std\",\n");
-    out.push_str("\"scale/std\",\n");
-    out.push_str("\"scale-info/std\",\n");
-    out.push_str("\"openbrush/std\",\n");
-    if let Some(mod_name) = mod_name {
-        out.push('"');
-        out.push_str(mod_name.as_str());
-        out.push_str("/std\"\n");
-    }
-    out.push_str("]\n");
-    out.push('\n');
+    out.push_str("classDef storage fill:#ff00ff,stroke:#333,stroke-width:2px;");
+    out.push_str("classDef external fill:#ff0000,stroke:#333,stroke-width:2px;");
+    out.push_str("classDef external_view fill:#ffff00,stroke:#333,stroke-width:2px;");
+    out.push_str("classDef actor fill:#00ff00,stroke:#333,stroke-width:2px;");
+    out.push_str(
+        "classDef internal fill:#ff0000,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5;",
+    );
+    out.push_str(
+        "classDef internal_view fill:#ffff00,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5;",
+    );
 
     out
 }

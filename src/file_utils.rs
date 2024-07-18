@@ -156,7 +156,7 @@ pub fn write_mod_files(
     )?;
 
     let mut main_cargo_toml = File::create(format!("{file_home}/generated/src/Cargo.toml"))?;
-    main_cargo_toml.write_all(toml_builder::generate_cargo_toml("generated", None).as_bytes())?;
+    // main_cargo_toml.write_all(toml_builder::generate_mermaid("generated", None).as_bytes())?;
 
     Ok(())
 }
@@ -197,7 +197,7 @@ pub fn write_contract_files(
     contract_name_raw: &String,
     home_path: &str,
 ) -> std::io::Result<()> {
-    let contract_name = contract_name_raw.to_case(Snake);
+    let contract_name = contract_name_raw;
     let config = Config::new_str().post_proc(PostProcess::ReplaceMarkersAndDocBlocks);
     let rust_fmt = RustFmt::from_config(config);
     let contract_folder_path = format!("{home_path}{CONTRACTS_DIR}/{contract_name}/");
@@ -209,10 +209,6 @@ pub fn write_contract_files(
     contract_file.write_all(rust_fmt.format_tokens(contract).unwrap().as_bytes())?;
 
     let mut cargo_toml = File::create(format!("{contract_folder_path}/Cargo.toml"))?;
-    cargo_toml.write_all(
-        toml_builder::generate_cargo_toml(&contract_name, Some(String::from("generated")))
-            .as_bytes(),
-    )?;
 
     // impl
     let mut impl_file = File::create(format!("{home_path}{IMPLS_DIR}/{contract_name}.rs"))?;

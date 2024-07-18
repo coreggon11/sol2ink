@@ -49,6 +49,7 @@ use std::{
     collections::{
         HashMap,
         HashSet,
+        VecDeque,
     },
     path::Path,
 };
@@ -105,38 +106,102 @@ fn main() {
 fn run(home: &str, path: &[String]) -> Result<(), ParserError> {
     initialize_parser!(parser);
 
-    let mut impls = Vec::default();
-    let mut traits = Vec::default();
-    let mut libs = Vec::default();
+    let mut to_proccess_vec = Vec::default();
+    let mut to_proccess_map = HashMap::new();
+    let mut outputs = HashMap::new();
+    let mut processed_map = HashMap::new();
+    let mut processed_vec = Vec::default();
 
     for file in path {
         let content = file_utils::read_file(file)?;
         let output = parser.parse_file(&content)?;
 
-        for output in output {
-            match output {
-                ParserOutput::Contract(name, contract) => {
-                    impls.push(name.clone());
-                    traits.push(name.clone());
-
-                    println!("File saved!");
+        for parser_output in output {
+            match parser_output.clone() {
+                ParserOutput::Contract(name, _)
+                | ParserOutput::Interface(name, _)
+                | ParserOutput::Library(name, _) => {
+                    to_proccess_map.insert(name.clone(), ());
+                    to_proccess_vec.push(name.clone());
+                    outputs.insert(name.clone(), parser_output.clone());
                 }
-                ParserOutput::Interface(name, interface) => {
-                    traits.push(name.clone());
-
-                    println!("File saved!");
-                }
-                ParserOutput::Library(name, library) => {
-                    libs.push(name.clone());
-
-                    println!("File saved!");
-                }
-                _ => {}
+                ParserOutput::None => (),
             }
         }
 
         parser.clear();
     }
+
+    let mut index = 0;
+    while to_proccess_vec.len() > 0 {
+        let to_proccess = to_proccess_vec.get(index).unwrap();
+        let parser_output = outputs.get(to_proccess).unwrap();
+
+        // go through bases and check if processed
+
+        match parser_output {
+            ParserOutput::Contract(name, contract) => {
+                let mut new_contract = contract.clone();
+                let mut processed = true;
+
+                for base in contract.base.clone() {
+                    // if the base needs to be processed process it
+                    if to_proccess_map.get(&base).is_some() {
+                        index += 1;
+                        if index == to_proccess_vec.len() {
+                            index = 0
+                        }
+                        processed = false;
+                        break;
+                    }
+                    // else we can add its functions to the contract
+                    if let Some(base_parsed) = outputs.get(&base) {
+                        match base_parsed {
+                            ParserOutput::Contract(_, contract) => {
+                                new_contract.fields.append(&mut contract.fields.clone());
+                                new_contract
+                                    .functions
+                                    .append(&mut contract.functions.clone());
+                                new_contract
+                                    .modifiers
+                                    .append(&mut contract.modifiers.clone());
+                            }
+                            _ => (),
+                        }
+                    }
+                }
+                if !processed {
+                    continue
+                }
+                if !contract.is_abstract {
+                    processed_vec.push(new_contract.clone());
+                }
+                processed_map.insert(name.clone(), contract.clone());
+                to_proccess_vec.remove(index);
+                to_proccess_map.remove(&name.clone());
+                outputs.insert(
+                    name.clone(),
+                    ParserOutput::Contract(name.clone(), new_contract),
+                );
+                if index == to_proccess_vec.len() {
+                    index = 0;
+                }
+            }
+            ParserOutput::Interface(_, interface) => {
+                (
+                //@todo dont care for now
+                )
+            }
+            ParserOutput::Library(_, library) => {
+                (
+                //@todo dont care for now
+            )
+            }
+            _ => (),
+        }
+    }
+
+    // now we pass processed vec to assembler
 
     Ok(())
 }

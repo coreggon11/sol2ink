@@ -21,10 +21,6 @@
 // SOFTWARE.
 
 use crate::structures::*;
-use convert_case::{
-    Case::Snake,
-    Casing,
-};
 use rbtree::RBTree;
 use solang_parser::{
     parse,
@@ -146,19 +142,17 @@ impl<'a> Parser<'a> {
             ContractTy::Abstract(_) | ContractTy::Contract(_) => {
                 let parsed_contract = self.parse_contract(contract_definition)?;
                 let contract =
-                    ParserOutput::Contract(parsed_contract.name.to_case(Snake), parsed_contract);
+                    ParserOutput::Contract(parsed_contract.name.clone(), parsed_contract);
                 Ok(contract)
             }
             ContractTy::Library(_) => {
                 let parsed_library = self.parse_library(contract_definition)?;
-                let library =
-                    ParserOutput::Library(parsed_library.name.to_case(Snake), parsed_library);
+                let library = ParserOutput::Library(parsed_library.name.clone(), parsed_library);
                 Ok(library)
             }
             ContractTy::Interface(_) => {
                 let parsed_trait = self.parse_interface(contract_definition)?;
-                let interface =
-                    ParserOutput::Interface(parsed_trait.name.to_case(Snake), parsed_trait);
+                let interface = ParserOutput::Interface(parsed_trait.name.clone(), parsed_trait);
                 Ok(interface)
             }
         }
@@ -255,6 +249,10 @@ impl<'a> Parser<'a> {
             constructor,
             modifiers,
             base,
+            is_abstract: match contract_definition.ty {
+                ContractTy::Abstract(_) => true,
+                _ => false,
+            },
         })
     }
 
@@ -280,9 +278,6 @@ impl<'a> Parser<'a> {
                         function_headers.push(header);
                     }
                 }
-                ContractPart::TypeDefinition(_) => {}
-                ContractPart::Using(_) => {}
-                ContractPart::StraySemicolon(_) => {}
                 _ => {}
             }
         }
