@@ -57,7 +57,6 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
     let storage = assemble_storage(&contract.name);
     let constructor = assemble_constructor(&contract.constructor, &contract.fields);
     let constants = assemble_constants(&contract.fields);
-    let comments = &contract.contract_doc;
     let emit_functions = assemble_contract_emit_functions(&contract.events);
     let base = contract
         .base
@@ -80,7 +79,6 @@ pub fn assemble_contract(contract: &Contract) -> TokenStream {
         #![feature(min_specialization)]
         _blank_!();
         #signature
-        #(#[doc = #comments])*
         #[openbrush::contract]
         pub mod #mod_name {
             use openbrush::traits::Storage;
@@ -294,7 +292,6 @@ pub fn assemble_library(library: Library) -> TokenStream {
     let structs = assemble_structs(&library.structs);
     let constants = assemble_constants(&library.fields);
     let functions = assemble_functions(&library.functions, true);
-    let comments = &library.libraray_doc;
 
     let library = quote! {
         #![cfg_attr(not(feature = "std"), no_std)]
@@ -303,7 +300,6 @@ pub fn assemble_library(library: Library) -> TokenStream {
         #(#imports)*
         _blank_!();
         #signature
-        #(#[doc = #comments])*
         _blank_!();
         pub enum Error {
             Custom(String),
@@ -327,34 +323,18 @@ fn assemble_enums(enums: &[Enum]) -> TokenStream {
     for enumeration in enums.iter() {
         let enum_name =
             TokenStream::from_str(&format_expression(&enumeration.name, Pascal)).unwrap();
-        let mut enum_comments = TokenStream::new();
         let mut values = TokenStream::new();
-
-        // assemble comments
-        for comment in enumeration.comments.iter() {
-            enum_comments.extend(quote! {
-                #[doc = #comment]
-            });
-        }
 
         // assemble enum values
         for value in enumeration.values.iter() {
             let value_name = TokenStream::from_str(&value.name.to_case(Pascal)).unwrap();
-            let mut value_comment = TokenStream::new();
-            for comment in value.comments.iter() {
-                value_comment.extend(quote! {
-                    #[doc = #comment]
-                })
-            }
 
             values.extend(quote! {
-                #value_comment
                 #value_name,
             });
         }
 
         output.extend(quote! {
-            #enum_comments
             pub enum #enum_name {
                 #values
             }
@@ -371,28 +351,10 @@ fn assemble_events(events: &[Event]) -> TokenStream {
 
     for event in events.iter() {
         let event_name = TokenStream::from_str(&event.name).unwrap();
-        let mut event_comments = TokenStream::new();
         let mut event_fields = TokenStream::new();
-
-        // assemble comments
-        for comment in event.comments.iter() {
-            event_comments.extend(quote! {
-                #[doc = #comment]
-            });
-        }
 
         // assemble event fields
         for event_field in event.fields.iter() {
-            let mut event_field_comments = TokenStream::new();
-            for comment in event_field.comments.iter() {
-                event_field_comments.extend(quote! {
-                    #[doc = #comment]
-                })
-            }
-            event_fields.extend(quote! {
-                    #event_field_comments
-            });
-
             if event_field.indexed {
                 event_fields.extend(quote! {
                     #[ink(topic)]
@@ -408,7 +370,6 @@ fn assemble_events(events: &[Event]) -> TokenStream {
         }
 
         output.extend(quote! {
-            #event_comments
             #[ink(event)]
             pub struct #event_name
             {
@@ -431,11 +392,6 @@ fn assemble_data_struct(fields: &[ContractField]) -> TokenStream {
         let field_name = format_ident!("{}", field.name.to_case(Snake));
         let field_type = &field.field_type;
 
-        for comment in field.comments.iter() {
-            storage_fields.extend(quote! {
-                #[doc = #comment]
-            });
-        }
         storage_fields.extend(quote! {
             pub #field_name: #field_type,
         });
@@ -534,11 +490,6 @@ fn assemble_constants(fields: &[ContractField]) -> TokenStream {
         let field_type = &field.field_type;
         let initial_value = field.initial_value.clone().unwrap();
 
-        for comment in field.comments.iter() {
-            output.extend(quote! {
-                #[doc = #comment]
-            });
-        }
         output.extend(quote! {
             pub const #field_name: #field_type = #initial_value;
         });
@@ -558,37 +509,21 @@ fn assemble_structs(structs: &[Struct]) -> TokenStream {
     for structure in structs.iter() {
         let struct_name =
             TokenStream::from_str(&format_expression(&structure.name, Pascal)).unwrap();
-        let mut struct_comments = TokenStream::new();
         let mut struct_fields = TokenStream::new();
-
-        // assemble comments
-        for comment in structure.comments.iter() {
-            struct_comments.extend(quote! {
-                #[doc = #comment]
-            });
-        }
 
         // assemble struct fields
         for struct_field in structure.fields.iter() {
-            let mut struct_field_comments = TokenStream::new();
-            for comment in struct_field.comments.iter() {
-                struct_field_comments.extend(quote! {
-                    #[doc = #comment]
-                })
-            }
             let struct_field_name =
                 format_ident!("{}", &format_expression(&struct_field.name, Snake));
 
             let struct_field_type = &struct_field.field_type;
 
             struct_fields.extend(quote! {
-                #struct_field_comments
                 #struct_field_name: #struct_field_type,
             });
         }
 
         output.extend(quote! {
-            #struct_comments
             #[derive(Default, Encode, Decode)]
             #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
             pub struct #struct_name {
@@ -609,15 +544,7 @@ fn assemble_structs(structs: &[Struct]) -> TokenStream {
 fn assemble_constructor(constructor: &Function, fields: &[ContractField]) -> TokenStream {
     let mut output = TokenStream::new();
     let mut params = TokenStream::new();
-    let mut comments = TokenStream::new();
     let constructor_functions = &constructor.body;
-
-    // assemble comments
-    for comment in constructor.header.comments.iter() {
-        comments.extend(quote! {
-            #[doc = #comment]
-        });
-    }
 
     // assemble params
     for param in constructor.header.params.iter() {
@@ -649,7 +576,6 @@ fn assemble_constructor(constructor: &Function, fields: &[ContractField]) -> Tok
     }
 
     output.extend(quote! {
-        #comments
         #[ink(constructor)]
         pub fn new(#params) -> Self{
             let mut instance = Self::default();
@@ -673,18 +599,10 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
         let mut params = TokenStream::new();
         let mut return_params = TokenStream::new();
         let mut body = TokenStream::new();
-        let mut comments = TokenStream::new();
         let mut function_modifiers = TokenStream::new();
         let invalid_modifiers = &function.invalid_modifiers;
         let invalid_modifiers_vec = &function.header.invalid_modifiers;
         let statement = function.body.clone();
-
-        // assemble comments
-        for comment in function.header.comments.iter() {
-            comments.extend(quote! {
-                #[doc = #comment]
-            });
-        }
 
         for function_modifier in function.header.modifiers.iter() {
             function_modifiers.extend(quote! {
@@ -835,7 +753,6 @@ fn assemble_functions(functions: &[Function], is_library: bool) -> TokenStream {
         }
 
         output.extend(quote! {
-            #comments
             #function_modifiers
             #function_name(#view #params) -> Result<#return_params, Error> {
                 #forgot_modifiers
@@ -991,19 +908,11 @@ fn assemble_function_headers(function_headers: &[FunctionHeader]) -> TokenStream
     let mut output = TokenStream::new();
 
     for header in function_headers.iter() {
-        let mut function_comments = TokenStream::new();
         let mut message = TokenStream::new();
         let mut function_name = TokenStream::new();
         let mut view = TokenStream::new();
         let mut params = TokenStream::new();
         let mut return_params = TokenStream::new();
-
-        // assemble comments
-        for comment in header.comments.iter() {
-            function_comments.extend(quote! {
-                #[doc = #comment]
-            });
-        }
 
         // assemble message
         if header.external {
@@ -1074,7 +983,6 @@ fn assemble_function_headers(function_headers: &[FunctionHeader]) -> TokenStream
         }
 
         output.extend(quote! {
-            #function_comments
             #message
             #function_name(#view #params) -> Result<#return_params, Error>;
         });
