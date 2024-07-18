@@ -359,9 +359,10 @@ impl<'a> Parser<'a> {
         variable_definition: &VariableDefinition,
     ) -> Result<ContractField, ParserError> {
         let name = self.parse_identifier(&variable_definition.name);
-        let initial_value = variable_definition.initializer.as_ref().map(|expression| {
-            self.parse_expression(expression, VariableAccessLocation::Constructor)
-        });
+        let initial_value = variable_definition
+            .initializer
+            .as_ref()
+            .map(|expression| self.parse_expression(expression));
         let contract_field = ContractField {
             name,
             initial_value,
@@ -381,10 +382,7 @@ impl<'a> Parser<'a> {
     ) -> Result<Function, ParserError> {
         let header = self.parse_function_header(function_definition);
         let calls = if let Some(statement) = &function_definition.body {
-            self.parse_statement(
-                statement,
-                self.parse_variable_access_location(function_definition),
-            )?
+            self.parse_statement(statement)?
         } else {
             Vec::default()
         };
@@ -410,7 +408,7 @@ impl<'a> Parser<'a> {
                 if let FunctionAttribute::BaseOrModifier(_, base) = modifier {
                     let parsed_name = self.parse_identifier_path(&base.name);
                     let parsed_args = if let Some(args) = &base.args {
-                        self.parse_expression_vec(args, VariableAccessLocation::Any)
+                        self.parse_expression_vec(args)
                     } else {
                         Vec::default()
                     };
@@ -451,46 +449,22 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Parses from where a variable will be accessed
-    /// This affects if we call `Self::var`, `T::var` or `self.var`
-    ///
-    /// `function_definition` the Solang function definition
-    ///
-    /// Returns the corresponding `VariableAccessLocation` enum variant
-    fn parse_variable_access_location(
-        &self,
-        function_definition: &FunctionDefinition,
-    ) -> VariableAccessLocation {
-        match function_definition.ty {
-            FunctionTy::Constructor => VariableAccessLocation::Constructor,
-            FunctionTy::Modifier => VariableAccessLocation::Modifier,
-            _ => VariableAccessLocation::Any,
-        }
-    }
-
     /// Parses a Solang statement enum variant to Sol2Ink statement enum variant
     ///
     /// `statement` the original Solang statement enum variant
     /// `location` the location where the statement is [being called](fn@parse_variable_access_location)
     ///
     /// Returns the parsed `Statement` enum variant
-    fn parse_statement(
-        &mut self,
-        statement: &SolangStatement,
-        location: VariableAccessLocation, // @todo remove
-    ) -> Result<Vec<Call>, ParserError> {
+    fn parse_statement(&mut self, statement: &SolangStatement) -> Result<Vec<Call>, ParserError> {
         Ok(match statement {
             SolangStatement::Block {
                 loc: _,
-                unchecked,
+                unchecked: _,
                 statements,
             } => {
                 statements
                     .iter()
-                    .flat_map(|statement| {
-                        self.parse_statement(statement, location.clone())
-                            .unwrap_or_default()
-                    })
+                    .flat_map(|statement| self.parse_statement(statement).unwrap_or_default())
                     .collect::<Vec<_>>()
             }
             SolangStatement::Assembly {
@@ -501,24 +475,21 @@ impl<'a> Parser<'a> {
             } => todo!("Assembly not done yet!"),
             SolangStatement::If(_, expression, if_true, if_false) => {
                 // @todo expression must return call
-                let parsed_expression = self.parse_expression(expression, location.clone());
-                let parsed_if_true = self.parse_statement(if_true, location.clone())?;
+                let parsed_expression = self.parse_expression(expression);
+                let parsed_if_true = self.parse_statement(if_true)?;
                 let parsed_if_false = if_false
                     .as_ref()
-                    .map(|statement| {
-                        self.parse_statement(statement, location.clone())
-                            .unwrap_or_default()
-                    })
+                    .map(|statement| self.parse_statement(statement).unwrap_or_default())
                     .unwrap_or_default();
                 todo!("Expression must return call")
             }
             SolangStatement::While(_, expression, statement) => {
-                let parsed_expression = self.parse_expression(expression, location.clone());
-                let parsed_statement = self.parse_statement(statement, location)?;
+                let parsed_expression = self.parse_expression(expression);
+                let parsed_statement = self.parse_statement(statement)?;
                 todo!("Expression must return call")
             }
             SolangStatement::Expression(_, expression) => {
-                let parsed_expression = self.parse_expression(expression, location);
+                let parsed_expression = self.parse_expression(expression);
                 todo!("Expression must return call")
             }
             SolangStatement::VariableDefinition(_, declaration, initial_value_maybe) => {
@@ -526,42 +497,42 @@ impl<'a> Parser<'a> {
                 let parsed_declaration = Expression::VariableDeclaration(parsed_name);
                 let parsed_initial_value = initial_value_maybe
                     .as_ref()
-                    .map(|expression| self.parse_expression(expression, location));
+                    .map(|expression| self.parse_expression(expression));
 
                 todo!("Expression must return call")
             }
             SolangStatement::For(_, variable_definition, condition, on_pass, body) => {
                 let parsed_variable_definition = variable_definition
                     .as_ref()
-                    .map(|statement| self.parse_statement(statement, location.clone()))
+                    .map(|statement| self.parse_statement(statement))
                     .map(|result| Box::new(result.unwrap()));
                 let parsed_condition = condition
                     .as_ref()
-                    .map(|expression| self.parse_expression(expression, location.clone()));
+                    .map(|expression| self.parse_expression(expression));
                 let parsed_on_pass = on_pass
                     .as_ref()
-                    .map(|statement| self.parse_statement(statement, location.clone()))
+                    .map(|statement| self.parse_statement(statement))
                     .map(|result| Box::new(result.unwrap()));
                 let parsed_body = body
                     .as_ref()
-                    .map(|statement| self.parse_statement(statement, location))
+                    .map(|statement| self.parse_statement(statement))
                     .map(|result| Box::new(result.unwrap()));
 
                 todo!("Expression must return call")
             }
             SolangStatement::DoWhile(_, body, condition) => {
-                let parsed_condition = self.parse_expression(condition, location.clone());
-                let parsed_body = Box::new(self.parse_statement(body, location)?);
+                let parsed_condition = self.parse_expression(condition);
+                let parsed_body = Box::new(self.parse_statement(body)?);
                 todo!("Expression must return call")
             }
             SolangStatement::Return(_, expression) => {
                 let parsed_expression = expression
                     .as_ref()
-                    .map(|expression| self.parse_expression(expression, location));
+                    .map(|expression| self.parse_expression(expression));
                 todo!("Expression must return call")
             }
             SolangStatement::Try(_, expression, _, _) => {
-                let parsed_expression = self.parse_expression(expression, location);
+                let parsed_expression = self.parse_expression(expression);
                 todo!("Expression must return call")
             }
             _ => Vec::default(),
@@ -574,22 +545,18 @@ impl<'a> Parser<'a> {
     /// `location` the location where the expression is [being called](fn@parse_variable_access_location)
     ///
     /// Returns the parsed `Expression` enum variant
-    fn parse_expression(
-        &mut self,
-        expression: &SolangExpression,
-        location: VariableAccessLocation,
-    ) -> Expression {
+    fn parse_expression(&mut self, expression: &SolangExpression) -> Expression {
         macro_rules! maybe_boxed_expression {
             ($to_declare:ident,$to_parse:expr) => {
-                let $to_declare = $to_parse.as_ref().map(|expression| {
-                    Box::new(self.parse_expression(&expression, location.clone()))
-                });
+                let $to_declare = $to_parse
+                    .as_ref()
+                    .map(|expression| Box::new(self.parse_expression(&expression)));
             };
         }
 
         macro_rules! boxed_expression {
             ($to_declare:ident,$to_parse:expr) => {
-                let $to_declare = Box::new(self.parse_expression($to_parse, location.clone()));
+                let $to_declare = Box::new(self.parse_expression($to_parse));
             };
         }
 
@@ -609,17 +576,13 @@ impl<'a> Parser<'a> {
             SolangExpression::ArraySubscript(_, array, index_maybe) => {
                 match *array.clone() {
                     SolangExpression::ArraySubscript(..) => {
-                        self.array_subscript_to_mapping_subscript(array, index_maybe, location)
+                        self.array_subscript_to_mapping_subscript(array, index_maybe)
                     }
                     SolangExpression::MemberAccess(_, expression, _) => {
-                        let parsed_expresion = self.parse_expression(&expression, location.clone());
+                        let parsed_expresion = self.parse_expression(&expression);
                         match parsed_expresion {
                             Expression::MappingSubscript(..) => {
-                                self.array_subscript_to_mapping_subscript(
-                                    array,
-                                    index_maybe,
-                                    location,
-                                )
+                                self.array_subscript_to_mapping_subscript(array, index_maybe)
                             }
                             _ => {
                                 boxed_expression!(parsed_array, array);
@@ -674,7 +637,7 @@ impl<'a> Parser<'a> {
                 Expression::MemberAccess(parsed_expression, parsed_identifier)
             }
             SolangExpression::FunctionCall(_, function, args) => {
-                let parsed_args = self.parse_expression_vec(args, location.clone());
+                let parsed_args = self.parse_expression_vec(args);
 
                 if let SolangExpression::FunctionCallBlock(_, function, parameters) =
                     *function.clone()
@@ -683,8 +646,7 @@ impl<'a> Parser<'a> {
                         let value_argument = arguments
                             .iter()
                             .map(|argument| {
-                                let parsed_argument =
-                                    self.parse_expression(&argument.expr, location.clone());
+                                let parsed_argument = self.parse_expression(&argument.expr);
                                 let parsed_name =
                                     self.parse_identifier(&Some(argument.name.clone()));
                                 (parsed_name, parsed_argument)
@@ -722,20 +684,19 @@ impl<'a> Parser<'a> {
             SolangExpression::FunctionCallBlock(_, _, _) => Expression::None,
             SolangExpression::NamedFunctionCall(_, expression, arguments) => {
                 boxed_expression!(parsed_expression, expression);
-                if let Expression::Variable(_, Some(MemberType::Function(_)), _) =
+                if let Expression::Variable(_, Some(MemberType::Function(_))) =
                     *parsed_expression.clone()
                 {
                     let parsed_arguments = arguments
                         .iter()
-                        .map(|argument| self.parse_expression(&argument.expr, location.clone()))
+                        .map(|argument| self.parse_expression(&argument.expr))
                         .collect();
                     Expression::FunctionCall(parsed_expression, parsed_arguments, None)
                 } else {
                     let parsed_arguments = arguments
                         .iter()
                         .map(|argument| {
-                            let parsed_argument =
-                                self.parse_expression(&argument.expr, location.clone());
+                            let parsed_argument = self.parse_expression(&argument.expr);
                             let parsed_name = self.parse_identifier(&Some(argument.name.clone()));
                             (parsed_name, parsed_argument)
                         })
@@ -978,7 +939,7 @@ impl<'a> Parser<'a> {
                     return Expression::ModifierBody
                 }
                 let member_type = self.members_map.get(&parsed_identifier);
-                Expression::Variable(parsed_identifier, member_type.cloned(), location)
+                Expression::Variable(parsed_identifier, member_type.cloned())
             }
             SolangExpression::List(_, parameters) => {
                 let list = parameters
@@ -990,13 +951,13 @@ impl<'a> Parser<'a> {
                                 .map(|parameter| parameter.name)
                                 .unwrap_or(None),
                         );
-                        Expression::Variable(name, None, location.clone())
+                        Expression::Variable(name, None)
                     })
                     .collect();
                 Expression::List(list)
             }
             SolangExpression::ArrayLiteral(_, content) => {
-                let list = self.parse_expression_vec(content, location);
+                let list = self.parse_expression_vec(content);
                 Expression::ArrayLiteral(list)
             }
             SolangExpression::Unit(_, exp, unit) => {
@@ -1015,7 +976,7 @@ impl<'a> Parser<'a> {
 
                 Expression::Unit(parsed_exp, constant)
             }
-            SolangExpression::This(_) => Expression::This(location),
+            SolangExpression::This(_) => Expression::This(),
         }
     }
 
@@ -1025,14 +986,10 @@ impl<'a> Parser<'a> {
     /// `location` the location where the expression is [being called](fn@parse_variable_access_location)
     ///
     /// Returns the vec of parsed `Expression` enum variant
-    fn parse_expression_vec(
-        &mut self,
-        expressions: &[SolangExpression],
-        location: VariableAccessLocation,
-    ) -> Vec<Expression> {
+    fn parse_expression_vec(&mut self, expressions: &[SolangExpression]) -> Vec<Expression> {
         expressions
             .iter()
-            .map(|expression| self.parse_expression(expression, location.clone()))
+            .map(|expression| self.parse_expression(expression))
             .collect()
     }
 
@@ -1049,16 +1006,12 @@ impl<'a> Parser<'a> {
         &mut self,
         array: &SolangExpression,
         index_maybe: &Option<Box<SolangExpression>>,
-        location: VariableAccessLocation,
     ) -> Expression {
         let mut parsed_indices = VecDeque::default();
-        parsed_indices.push_back(
-            self.parse_expression(&index_maybe.as_ref().unwrap().clone(), location.clone()),
-        );
+        parsed_indices.push_back(self.parse_expression(&index_maybe.as_ref().unwrap().clone()));
         let mut array_now = array.clone();
         while let SolangExpression::ArraySubscript(_, array, index_maybe) = array_now {
-            parsed_indices
-                .push_back(self.parse_expression(&index_maybe.unwrap(), location.clone()));
+            parsed_indices.push_back(self.parse_expression(&index_maybe.unwrap()));
             array_now = *array.clone();
         }
         let mut vec_indices = Vec::default();
@@ -1066,7 +1019,7 @@ impl<'a> Parser<'a> {
             vec_indices.push(parsed_indices.pop_back().unwrap());
         }
 
-        let parsed_array = Box::new(self.parse_expression(&array_now, location));
+        let parsed_array = Box::new(self.parse_expression(&array_now));
         Expression::MappingSubscript(parsed_array, vec_indices)
     }
 
@@ -1082,64 +1035,6 @@ impl<'a> Parser<'a> {
             .map(|identifier| identifier.name.clone())
             .collect::<Vec<String>>()
             .join(".")
-    }
-
-    /// Converts a Solang `Expression::Type` enum variant to Sol2Ink `Type` enum variant
-    /// We do this to convert some Solidity specific types into ink! specific types
-    ///
-    /// `ty` the origina Solang `Expression::Type` enum variant
-    ///
-    /// Returns the parsed `Type` enum variant
-    fn parse_type(&mut self, ty: &SolangExpression) -> Result<Type, ParserError> {
-        match &ty {
-            SolangExpression::Type(_, SolangType::Mapping(_, key_type, value_type)) => {
-                let mut parsed_key_types = vec![self.parse_type(key_type)?];
-                let mut value_type_now = value_type.as_ref();
-                while let SolangExpression::Type(
-                    _,
-                    SolangType::Mapping(_, key_type_value, value_type_value),
-                ) = value_type_now
-                {
-                    parsed_key_types.push(self.parse_type(key_type_value)?);
-                    value_type_now = value_type_value;
-                }
-                let parsed_value_type = self.parse_type(value_type_now)?;
-                self.imports.insert(Import::Mapping);
-                Ok(Type::Mapping(parsed_key_types, Box::new(parsed_value_type)))
-            }
-            SolangExpression::Type(_, SolangType::Function { .. }) => {
-                todo!("Function as a parameter")
-            }
-            SolangExpression::Type(_, solidity_type) => {
-                let converted_type = self.convert_solidity_type(solidity_type);
-                match converted_type {
-                    Type::Array(..) => self.imports.insert(Import::Vec),
-                    Type::AccountId => self.imports.insert(Import::AccountId),
-                    Type::String => self.imports.insert(Import::String),
-                    Type::DynamicBytes => self.imports.insert(Import::Vec),
-                    Type::Mapping(_, _) => self.imports.insert(Import::Mapping),
-                    _ => true,
-                };
-                Ok(converted_type)
-            }
-            SolangExpression::Variable(identifier) => Ok(Type::Variable(identifier.name.clone())),
-            SolangExpression::ArraySubscript(_, ty, expression_maybe) => {
-                let parsed_type = Box::new(self.parse_type(ty)?);
-                let parsed_expression = expression_maybe
-                    .as_ref()
-                    .map(|option| self.parse_expression(option, VariableAccessLocation::Any));
-                Ok(Type::Array(parsed_type, parsed_expression))
-            }
-            SolangExpression::MemberAccess(_, from, identifier) => {
-                let parsed_expression = self.parse_expression(from, VariableAccessLocation::Any);
-                let parsed_identifier = self.parse_identifier(&Some(identifier.clone()));
-                Ok(Type::MemberAccess(parsed_expression, parsed_identifier))
-            }
-            _ => {
-                println!("{ty:?}");
-                Err(ParserError::IncorrectTypeOfVariable)
-            }
-        }
     }
 
     /// Converts a Solang `Type` enum variant to Sol2Ink `Type` enum variant
