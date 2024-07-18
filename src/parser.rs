@@ -148,50 +148,17 @@ impl<'a> Parser<'a> {
 
         let mut output = Vec::new();
         let source_unit = token_tree.0;
-        let comments = token_tree.1;
-
-        comments.iter().for_each(|comment| {
-            match comment {
-                SolangComment::Line(loc, _)
-                | SolangComment::Block(loc, _)
-                | SolangComment::DocLine(loc, _)
-                | SolangComment::DocBlock(loc, _) => {
-                    self.comments
-                        .insert(loc.end(), self.filter_comment(comment));
-                }
-            }
-        });
 
         for source_unit_part in source_unit.0.iter() {
             match &source_unit_part {
                 SourceUnitPart::ContractDefinition(contract) => {
                     output.push(self.handle_contract_definition(contract)?);
                 }
-                SourceUnitPart::ImportDirective(_) | SourceUnitPart::PragmaDirective(..) => {}
-                _ => println!("Found a source unit outside of contract"),
+                _ => (),
             }
         }
 
         Ok(output)
-    }
-
-    /// Retrieves the comments from the Parser's RB Tree from the beginning until a key
-    ///
-    /// `until` key value where we stop iterating over the tree
-    fn get_comments(&mut self, until: usize) -> Vec<String> {
-        let mut comments = Vec::default();
-        let mut removed = Vec::default();
-        for node in self.comments.iter() {
-            if *node.0 > until {
-                break
-            }
-            comments.push(node.1.clone());
-            removed.push(*node.0);
-        }
-        removed.iter().for_each(|key| {
-            self.comments.remove(key);
-        });
-        comments
     }
 
     /// Parses a contract definition and returns a ParserOutput
@@ -206,23 +173,20 @@ impl<'a> Parser<'a> {
         contract_definition: &ContractDefinition,
     ) -> Result<ParserOutput, ParserError> {
         match contract_definition.ty {
-            ContractTy::Abstract(loc) | ContractTy::Contract(loc) => {
-                let comments = self.get_comments(loc.end());
-                let parsed_contract = self.parse_contract(contract_definition, &comments)?;
+            ContractTy::Abstract(_) | ContractTy::Contract(_) => {
+                let parsed_contract = self.parse_contract(contract_definition)?;
                 let contract =
                     ParserOutput::Contract(parsed_contract.name.to_case(Snake), parsed_contract);
                 Ok(contract)
             }
-            ContractTy::Library(loc) => {
-                let comments = self.get_comments(loc.end());
-                let parsed_library = self.parse_library(contract_definition, &comments)?;
+            ContractTy::Library(_) => {
+                let parsed_library = self.parse_library(contract_definition)?;
                 let library =
                     ParserOutput::Library(parsed_library.name.to_case(Snake), parsed_library);
                 Ok(library)
             }
-            ContractTy::Interface(loc) => {
-                let comments = self.get_comments(loc.end());
-                let parsed_trait = self.parse_interface(contract_definition, &comments)?;
+            ContractTy::Interface(_) => {
+                let parsed_trait = self.parse_interface(contract_definition)?;
                 let interface =
                     ParserOutput::Interface(parsed_trait.name.to_case(Snake), parsed_trait);
                 Ok(interface)
@@ -239,7 +203,6 @@ impl<'a> Parser<'a> {
     fn parse_contract(
         &mut self,
         contract_definition: &ContractDefinition,
-        comments: &[String],
     ) -> Result<Contract, ParserError> {
         let name = self.parse_identifier(&contract_definition.name);
         let base = contract_definition
@@ -351,7 +314,6 @@ impl<'a> Parser<'a> {
             constructor,
             modifiers,
             imports: self.imports.clone(),
-            contract_doc: comments.to_vec(),
             base,
         })
     }
@@ -365,7 +327,6 @@ impl<'a> Parser<'a> {
     fn parse_interface(
         &mut self,
         contract_definition: &ContractDefinition,
-        comments: &[String],
     ) -> Result<Interface, ParserError> {
         let name = self.parse_identifier(&contract_definition.name);
 
@@ -410,7 +371,6 @@ impl<'a> Parser<'a> {
             structs,
             function_headers,
             imports: self.imports.clone(),
-            comments: comments.to_vec(),
         })
     }
 
@@ -423,7 +383,6 @@ impl<'a> Parser<'a> {
     fn parse_library(
         &mut self,
         contract_definition: &ContractDefinition,
-        comments: &[String],
     ) -> Result<Library, ParserError> {
         let name = self.parse_identifier(&contract_definition.name);
 
@@ -499,7 +458,6 @@ impl<'a> Parser<'a> {
             structs,
             functions,
             imports: self.imports.clone(),
-            libraray_doc: comments.to_vec(),
         })
     }
 
@@ -514,8 +472,6 @@ impl<'a> Parser<'a> {
     ) -> Result<Struct, ParserError> {
         let name = self.parse_identifier(&struct_definition.name);
 
-        let comments = self.get_comments(struct_definition.loc.end());
-
         let fields: Vec<StructField> = struct_definition
             .fields
             .iter()
@@ -527,17 +483,12 @@ impl<'a> Parser<'a> {
                 let struct_field = StructField {
                     name,
                     field_type: ty,
-                    comments: Default::default(),
                 };
                 Some(struct_field)
             })
             .collect();
 
-        let parsed_struct = Struct {
-            name,
-            fields,
-            comments,
-        };
+        let parsed_struct = Struct { name, fields };
 
         Ok(parsed_struct)
     }
@@ -550,7 +501,6 @@ impl<'a> Parser<'a> {
     fn parse_event(&mut self, event_definition: &EventDefinition) -> Result<Event, ParserError> {
         let name = self.parse_identifier(&event_definition.name);
 
-        let comments = self.get_comments(event_definition.loc.end());
         let fields: Vec<EventField> = event_definition
             .fields
             .iter()
@@ -564,17 +514,12 @@ impl<'a> Parser<'a> {
                     },
                     field_type: self.parse_type(&variable_declaration.ty).ok()?,
                     indexed: variable_declaration.indexed,
-                    comments: self.get_comments(variable_declaration.loc.end()),
                 };
                 Some(event_field)
             })
             .collect();
 
-        let parsed_event = Event {
-            name,
-            fields,
-            comments,
-        };
+        let parsed_event = Event { name, fields };
 
         Ok(parsed_event)
     }
@@ -587,27 +532,17 @@ impl<'a> Parser<'a> {
     fn parse_enum(&mut self, enum_definition: &EnumDefinition) -> Result<Enum, ParserError> {
         let name = self.parse_identifier(&enum_definition.name);
 
-        let comments = self.get_comments(enum_definition.loc.end());
         let values: Vec<EnumValue> = enum_definition
             .values
             .iter()
             .map(|enum_value| {
                 EnumValue {
                     name: self.parse_identifier(enum_value),
-                    comments: if let Some(value) = enum_value {
-                        self.get_comments(value.loc.end())
-                    } else {
-                        Vec::default()
-                    },
                 }
             })
             .collect();
 
-        let parsed_enum = Enum {
-            name,
-            values,
-            comments,
-        };
+        let parsed_enum = Enum { name, values };
 
         Ok(parsed_enum)
     }
@@ -637,14 +572,12 @@ impl<'a> Parser<'a> {
         let initial_value = variable_definition.initializer.as_ref().map(|expression| {
             self.parse_expression(expression, VariableAccessLocation::Constructor)
         });
-        let comments = self.get_comments(variable_definition.loc.end());
         let contract_field = ContractField {
             field_type,
             name,
             initial_value,
             constant,
             public,
-            comments,
         };
 
         Ok(contract_field)
@@ -794,7 +727,6 @@ impl<'a> Parser<'a> {
             return_params,
             modifiers,
             invalid_modifiers,
-            comments: self.get_comments(function_definition.loc.end()),
         }
     }
 
@@ -1105,7 +1037,7 @@ impl<'a> Parser<'a> {
                                 _ => (),
                             }
                         }
-                        _ => ()
+                        _ => (),
                     }
                     Expression::FunctionCall(parsed_function, parsed_args, None)
                 }
@@ -1700,7 +1632,6 @@ mod tests {
                 view: $view,
                 payable: $payable,
                 return_params: $return_params,
-                comments: $comments,
                 modifiers: $modifiers,
                 invalid_modifiers: $invalid_modifiers,
             }
@@ -1712,7 +1643,6 @@ mod tests {
             ContractField {
                 field_type: $field_type,
                 name: $name.to_string(),
-                comments: Vec::default(),
                 initial_value: $initial_value,
                 constant: $constant,
                 public: $public,

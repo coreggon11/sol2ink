@@ -61,23 +61,6 @@ pub fn read_file(path: &String) -> std::io::Result<String> {
     Ok(contents)
 }
 
-/// Creates the basic structure for generated ink! contracts
-///
-/// `file_home` the home directory of the file we are parsing, or the directory we are parsing
-pub fn create_structure(file_home: &str) -> std::io::Result<()> {
-    let contracts_dir = format!("{file_home}{CONTRACTS_DIR}");
-    let impls_dir = format!("{file_home}{IMPLS_DIR}",);
-    let traits_dir = format!("{file_home}{TRAITS_DIR}");
-    let libs_dir = format!("{file_home}{LIBS_DIR}");
-
-    create_dir_all(contracts_dir)?;
-    create_dir_all(impls_dir)?;
-    create_dir_all(traits_dir)?;
-    create_dir_all(libs_dir)?;
-
-    Ok(())
-}
-
 /// Returns the paths to all Solidity files within a directory
 ///
 /// `dir` the directory we want to search

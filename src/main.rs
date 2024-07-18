@@ -20,9 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#![feature(once_cell)]
 #![feature(string_remove_matches)]
-#![feature(exclusive_range_pattern)]
 #![feature(if_let_guard)]
 
 extern crate core;
@@ -39,7 +37,6 @@ use assembler::{
     assemble_mod,
 };
 use file_utils::{
-    create_structure,
     get_solidity_files_from_directory,
     write_mod_files,
 };
@@ -116,7 +113,6 @@ fn main() {
 fn run(home: &str, path: &[String]) -> Result<(), ParserError> {
     initialize_parser!(parser);
 
-    create_structure(home)?;
     let mut impls = Vec::default();
     let mut traits = Vec::default();
     let mut libs = Vec::default();

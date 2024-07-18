@@ -44,7 +44,6 @@ pub struct Contract {
     pub structs: Vec<Struct>,
     pub functions: Vec<Function>,
     pub imports: HashSet<Import>,
-    pub contract_doc: Vec<String>,
     pub modifiers: Vec<Function>,
     pub base: Vec<String>,
 }
@@ -58,7 +57,6 @@ pub struct Library {
     pub structs: Vec<Struct>,
     pub functions: Vec<Function>,
     pub imports: HashSet<Import>,
-    pub libraray_doc: Vec<String>,
 }
 
 #[derive(Clone, Default, Debug)]
@@ -69,14 +67,12 @@ pub struct Interface {
     pub structs: Vec<Struct>,
     pub function_headers: Vec<FunctionHeader>,
     pub imports: HashSet<Import>,
-    pub comments: Vec<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContractField {
     pub field_type: Type,
     pub name: String,
-    pub comments: Vec<String>,
     pub initial_value: Option<Expression>,
     pub constant: bool,
     pub public: bool,
@@ -86,7 +82,6 @@ pub struct ContractField {
 pub struct Event {
     pub name: String,
     pub fields: Vec<EventField>,
-    pub comments: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -94,34 +89,29 @@ pub struct EventField {
     pub indexed: bool,
     pub field_type: Type,
     pub name: String,
-    pub comments: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
 pub struct Enum {
     pub name: String,
     pub values: Vec<EnumValue>,
-    pub comments: Vec<String>,
 }
 
 #[derive(Default, Clone, Debug)]
 pub struct EnumValue {
     pub name: String,
-    pub comments: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
 pub struct Struct {
     pub name: String,
     pub fields: Vec<StructField>,
-    pub comments: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
 pub struct StructField {
     pub name: String,
     pub field_type: Type,
-    pub comments: Vec<String>,
 }
 
 #[derive(Default, Clone, Debug)]
@@ -139,7 +129,6 @@ pub struct FunctionHeader {
     pub view: bool,
     pub payable: bool,
     pub return_params: Vec<FunctionParam>,
-    pub comments: Vec<String>,
     pub modifiers: Vec<Expression>,
     pub invalid_modifiers: Vec<Expression>,
 }
