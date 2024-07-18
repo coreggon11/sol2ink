@@ -20,10 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::collections::{
-    HashMap,
-    HashSet,
-};
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum MemberType {
@@ -100,7 +97,7 @@ pub struct StructField {
 #[derive(Default, Clone, Debug)]
 pub struct Function {
     pub header: FunctionHeader,
-    pub body: Option<Statement>,
+    pub calls: Vec<Call>,
 }
 
 #[derive(Default, Clone, Debug, Eq, PartialEq)]
@@ -116,6 +113,13 @@ pub struct FunctionHeader {
 pub struct FunctionParam {
     pub name: String,
     pub param_type: Type,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Call {
+    Read,
+    ReadStorage,
+    Write,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -197,7 +201,7 @@ pub enum Expression {
     This(VariableAccessLocation),
     Type(Box<Type>),
     Variable(String, Option<MemberType>, VariableAccessLocation),
-    VariableDeclaration(Box<Type>, String),
+    VariableDeclaration(String),
     ShiftLeft(Box<Expression>, Box<Expression>),
     ShiftRight(Box<Expression>, Box<Expression>),
     BitwiseAnd(Box<Expression>, Box<Expression>),

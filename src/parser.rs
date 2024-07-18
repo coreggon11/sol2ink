@@ -380,16 +380,16 @@ impl<'a> Parser<'a> {
         function_definition: &FunctionDefinition,
     ) -> Result<Function, ParserError> {
         let header = self.parse_function_header(function_definition);
-        let body = if let Some(statement) = &function_definition.body {
-            Some(self.parse_statement(
+        let calls = if let Some(statement) = &function_definition.body {
+            self.parse_statement(
                 statement,
                 self.parse_variable_access_location(function_definition),
-            )?)
+            )?
         } else {
-            None
+            Vec::default()
         };
 
-        Ok(Function { header, body })
+        Ok(Function { header, calls })
     }
 
     /// Parses a Sol2Ink function header definition from Solang function definition
@@ -477,62 +477,58 @@ impl<'a> Parser<'a> {
     fn parse_statement(
         &mut self,
         statement: &SolangStatement,
-        location: VariableAccessLocation,
-    ) -> Result<Statement, ParserError> {
+        location: VariableAccessLocation, // @todo remove
+    ) -> Result<Vec<Call>, ParserError> {
         Ok(match statement {
             SolangStatement::Block {
                 loc: _,
                 unchecked,
                 statements,
             } => {
-                let parsed_statements = statements
+                statements
                     .iter()
-                    .map(|statement| self.parse_statement(statement, location.clone()))
-                    .map(|result| result.unwrap())
-                    .collect::<Vec<_>>();
-                if *unchecked {
-                    Statement::UncheckedBlock(parsed_statements)
-                } else {
-                    Statement::Block(parsed_statements)
-                }
+                    .flat_map(|statement| {
+                        self.parse_statement(statement, location.clone())
+                            .unwrap_or_default()
+                    })
+                    .collect::<Vec<_>>()
             }
             SolangStatement::Assembly {
                 loc: _,
                 dialect: _,
                 flags: _,
                 block: _,
-            } => Statement::Assembly,
-            SolangStatement::Args(_, _) => {
-                println!("{statement:?}");
-                todo!()
-            }
+            } => todo!("Assembly not done yet!"),
             SolangStatement::If(_, expression, if_true, if_false) => {
+                // @todo expression must return call
                 let parsed_expression = self.parse_expression(expression, location.clone());
-                let parsed_if_true = Box::new(self.parse_statement(if_true, location.clone())?);
+                let parsed_if_true = self.parse_statement(if_true, location.clone())?;
                 let parsed_if_false = if_false
                     .as_ref()
-                    .map(|statement| self.parse_statement(statement, location.clone()))
-                    .map(|result| Box::new(result.unwrap()));
-                Statement::If(parsed_expression, parsed_if_true, parsed_if_false)
+                    .map(|statement| {
+                        self.parse_statement(statement, location.clone())
+                            .unwrap_or_default()
+                    })
+                    .unwrap_or_default();
+                todo!("Expression must return call")
             }
             SolangStatement::While(_, expression, statement) => {
                 let parsed_expression = self.parse_expression(expression, location.clone());
-                let parsed_statement = Box::new(self.parse_statement(statement, location)?);
-                Statement::While(parsed_expression, parsed_statement)
+                let parsed_statement = self.parse_statement(statement, location)?;
+                todo!("Expression must return call")
             }
             SolangStatement::Expression(_, expression) => {
                 let parsed_expression = self.parse_expression(expression, location);
-                Statement::Expression(parsed_expression)
+                todo!("Expression must return call")
             }
             SolangStatement::VariableDefinition(_, declaration, initial_value_maybe) => {
                 let parsed_name = self.parse_identifier(&declaration.name).to_case(Snake);
-                let parsed_type = Box::new(self.parse_type(&declaration.ty)?);
-                let parsed_declaration = Expression::VariableDeclaration(parsed_type, parsed_name);
+                let parsed_declaration = Expression::VariableDeclaration(parsed_name);
                 let parsed_initial_value = initial_value_maybe
                     .as_ref()
                     .map(|expression| self.parse_expression(expression, location));
 
-                Statement::VariableDefinition(parsed_declaration, parsed_initial_value)
+                todo!("Expression must return call")
             }
             SolangStatement::For(_, variable_definition, condition, on_pass, body) => {
                 let parsed_variable_definition = variable_definition
@@ -551,44 +547,24 @@ impl<'a> Parser<'a> {
                     .map(|statement| self.parse_statement(statement, location))
                     .map(|result| Box::new(result.unwrap()));
 
-                Statement::For(
-                    parsed_variable_definition,
-                    parsed_condition,
-                    parsed_on_pass,
-                    parsed_body,
-                )
+                todo!("Expression must return call")
             }
             SolangStatement::DoWhile(_, body, condition) => {
                 let parsed_condition = self.parse_expression(condition, location.clone());
                 let parsed_body = Box::new(self.parse_statement(body, location)?);
-                Statement::DoWhile(parsed_body, parsed_condition)
+                todo!("Expression must return call")
             }
-            SolangStatement::Continue(_) => Statement::Continue,
-            SolangStatement::Break(_) => Statement::Break,
             SolangStatement::Return(_, expression) => {
                 let parsed_expression = expression
                     .as_ref()
                     .map(|expression| self.parse_expression(expression, location));
-                Statement::Return(parsed_expression)
-            }
-            SolangStatement::Revert(_, identifier_path, args) => {
-                let identifier_path = identifier_path
-                    .as_ref()
-                    .map(|identifier_path| self.parse_identifier_path(identifier_path))
-                    .unwrap_or(String::from("_"));
-                let parsed_args = self.parse_expression_vec(args, location);
-                Statement::Revert(identifier_path, parsed_args)
-            }
-            SolangStatement::RevertNamedArgs(_, _, _) => todo!(),
-            SolangStatement::Emit(_, expression) => {
-                let parsed_expression = self.parse_expression(expression, location);
-                Statement::Emit(parsed_expression)
+                todo!("Expression must return call")
             }
             SolangStatement::Try(_, expression, _, _) => {
                 let parsed_expression = self.parse_expression(expression, location);
-                Statement::Try(parsed_expression)
+                todo!("Expression must return call")
             }
-            SolangStatement::Error(_) => todo!(),
+            _ => Vec::default(),
         })
     }
 
