@@ -29,7 +29,6 @@ use rbtree::RBTree;
 use solang_parser::{
     parse,
     pt::{
-        Comment as SolangComment,
         ContractDefinition,
         ContractPart,
         ContractTy,
@@ -110,29 +109,6 @@ impl<'a> Parser<'a> {
         self.modifiers_map.clear();
         self.imports.clear();
         self.comments.clear();
-    }
-
-    /// Removes slashes and asterisks from a comment and returns it as a String
-    ///
-    /// `original` the original comment
-    pub fn filter_comment(&self, original: &SolangComment) -> String {
-        match original {
-            SolangComment::Line(_, content) => content.trim()[2..].to_owned(),
-            SolangComment::Block(_, content) => {
-                let trimmed = content.trim();
-                trimmed[2..trimmed.len() - 2].trim().to_owned()
-            }
-            SolangComment::DocLine(_, content) => content[3..].trim().to_owned(),
-            SolangComment::DocBlock(_, content) => {
-                let trimmed = content.trim();
-                trimmed[3..trimmed.len() - 2]
-                    .trim()
-                    .split('\n')
-                    .map(|str| &str.trim()[1..])
-                    .collect::<Vec<&str>>()
-                    .join("\n")
-            }
-        }
     }
 
     /// Parses a fil and returns the vec of ParserOutput or a ParserError
@@ -250,19 +226,25 @@ impl<'a> Parser<'a> {
 
         for part in contract_definition.parts.iter() {
             match part {
-                ContractPart::Annotation(_) => println!("Anottation: {part:?}"),
                 ContractPart::VariableDefinition(variable_definition) => {
+                    if variable_definition.attrs.iter().any(|item| {
+                        matches!(
+                            item,
+                            VariableAttribute::Constant(_) | VariableAttribute::Immutable(_)
+                        )
+                    }) {
+                        // we do not care about consants and immutables as they do not change state of the contract so we skip
+                        continue
+                    }
                     let parsed_field = self.parse_storage_field(variable_definition)?;
                     fields.push(parsed_field);
                 }
-                ContractPart::ErrorDefinition(_) => {}
                 ContractPart::FunctionDefinition(function_definition) => {
                     let parsed_function = self.parse_function(function_definition)?;
                     match function_definition.ty {
                         FunctionTy::Constructor => constructor = parsed_function,
                         FunctionTy::Modifier => modifiers.push(parsed_function),
-                        FunctionTy::Function => functions.push(parsed_function),
-                        _ => (),
+                        _ => functions.push(parsed_function),
                     }
                 }
                 _ => {}
@@ -376,28 +358,13 @@ impl<'a> Parser<'a> {
         &mut self,
         variable_definition: &VariableDefinition,
     ) -> Result<ContractField, ParserError> {
-        let field_type = self.parse_type(&variable_definition.ty)?;
         let name = self.parse_identifier(&variable_definition.name);
-        let constant = variable_definition
-            .attrs
-            .iter()
-            .any(|item| matches!(item, VariableAttribute::Constant(_)));
-        let public = variable_definition.attrs.iter().any(|item| {
-            matches!(
-                item,
-                VariableAttribute::Visibility(Visibility::External(_))
-                    | VariableAttribute::Visibility(Visibility::Public(_))
-            )
-        });
         let initial_value = variable_definition.initializer.as_ref().map(|expression| {
             self.parse_expression(expression, VariableAccessLocation::Constructor)
         });
         let contract_field = ContractField {
-            field_type,
             name,
             initial_value,
-            constant,
-            public,
         };
 
         Ok(contract_field)
@@ -413,32 +380,6 @@ impl<'a> Parser<'a> {
         function_definition: &FunctionDefinition,
     ) -> Result<Function, ParserError> {
         let header = self.parse_function_header(function_definition);
-        let mut invalid_modifiers = HashMap::new();
-        for modifier in header.invalid_modifiers.clone() {
-            match modifier {
-                Expression::InvalidModifier(name, _) => {
-                    if let Some(function) = self.modifiers_map.clone().get(&name) {
-                        invalid_modifiers.insert(
-                            (header.name.clone(), name),
-                            Function {
-                                header: self.parse_function_header(function),
-                                body: if let Some(body) = &function.body {
-                                    Some(self.parse_statement(
-                                        body,
-                                        self.parse_variable_access_location(function_definition),
-                                    )?)
-                                } else {
-                                    None
-                                },
-                                ..Default::default()
-                            },
-                        );
-                    }
-                }
-                _ => unreachable!("Only invalid modifiers are allowed here"),
-            }
-        }
-
         let body = if let Some(statement) = &function_definition.body {
             Some(self.parse_statement(
                 statement,
@@ -448,11 +389,7 @@ impl<'a> Parser<'a> {
             None
         };
 
-        Ok(Function {
-            header,
-            body,
-            invalid_modifiers,
-        })
+        Ok(Function { header, body })
     }
 
     /// Parses a Sol2Ink function header definition from Solang function definition
@@ -465,17 +402,7 @@ impl<'a> Parser<'a> {
         function_definition: &FunctionDefinition,
     ) -> FunctionHeader {
         let name = self.parse_identifier(&function_definition.name);
-        let params = function_definition
-            .params
-            .iter()
-            .map(|item| item.1.clone().unwrap())
-            .filter_map(|param| {
-                let name = self.parse_identifier(&param.name);
-                let param_type = self.parse_type(&param.ty).ok()?;
-                Some(FunctionParam { name, param_type })
-            })
-            .collect();
-        let all_modifiers: Vec<Expression> = function_definition
+        let modifiers: Vec<Expression> = function_definition
             .attributes
             .iter()
             .filter(|&attribute| matches!(attribute, FunctionAttribute::BaseOrModifier(..)))
@@ -487,25 +414,12 @@ impl<'a> Parser<'a> {
                     } else {
                         Vec::default()
                     };
-                    if parsed_args.iter().any(function_call_in_expression) {
-                        Expression::InvalidModifier(parsed_name, parsed_args)
-                    } else {
-                        Expression::Modifier(parsed_name, parsed_args)
-                    }
+
+                    Expression::Modifier(parsed_name, parsed_args)
                 } else {
                     unreachable!("The vec was filtered before");
                 }
             })
-            .collect();
-        let modifiers = all_modifiers
-            .iter()
-            .filter(|expression| matches!(expression, Expression::Modifier(..)))
-            .cloned()
-            .collect();
-        let invalid_modifiers = all_modifiers
-            .iter()
-            .filter(|expression| matches!(expression, Expression::InvalidModifier(..)))
-            .cloned()
             .collect();
         let external = function_definition.attributes.iter().any(|attribute| {
             matches!(
@@ -527,26 +441,13 @@ impl<'a> Parser<'a> {
                 FunctionAttribute::Mutability(Mutability::Payable(_))
             )
         });
-        let return_params = function_definition
-            .returns
-            .iter()
-            .map(|item| item.1.clone().unwrap())
-            .filter_map(|param| {
-                let name = self.parse_identifier(&param.name);
-                let param_type = self.parse_type(&param.ty).ok()?;
-                Some(FunctionParam { name, param_type })
-            })
-            .collect();
 
         FunctionHeader {
             name,
-            params,
             external,
             view,
             payable,
-            return_params,
             modifiers,
-            invalid_modifiers,
         }
     }
 
@@ -1311,80 +1212,6 @@ impl<'a> Parser<'a> {
             Some(identifier) => identifier.name.clone(),
             None => String::from("_"),
         }
-    }
-}
-
-fn function_call_in_expression(expresion: &Expression) -> bool {
-    match expresion {
-        Expression::Add(expr1, expr2)
-        | Expression::And(expr1, expr2)
-        | Expression::Assign(expr1, expr2)
-        | Expression::AssignAdd(expr1, expr2)
-        | Expression::AssignDivide(expr1, expr2)
-        | Expression::AssignModulo(expr1, expr2)
-        | Expression::AssignMultiply(expr1, expr2)
-        | Expression::AssignSubtract(expr1, expr2)
-        | Expression::Divide(expr1, expr2)
-        | Expression::Equal(expr1, expr2)
-        | Expression::Less(expr1, expr2)
-        | Expression::LessEqual(expr1, expr2)
-        | Expression::Modulo(expr1, expr2)
-        | Expression::More(expr1, expr2)
-        | Expression::MoreEqual(expr1, expr2)
-        | Expression::Multiply(expr1, expr2)
-        | Expression::NotEqual(expr1, expr2)
-        | Expression::Or(expr1, expr2)
-        | Expression::Subtract(expr1, expr2)
-        | Expression::ShiftLeft(expr1, expr2)
-        | Expression::ShiftRight(expr1, expr2)
-        | Expression::BitwiseAnd(expr1, expr2)
-        | Expression::BitwiseXor(expr1, expr2)
-        | Expression::BitwiseOr(expr1, expr2)
-        | Expression::AssignOr(expr1, expr2)
-        | Expression::AssignAnd(expr1, expr2)
-        | Expression::AssignXor(expr1, expr2)
-        | Expression::AssignShiftLeft(expr1, expr2)
-        | Expression::AssignShiftRight(expr1, expr2)
-        | Expression::Power(expr1, expr2) => {
-            function_call_in_expression(expr1) || function_call_in_expression(expr2)
-        }
-        Expression::List(list) => {
-            list.iter()
-                .map(function_call_in_expression)
-                .any(|output| output)
-        }
-        Expression::MappingSubscript(expr, list) => {
-            list.iter()
-                .map(function_call_in_expression)
-                .any(|output| output)
-                || function_call_in_expression(expr)
-        }
-        Expression::ArraySubscript(expr1, expr2) => {
-            function_call_in_expression(expr1)
-                || expr2
-                    .as_ref()
-                    .map_or(false, |expression| function_call_in_expression(expression))
-        }
-        Expression::MemberAccess(expr, _) => function_call_in_expression(expr),
-        Expression::New(expr)
-        | Expression::Not(expr)
-        | Expression::Parenthesis(expr)
-        | Expression::PostDecrement(expr)
-        | Expression::PostIncrement(expr)
-        | Expression::PreDecrement(expr)
-        | Expression::PreIncrement(expr) => function_call_in_expression(expr),
-        Expression::Ternary(expr1, expr2, expr3) => {
-            function_call_in_expression(expr1)
-                || function_call_in_expression(expr2)
-                || function_call_in_expression(expr3)
-        }
-        Expression::NamedFunctionCall(..) | Expression::FunctionCall(..) => true,
-        Expression::Modifier(_, list) => {
-            list.iter()
-                .map(function_call_in_expression)
-                .any(|output| output)
-        }
-        _ => false,
     }
 }
 

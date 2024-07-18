@@ -57,11 +57,8 @@ pub struct Interface {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContractField {
-    pub field_type: Type,
     pub name: String,
     pub initial_value: Option<Expression>,
-    pub constant: bool,
-    pub public: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -104,19 +101,15 @@ pub struct StructField {
 pub struct Function {
     pub header: FunctionHeader,
     pub body: Option<Statement>,
-    pub invalid_modifiers: HashMap<(String, String), Function>,
 }
 
 #[derive(Default, Clone, Debug, Eq, PartialEq)]
 pub struct FunctionHeader {
     pub name: String,
-    pub params: Vec<FunctionParam>,
     pub external: bool,
     pub view: bool,
     pub payable: bool,
-    pub return_params: Vec<FunctionParam>,
     pub modifiers: Vec<Expression>,
-    pub invalid_modifiers: Vec<Expression>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
