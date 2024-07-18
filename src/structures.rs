@@ -55,7 +55,6 @@ pub struct Interface {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContractField {
     pub name: String,
-    pub initial_value: Option<Expression>,
 }
 
 #[derive(Clone, Debug)]
@@ -117,9 +116,9 @@ pub struct FunctionParam {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Call {
-    Read,
-    ReadStorage,
-    Write,
+    Read(String),
+    ReadStorage(String),
+    Write(String),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -178,7 +177,7 @@ pub enum Expression {
     List(Vec<Expression>),
     MappingSubscript(Box<Expression>, Vec<Expression>),
     MemberAccess(Box<Expression>, String),
-    Modifier(String, Vec<Expression>),
+    Modifier(String, Vec<Call>),
     ModifierBody,
     Modulo(Box<Expression>, Box<Expression>),
     More(Box<Expression>, Box<Expression>),
