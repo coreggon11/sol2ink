@@ -1,18 +1,11 @@
 [package]
-name = "sol2ink"
-version = "2.1.0"
+name = "sol2mermaid"
+version = "0.1.0"
 edition = "2021"
 license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-convert_case = "0.6.0"
-substring = "1.4.5"
-rust-format = { version = "0.3.4", features = ["token_stream", "post_process"] }
-proc-macro2 = "1.0.47"
-quote = "1.0.21"
-lazy_static = "1.4.0"
 clap = { version = "4.0.32", features = ["derive"] }
 solang-parser = "0.2.1"
-rbtree = "0.1.5"

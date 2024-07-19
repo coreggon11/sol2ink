@@ -1,5 +1,4 @@
 use crate::structures::*;
-use rbtree::RBTree;
 use solang_parser::{
     parse,
     pt::{
@@ -57,7 +56,6 @@ pub struct Parser<'a> {
     members_map: &'a mut HashMap<String, MemberType>,
     modifiers_map: &'a mut HashMap<String, FunctionDefinition>,
     imports: &'a mut HashSet<Import>,
-    comments: &'a mut RBTree<usize, String>,
 }
 
 impl<'a> Parser<'a> {
@@ -65,13 +63,11 @@ impl<'a> Parser<'a> {
         members_map: &'a mut HashMap<String, MemberType>,
         modifiers_map: &'a mut HashMap<String, FunctionDefinition>,
         imports: &'a mut HashSet<Import>,
-        comments: &'a mut RBTree<usize, String>,
     ) -> Self {
         Parser {
             members_map,
             modifiers_map,
             imports,
-            comments,
         }
     }
 
@@ -79,7 +75,6 @@ impl<'a> Parser<'a> {
         self.members_map.clear();
         self.modifiers_map.clear();
         self.imports.clear();
-        self.comments.clear();
     }
 
     /// Parses a fil and returns the vec of ParserOutput or a ParserError
@@ -771,13 +766,11 @@ macro_rules! initialize_parser {
         let mut fields_map = HashMap::new();
         let mut modifier_map = HashMap::new();
         let mut imports = HashSet::new();
-        let mut comments = RBTree::new();
 
         let mut $parser = Parser::new(
             &mut fields_map,
             &mut modifier_map,
             &mut imports,
-            &mut comments,
         );
     };
 }

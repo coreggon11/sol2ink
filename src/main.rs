@@ -22,7 +22,6 @@ use crate::{
         ParserOutput,
     },
 };
-use rbtree::RBTree;
 use std::collections::{
     HashMap,
     HashSet,
