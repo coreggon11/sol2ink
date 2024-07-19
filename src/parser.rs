@@ -192,17 +192,21 @@ impl<'a> Parser<'a> {
                         )
                     }) {
                         // we do not care about consants and immutables as they do not change state of the contract so we skip
+                        // @todo we do care about them as they could hide the type of contract we want to call later
                         continue
                     }
-                    self.members_map.insert(name, MemberType::StorageField);
+                    self.members_map
+                        .insert(name.clone(), MemberType::StorageField(name.clone()));
                 }
                 ContractPart::FunctionDefinition(function_definition) => {
                     let fn_name = self.parse_identifier(&function_definition.name);
                     match function_definition.ty {
                         FunctionTy::Function => {
                             let function_header = self.parse_function_header(function_definition);
-                            self.members_map
-                                .insert(fn_name.clone(), MemberType::Function(function_header));
+                            self.members_map.insert(
+                                fn_name.clone(),
+                                MemberType::Function(function_header, name.clone()),
+                            );
                         }
                         FunctionTy::Modifier => {
                             self.modifiers_map
@@ -310,8 +314,10 @@ impl<'a> Parser<'a> {
                 match function_definition.ty {
                     FunctionTy::Function => {
                         let function_header = self.parse_function_header(function_definition);
-                        self.members_map
-                            .insert(fn_name.clone(), MemberType::Function(function_header));
+                        self.members_map.insert(
+                            fn_name.clone(),
+                            MemberType::Function(function_header, name.clone()),
+                        );
                     }
                     FunctionTy::Modifier => {
                         self.modifiers_map
@@ -618,14 +624,20 @@ impl<'a> Parser<'a> {
 
                 if let Some(member_type) = self.members_map.get(&parsed_identifier) {
                     match member_type {
-                        MemberType::StorageField => {
-                            expression.extend(vec![Call::ReadStorage(parsed_identifier)])
+                        MemberType::StorageField(contract_name) => {
+                            expression.extend(vec![Call::ReadStorage(format!(
+                                "s_{contract_name}_{parsed_identifier}"
+                            ))])
                         }
-                        MemberType::Function(function_header) => {
+                        MemberType::Function(function_header, contract_name) => {
                             if function_header.view {
-                                expression.extend(vec![Call::Read(parsed_identifier)])
+                                expression.extend(vec![Call::Read(format!(
+                                    "f_{contract_name}_{parsed_identifier}"
+                                ))])
                             } else {
-                                expression.extend(vec![Call::Write(parsed_identifier)])
+                                expression.extend(vec![Call::Write(format!(
+                                    "f_{contract_name}_{parsed_identifier}"
+                                ))])
                             }
                         }
                     }
@@ -693,14 +705,18 @@ impl<'a> Parser<'a> {
 
                 if let Some(member_type) = self.members_map.get(&parsed_identifier) {
                     match member_type {
-                        MemberType::StorageField => {
-                            vec![Call::ReadStorage(parsed_identifier)]
+                        MemberType::StorageField(contract_name) => {
+                            vec![Call::ReadStorage(format!(
+                                "s_{contract_name}_{parsed_identifier}"
+                            ))]
                         }
-                        MemberType::Function(function_header) => {
+                        MemberType::Function(function_header, contract_name) => {
                             if function_header.view {
-                                vec![Call::Read(parsed_identifier)]
+                                vec![Call::Read(format!("f_{contract_name}_{parsed_identifier}"))]
                             } else {
-                                vec![Call::Write(parsed_identifier)]
+                                vec![Call::Write(format!(
+                                    "f_{contract_name}_{parsed_identifier}"
+                                ))]
                             }
                         }
                     }

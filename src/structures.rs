@@ -24,8 +24,8 @@ use std::collections::HashSet;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum MemberType {
-    StorageField,
-    Function(FunctionHeader),
+    StorageField(String),
+    Function(FunctionHeader, String),
 }
 
 #[derive(Clone, Default, Debug)]

@@ -33,7 +33,8 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
         for storage_field in contract.fields {
             out.push_str(
                 format!(
-                    "{}[({})]:::storage",
+                    "s_{}_{}[({})]:::storage",
+                    contract.name,
                     storage_field.name.clone(),
                     storage_field.name.clone()
                 )
@@ -44,7 +45,8 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
         for function in contract.functions.clone() {
             out.push_str(
                 format!(
-                    "{}[{}]:::{}",
+                    "f_{}_{}[{}]:::{}",
+                    contract.name,
                     function.header.name.clone(),
                     function.header.name.clone(),
                     match (function.header.external, function.header.view) {
@@ -64,12 +66,24 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
                     crate::structures::Call::Read(member)
                     | crate::structures::Call::Write(member) => {
                         out.push_str(
-                            format!("{} --> {}", function.header.name.clone(), member).as_str(),
+                            format!(
+                                "f_{}_{} --> {}",
+                                contract.name,
+                                function.header.name.clone(),
+                                member
+                            )
+                            .as_str(),
                         );
                     }
                     crate::structures::Call::ReadStorage(member) => {
                         out.push_str(
-                            format!("{} -.-> {}", function.header.name.clone(), member).as_str(),
+                            format!(
+                                "f_{}_{} -.-> {}",
+                                contract.name,
+                                function.header.name.clone(),
+                                member
+                            )
+                            .as_str(),
                         );
                     }
                 }
