@@ -146,7 +146,7 @@ impl<'a> Parser<'a> {
         &mut self,
         contract_definition: &ContractDefinition,
     ) -> Result<Contract, ParserError> {
-        let name = self.parse_identifier(&contract_definition.name);
+        let contract_name = self.parse_identifier(&contract_definition.name);
         let base = contract_definition
             .base
             .iter()
@@ -173,8 +173,10 @@ impl<'a> Parser<'a> {
                         // @todo we do care about them as they could hide the type of contract we want to call later
                         continue
                     }
-                    self.members_map
-                        .insert(name.clone(), MemberType::StorageField(name.clone()));
+                    self.members_map.insert(
+                        name.clone(),
+                        MemberType::StorageField(contract_name.clone()),
+                    );
                 }
                 ContractPart::FunctionDefinition(function_definition) => {
                     let fn_name = self.parse_identifier(&function_definition.name);
@@ -183,7 +185,7 @@ impl<'a> Parser<'a> {
                             let function_header = self.parse_function_header(function_definition);
                             self.members_map.insert(
                                 fn_name.clone(),
-                                MemberType::Function(function_header, name.clone()),
+                                MemberType::Function(function_header, contract_name.clone()),
                             );
                         }
                         FunctionTy::Modifier => {
@@ -225,7 +227,7 @@ impl<'a> Parser<'a> {
         }
 
         Ok(Contract {
-            name,
+            name: contract_name,
             fields,
             functions,
             constructor,
@@ -441,7 +443,10 @@ impl<'a> Parser<'a> {
                 dialect: _,
                 flags: _,
                 block: _,
-            } => todo!("Assembly not done yet!"),
+            } => {
+                println!("Assembly not done yet!");
+                Vec::default()
+            }
             SolangStatement::If(_, expression, if_true, if_false) => {
                 let mut parsed_expression = self.parse_expression(expression);
                 let parsed_if_true = self.parse_statement(if_true)?;
@@ -542,11 +547,11 @@ impl<'a> Parser<'a> {
             | SolangExpression::New(_, expression)
             | SolangExpression::Parenthesis(_, expression)
             | SolangExpression::Not(_, expression)
-            | SolangExpression::Complement(_, expression)
+            | SolangExpression::BitwiseNot(_, expression)
             | SolangExpression::PreIncrement(_, expression)
             | SolangExpression::PreDecrement(_, expression)
             | SolangExpression::UnaryPlus(_, expression)
-            | SolangExpression::UnaryMinus(_, expression)
+            | SolangExpression::Negate(_, expression)
             | SolangExpression::Delete(_, expression) => {
                 boxed_expression!(parsed_expression, expression)
             }

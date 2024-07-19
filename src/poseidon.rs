@@ -1,20 +1,22 @@
 use crate::structures::Contract;
 
-// Lore: Triton was the father of little mermaid. 
+// Lore: Triton was the father of little mermaid.
 // Since Triton resembles Poseidon, the mermaid generator should be Poseidon
 
 pub fn generate_mermaid(vec: Vec<Contract>) -> String {
     let mut out = String::new();
 
-    out.push_str("graph TD");
+    out.push_str("graph TD\n");
 
     for contract in vec {
-        out.push_str(format!("subgraph {}", contract.name.clone()).as_str());
+        out.push_str(format!("subgraph {}\n", contract.name.clone()).as_str());
+
+        out.push_str("\n");
 
         for storage_field in contract.fields {
             out.push_str(
                 format!(
-                    "s_{}_{}[({})]:::storage",
+                    "s_{}_{}[({})]:::storage\n",
                     contract.name,
                     storage_field.name.clone(),
                     storage_field.name.clone()
@@ -23,10 +25,12 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
             )
         }
 
+        out.push_str("\n");
+
         for function in contract.functions.clone() {
             out.push_str(
                 format!(
-                    "f_{}_{}[{}]:::{}",
+                    "f_{}_{}[{}]:::{}\n",
                     contract.name,
                     function.header.name.clone(),
                     function.header.name.clone(),
@@ -41,6 +45,9 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
             )
         }
 
+        out.push_str("\n");
+        out.push_str("end\n");
+
         for function in contract.functions.clone() {
             for call in function.calls {
                 match call {
@@ -48,7 +55,7 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
                     | crate::structures::Call::Write(member) => {
                         out.push_str(
                             format!(
-                                "f_{}_{} --> {}",
+                                "f_{}_{} --> {}\n",
                                 contract.name,
                                 function.header.name.clone(),
                                 member
@@ -59,7 +66,7 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
                     crate::structures::Call::ReadStorage(member) => {
                         out.push_str(
                             format!(
-                                "f_{}_{} -.-> {}",
+                                "f_{}_{} -.-> {}\n",
                                 contract.name,
                                 function.header.name.clone(),
                                 member
@@ -70,17 +77,19 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
                 }
             }
         }
+        
+        out.push_str("\n");
     }
 
-    out.push_str("classDef storage fill:#ff00ff,stroke:#333,stroke-width:2px;");
-    out.push_str("classDef external fill:#ff0000,stroke:#333,stroke-width:2px;");
-    out.push_str("classDef external_view fill:#ffff00,stroke:#333,stroke-width:2px;");
-    out.push_str("classDef actor fill:#00ff00,stroke:#333,stroke-width:2px;");
+    out.push_str("classDef storage fill:#ff00ff,stroke:#333,stroke-width:2px;\n");
+    out.push_str("classDef external fill:#ff0000,stroke:#333,stroke-width:2px;\n");
+    out.push_str("classDef external_view fill:#ffff00,stroke:#333,stroke-width:2px;\n");
+    out.push_str("classDef actor fill:#00ff00,stroke:#333,stroke-width:2px;\n");
     out.push_str(
-        "classDef internal fill:#ff0000,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5;",
+        "classDef internal fill:#ff0000,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5;\n",
     );
     out.push_str(
-        "classDef internal_view fill:#ffff00,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5;",
+        "classDef internal_view fill:#ffff00,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5;\n",
     );
 
     out

@@ -1,0 +1,127 @@
+graph TD
+subgraph EVM2EVMOnRamp
+
+s_EVM2EVMOnRamp_s_dynamicConfig[(s_dynamicConfig)]:::storage
+s_EVM2EVMOnRamp_s_nops[(s_nops)]:::storage
+s_EVM2EVMOnRamp_s_feeTokenConfig[(s_feeTokenConfig)]:::storage
+s_EVM2EVMOnRamp_s_tokenTransferFeeConfig[(s_tokenTransferFeeConfig)]:::storage
+s_EVM2EVMOnRamp_s_senderNonce[(s_senderNonce)]:::storage
+s_EVM2EVMOnRamp_s_nopFeesJuels[(s_nopFeesJuels)]:::storage
+s_EVM2EVMOnRamp_s_nopWeightsTotal[(s_nopWeightsTotal)]:::storage
+s_EVM2EVMOnRamp_s_sequenceNumber[(s_sequenceNumber)]:::storage
+
+f_EVM2EVMOnRamp_getExpectedNextSequenceNumber[getExpectedNextSequenceNumber]:::external_view
+f_EVM2EVMOnRamp_getSenderNonce[getSenderNonce]:::external_view
+f_EVM2EVMOnRamp_forwardFromRouter[forwardFromRouter]:::external
+f_EVM2EVMOnRamp__fromBytes[_fromBytes]:::internal_view
+f_EVM2EVMOnRamp__validateMessage[_validateMessage]:::internal_view
+f_EVM2EVMOnRamp_getStaticConfig[getStaticConfig]:::external_view
+f_EVM2EVMOnRamp_getDynamicConfig[getDynamicConfig]:::external_view
+f_EVM2EVMOnRamp_setDynamicConfig[setDynamicConfig]:::external
+f_EVM2EVMOnRamp__setDynamicConfig[_setDynamicConfig]:::internal
+f_EVM2EVMOnRamp_getPoolBySourceToken[getPoolBySourceToken]:::external_view
+f_EVM2EVMOnRamp_getSupportedTokens[getSupportedTokens]:::external_view
+f_EVM2EVMOnRamp_getFee[getFee]:::external_view
+f_EVM2EVMOnRamp__getDataAvailabilityCost[_getDataAvailabilityCost]:::internal_view
+f_EVM2EVMOnRamp__getTokenTransferCost[_getTokenTransferCost]:::internal_view
+f_EVM2EVMOnRamp_getFeeTokenConfig[getFeeTokenConfig]:::external_view
+f_EVM2EVMOnRamp_setFeeTokenConfig[setFeeTokenConfig]:::external
+f_EVM2EVMOnRamp__setFeeTokenConfig[_setFeeTokenConfig]:::internal
+f_EVM2EVMOnRamp_getTokenTransferFeeConfig[getTokenTransferFeeConfig]:::external_view
+f_EVM2EVMOnRamp_setTokenTransferFeeConfig[setTokenTransferFeeConfig]:::external
+f_EVM2EVMOnRamp__setTokenTransferFeeConfig[_setTokenTransferFeeConfig]:::internal
+f_EVM2EVMOnRamp_getNopFeesJuels[getNopFeesJuels]:::external_view
+f_EVM2EVMOnRamp_getNops[getNops]:::external_view
+f_EVM2EVMOnRamp_setNops[setNops]:::external
+f_EVM2EVMOnRamp__setNops[_setNops]:::internal
+f_EVM2EVMOnRamp_payNops[payNops]:::external
+f_EVM2EVMOnRamp_withdrawNonLinkFees[withdrawNonLinkFees]:::external
+f_EVM2EVMOnRamp_linkAvailableForPayment[linkAvailableForPayment]:::external_view
+f_EVM2EVMOnRamp__onlyOwnerOrAdmin[_onlyOwnerOrAdmin]:::internal_view
+
+end
+f_EVM2EVMOnRamp_getExpectedNextSequenceNumber -.-> s_EVM2EVMOnRamp_s_sequenceNumber
+f_EVM2EVMOnRamp_getSenderNonce -.-> s_EVM2EVMOnRamp_s_senderNonce
+f_EVM2EVMOnRamp_getSenderNonce --> f_EVM2EVMOnRamp_getSenderNonce
+f_EVM2EVMOnRamp_forwardFromRouter -.-> s_EVM2EVMOnRamp_s_dynamicConfig
+f_EVM2EVMOnRamp_forwardFromRouter --> f_EVM2EVMOnRamp__fromBytes
+f_EVM2EVMOnRamp_forwardFromRouter --> f_EVM2EVMOnRamp__validateMessage
+f_EVM2EVMOnRamp_forwardFromRouter -.-> s_EVM2EVMOnRamp_s_tokenTransferFeeConfig
+f_EVM2EVMOnRamp_forwardFromRouter -.-> s_EVM2EVMOnRamp_s_dynamicConfig
+f_EVM2EVMOnRamp_forwardFromRouter -.-> s_EVM2EVMOnRamp_s_nopFeesJuels
+f_EVM2EVMOnRamp_forwardFromRouter -.-> s_EVM2EVMOnRamp_s_nopFeesJuels
+f_EVM2EVMOnRamp_forwardFromRouter -.-> s_EVM2EVMOnRamp_s_dynamicConfig
+f_EVM2EVMOnRamp_forwardFromRouter -.-> s_EVM2EVMOnRamp_s_nopFeesJuels
+f_EVM2EVMOnRamp_forwardFromRouter -.-> s_EVM2EVMOnRamp_s_senderNonce
+f_EVM2EVMOnRamp_forwardFromRouter -.-> s_EVM2EVMOnRamp_s_senderNonce
+f_EVM2EVMOnRamp_forwardFromRouter --> f_EVM2EVMOnRamp_getSenderNonce
+f_EVM2EVMOnRamp_forwardFromRouter -.-> s_EVM2EVMOnRamp_s_sequenceNumber
+f_EVM2EVMOnRamp_forwardFromRouter -.-> s_EVM2EVMOnRamp_s_senderNonce
+f_EVM2EVMOnRamp_forwardFromRouter --> f_EVM2EVMOnRamp_getPoolBySourceToken
+f_EVM2EVMOnRamp_forwardFromRouter -.-> s_EVM2EVMOnRamp_s_tokenTransferFeeConfig
+f_EVM2EVMOnRamp__validateMessage -.-> s_EVM2EVMOnRamp_s_dynamicConfig
+f_EVM2EVMOnRamp__validateMessage -.-> s_EVM2EVMOnRamp_s_dynamicConfig
+f_EVM2EVMOnRamp__validateMessage -.-> s_EVM2EVMOnRamp_s_dynamicConfig
+f_EVM2EVMOnRamp__validateMessage -.-> s_EVM2EVMOnRamp_s_dynamicConfig
+f_EVM2EVMOnRamp_getDynamicConfig -.-> s_EVM2EVMOnRamp_s_dynamicConfig
+f_EVM2EVMOnRamp_setDynamicConfig --> f_EVM2EVMOnRamp__setDynamicConfig
+f_EVM2EVMOnRamp__setDynamicConfig -.-> s_EVM2EVMOnRamp_s_dynamicConfig
+f_EVM2EVMOnRamp_getFee --> f_EVM2EVMOnRamp__fromBytes
+f_EVM2EVMOnRamp_getFee --> f_EVM2EVMOnRamp__validateMessage
+f_EVM2EVMOnRamp_getFee -.-> s_EVM2EVMOnRamp_s_feeTokenConfig
+f_EVM2EVMOnRamp_getFee -.-> s_EVM2EVMOnRamp_s_dynamicConfig
+f_EVM2EVMOnRamp_getFee --> f_EVM2EVMOnRamp__getTokenTransferCost
+f_EVM2EVMOnRamp_getFee -.-> s_EVM2EVMOnRamp_s_dynamicConfig
+f_EVM2EVMOnRamp_getFee --> f_EVM2EVMOnRamp__getDataAvailabilityCost
+f_EVM2EVMOnRamp_getFee -.-> s_EVM2EVMOnRamp_s_dynamicConfig
+f_EVM2EVMOnRamp_getFee -.-> s_EVM2EVMOnRamp_s_dynamicConfig
+f_EVM2EVMOnRamp__getDataAvailabilityCost -.-> s_EVM2EVMOnRamp_s_dynamicConfig
+f_EVM2EVMOnRamp__getDataAvailabilityCost -.-> s_EVM2EVMOnRamp_s_dynamicConfig
+f_EVM2EVMOnRamp__getDataAvailabilityCost -.-> s_EVM2EVMOnRamp_s_dynamicConfig
+f_EVM2EVMOnRamp__getTokenTransferCost --> f_EVM2EVMOnRamp_getPoolBySourceToken
+f_EVM2EVMOnRamp__getTokenTransferCost -.-> s_EVM2EVMOnRamp_s_tokenTransferFeeConfig
+f_EVM2EVMOnRamp__getTokenTransferCost -.-> s_EVM2EVMOnRamp_s_dynamicConfig
+f_EVM2EVMOnRamp__getTokenTransferCost -.-> s_EVM2EVMOnRamp_s_dynamicConfig
+f_EVM2EVMOnRamp__getTokenTransferCost -.-> s_EVM2EVMOnRamp_s_dynamicConfig
+f_EVM2EVMOnRamp__getTokenTransferCost -.-> s_EVM2EVMOnRamp_s_dynamicConfig
+f_EVM2EVMOnRamp_getFeeTokenConfig -.-> s_EVM2EVMOnRamp_s_feeTokenConfig
+f_EVM2EVMOnRamp_setFeeTokenConfig --> f_EVM2EVMOnRamp__onlyOwnerOrAdmin
+f_EVM2EVMOnRamp_setFeeTokenConfig --> f_EVM2EVMOnRamp__setFeeTokenConfig
+f_EVM2EVMOnRamp__setFeeTokenConfig -.-> s_EVM2EVMOnRamp_s_feeTokenConfig
+f_EVM2EVMOnRamp_getTokenTransferFeeConfig -.-> s_EVM2EVMOnRamp_s_tokenTransferFeeConfig
+f_EVM2EVMOnRamp_setTokenTransferFeeConfig --> f_EVM2EVMOnRamp__onlyOwnerOrAdmin
+f_EVM2EVMOnRamp_setTokenTransferFeeConfig --> f_EVM2EVMOnRamp__setTokenTransferFeeConfig
+f_EVM2EVMOnRamp__setTokenTransferFeeConfig -.-> s_EVM2EVMOnRamp_s_tokenTransferFeeConfig
+f_EVM2EVMOnRamp__setTokenTransferFeeConfig -.-> s_EVM2EVMOnRamp_s_tokenTransferFeeConfig
+f_EVM2EVMOnRamp_getNopFeesJuels -.-> s_EVM2EVMOnRamp_s_nopFeesJuels
+f_EVM2EVMOnRamp_getNops -.-> s_EVM2EVMOnRamp_s_nops
+f_EVM2EVMOnRamp_getNops -.-> s_EVM2EVMOnRamp_s_nops
+f_EVM2EVMOnRamp_getNops -.-> s_EVM2EVMOnRamp_s_nopWeightsTotal
+f_EVM2EVMOnRamp_setNops --> f_EVM2EVMOnRamp__onlyOwnerOrAdmin
+f_EVM2EVMOnRamp_setNops --> f_EVM2EVMOnRamp__setNops
+f_EVM2EVMOnRamp__setNops -.-> s_EVM2EVMOnRamp_s_nopWeightsTotal
+f_EVM2EVMOnRamp__setNops -.-> s_EVM2EVMOnRamp_s_nopFeesJuels
+f_EVM2EVMOnRamp__setNops -.-> s_EVM2EVMOnRamp_s_nopWeightsTotal
+f_EVM2EVMOnRamp__setNops --> f_EVM2EVMOnRamp_payNops
+f_EVM2EVMOnRamp__setNops -.-> s_EVM2EVMOnRamp_s_nops
+f_EVM2EVMOnRamp__setNops -.-> s_EVM2EVMOnRamp_s_nops
+f_EVM2EVMOnRamp__setNops -.-> s_EVM2EVMOnRamp_s_nops
+f_EVM2EVMOnRamp__setNops -.-> s_EVM2EVMOnRamp_s_nops
+f_EVM2EVMOnRamp__setNops -.-> s_EVM2EVMOnRamp_s_nopWeightsTotal
+f_EVM2EVMOnRamp_payNops -.-> s_EVM2EVMOnRamp_s_nops
+f_EVM2EVMOnRamp_payNops -.-> s_EVM2EVMOnRamp_s_nopWeightsTotal
+f_EVM2EVMOnRamp_payNops -.-> s_EVM2EVMOnRamp_s_nopFeesJuels
+f_EVM2EVMOnRamp_payNops --> f_EVM2EVMOnRamp_linkAvailableForPayment
+f_EVM2EVMOnRamp_payNops -.-> s_EVM2EVMOnRamp_s_nops
+f_EVM2EVMOnRamp_payNops -.-> s_EVM2EVMOnRamp_s_nops
+f_EVM2EVMOnRamp_payNops -.-> s_EVM2EVMOnRamp_s_nopFeesJuels
+f_EVM2EVMOnRamp_withdrawNonLinkFees --> f_EVM2EVMOnRamp__onlyOwnerOrAdmin
+f_EVM2EVMOnRamp_withdrawNonLinkFees --> f_EVM2EVMOnRamp_linkAvailableForPayment
+f_EVM2EVMOnRamp_linkAvailableForPayment -.-> s_EVM2EVMOnRamp_s_nopFeesJuels
+
+classDef storage fill:#ff00ff,stroke:#333,stroke-width:2px;
+classDef external fill:#ff0000,stroke:#333,stroke-width:2px;
+classDef external_view fill:#ffff00,stroke:#333,stroke-width:2px;
+classDef actor fill:#00ff00,stroke:#333,stroke-width:2px;
+classDef internal fill:#ff0000,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5;
+classDef internal_view fill:#ffff00,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5;

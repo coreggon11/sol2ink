@@ -6,8 +6,8 @@ extern crate core;
 pub mod cli;
 pub mod file_utils;
 pub mod parser;
-pub mod structures;
 pub mod poseidon;
+pub mod structures;
 
 use file_utils::get_solidity_files_from_directory;
 use parser::Parser;
@@ -23,13 +23,9 @@ use crate::{
     },
 };
 use rbtree::RBTree;
-use std::{
-    collections::{
-        HashMap,
-        HashSet,
-        VecDeque,
-    },
-    path::Path,
+use std::collections::{
+    HashMap,
+    HashSet,
 };
 
 /// main function
@@ -49,9 +45,7 @@ fn main() {
     for file in files {
         match file {
             CliInput::SolidityFile(file) => {
-                let file_path = Path::new(&file).canonicalize().unwrap();
-                let file_home = file_path.parent().unwrap().to_str().unwrap();
-                match run(file_home, &[file.clone()]) {
+                match run(&[file.clone()]) {
                     Ok(_) => {
                         println!("Successfully parsed {file}");
                     }
@@ -65,7 +59,7 @@ fn main() {
                 let paths = get_solidity_files_from_directory(&dir)
                     .unwrap_or_else(|err| panic!("error: {err:?}"));
 
-                match run(&dir, &paths) {
+                match run(&paths) {
                     Ok(_) => {}
                     Err(err) => {
                         eprintln!("error: {err:?}");
@@ -81,7 +75,7 @@ fn main() {
 ///
 /// `home` the home directory of a single file, or the directory we are parsing
 /// `path` the paths to the files we want to parse
-fn run(home: &str, path: &[String]) -> Result<(), ParserError> {
+fn run(path: &[String]) -> Result<(), ParserError> {
     initialize_parser!(parser);
 
     let mut to_proccess_vec = Vec::default();
@@ -165,12 +159,12 @@ fn run(home: &str, path: &[String]) -> Result<(), ParserError> {
                     index = 0;
                 }
             }
-            ParserOutput::Interface(_, interface) => {
+            ParserOutput::Interface(_, _interface) => {
                 (
                 //@todo dont care for now
                 )
             }
-            ParserOutput::Library(_, library) => {
+            ParserOutput::Library(_, _library) => {
                 (
                 //@todo dont care for now
             )
@@ -180,6 +174,9 @@ fn run(home: &str, path: &[String]) -> Result<(), ParserError> {
     }
 
     // now we pass processed vec to assembler
+
+    let output = poseidon::generate_mermaid(processed_vec);
+    file_utils::write_mermaid(output)?;
 
     Ok(())
 }
