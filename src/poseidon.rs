@@ -25,13 +25,7 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
                     format!("f_{}_{}", contract.name, function.header.name.clone(),),
                     (),
                 );
-                match call {
-                    crate::structures::Call::Read(member)
-                    | crate::structures::Call::Write(member)
-                    | crate::structures::Call::ReadStorage(member) => {
-                        write_access.insert(member, ());
-                    }
-                }
+                write_access.insert(call.to_string(), ());
             }
         }
     }
@@ -131,8 +125,12 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
             filtered_calls = filtered_calls
                 .iter()
                 .filter(|call| {
-                    if let Call::ReadStorage(member) = call {
-                        !filtered_calls.contains(&Call::Write(member.clone()))
+                    if let Call::ReadStorage(call_type, contract, member) = call {
+                        !filtered_calls.contains(&Call::Write(
+                            call_type.clone(),
+                            contract.clone(),
+                            member.clone(),
+                        ))
                     } else {
                         true
                     }
@@ -143,25 +141,24 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
 
             for call in filtered_calls {
                 match call {
-                    crate::structures::Call::Read(member)
-                    | crate::structures::Call::Write(member) => {
+                    crate::structures::Call::Read(..) | crate::structures::Call::Write(..) => {
                         out.push_str(
                             format!(
                                 "f_{}_{} --> {}\n",
                                 contract.name,
                                 function.header.name.clone(),
-                                member
+                                call.to_string()
                             )
                             .as_str(),
                         );
                     }
-                    crate::structures::Call::ReadStorage(member) => {
+                    crate::structures::Call::ReadStorage(..) => {
                         out.push_str(
                             format!(
                                 "f_{}_{} -.-> {}\n",
                                 contract.name,
                                 function.header.name.clone(),
-                                member
+                                call.to_string()
                             )
                             .as_str(),
                         );

@@ -49,9 +49,46 @@ pub struct FunctionHeader {
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Call {
-    Read(String),
-    ReadStorage(String),
-    Write(String),
+    Read(CallType, String, String), // call type, contract name, call name
+    ReadStorage(CallType, String, String), // call type, contract name, call name
+    Write(CallType, String, String), // call type, contract name, call name
+}
+
+impl Call {
+    pub fn to_string(&self) -> String {
+        match self {
+            Call::Read(call_type, contract, calling)
+            | Call::ReadStorage(call_type, contract, calling)
+            | Call::Write(call_type, contract, calling) => {
+                format!(
+                    "{}_{contract}_{calling}",
+                    if call_type == &CallType::CallingStorage {
+                        "s"
+                    } else {
+                        "f"
+                    },
+                )
+            }
+        }
+    }
+
+    pub fn change_contract(&self, new_contract: String) -> Self {
+        match self.clone() {
+            Call::Read(call_type, _, calling) => Call::Read(call_type, new_contract, calling),
+            Call::ReadStorage(call_type, _, calling) => {
+                Call::Read(call_type, new_contract, calling)
+            }
+            Call::Write(call_type, _, calling) => {
+                Call::Read(call_type, new_contract, calling)
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub enum CallType {
+    CallingStorage,
+    CallingFunction,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

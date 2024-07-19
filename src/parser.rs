@@ -164,6 +164,8 @@ impl<'a> Parser<'a> {
                     );
                 }
                 ContractPart::FunctionDefinition(function_definition) => {
+                    // @todo function might take storage as input param
+                    // @todo function might return storage (also self.slot = ... -> remember slot?)
                     let fn_name = self.parse_identifier(&function_definition.name);
                     match function_definition.ty {
                         FunctionTy::Function => {
@@ -522,9 +524,12 @@ impl<'a> Parser<'a> {
                     .iter()
                     .map(|call| {
                         match call.clone() {
-                            Call::Read(read) => Call::Read(read.to_string()),
-                            Call::ReadStorage(member) | Call::Write(member) => {
-                                Call::Write(member.to_string())
+                            Call::Read(call_type, contract, read) => {
+                                Call::Read(call_type, contract, read)
+                            }
+                            Call::ReadStorage(call_type, contract, read)
+                            | Call::Write(call_type, contract, read) => {
+                                Call::Write(call_type, contract, read)
                             }
                         }
                     })
@@ -591,19 +596,27 @@ impl<'a> Parser<'a> {
                 if let Some(member_type) = self.members_map.get(&parsed_identifier) {
                     match member_type {
                         MemberType::StorageField(contract_name) => {
-                            expression.extend(vec![Call::ReadStorage(format!(
-                                "s_{contract_name}_{parsed_identifier}"
-                            ))])
+                            expression.extend(vec![Call::ReadStorage(
+                                CallType::CallingStorage,
+                                contract_name.clone(),
+                                parsed_identifier,
+                            )])
                         }
                         MemberType::Function(function_header, contract_name) => {
+                            let call_type = CallType::CallingFunction;
+
                             if function_header.view {
-                                expression.extend(vec![Call::Read(format!(
-                                    "f_{contract_name}_{parsed_identifier}"
-                                ))])
+                                expression.extend(vec![Call::Read(
+                                    call_type,
+                                    contract_name.clone(),
+                                    parsed_identifier,
+                                )])
                             } else {
-                                expression.extend(vec![Call::Write(format!(
-                                    "f_{contract_name}_{parsed_identifier}"
-                                ))])
+                                expression.extend(vec![Call::Write(
+                                    call_type,
+                                    contract_name.clone(),
+                                    parsed_identifier,
+                                )])
                             }
                         }
                     }
@@ -667,9 +680,12 @@ impl<'a> Parser<'a> {
                     .iter()
                     .map(|call| {
                         match call.clone() {
-                            Call::Read(read) => Call::Read(read.to_string()),
-                            Call::ReadStorage(member) | Call::Write(member) => {
-                                Call::Write(member.to_string())
+                            Call::Read(call_type, contract, read) => {
+                                Call::Read(call_type, contract, read)
+                            }
+                            Call::ReadStorage(call_type, contract, read)
+                            | Call::Write(call_type, contract, read) => {
+                                Call::Write(call_type, contract, read)
                             }
                         }
                     })
@@ -685,17 +701,25 @@ impl<'a> Parser<'a> {
                 if let Some(member_type) = self.members_map.get(&parsed_identifier) {
                     match member_type {
                         MemberType::StorageField(contract_name) => {
-                            vec![Call::ReadStorage(format!(
-                                "s_{contract_name}_{parsed_identifier}"
-                            ))]
+                            vec![Call::ReadStorage(
+                                CallType::CallingStorage,
+                                contract_name.clone(),
+                                parsed_identifier,
+                            )]
                         }
                         MemberType::Function(function_header, contract_name) => {
                             if function_header.view {
-                                vec![Call::Read(format!("f_{contract_name}_{parsed_identifier}"))]
+                                vec![Call::Read(
+                                    CallType::CallingFunction,
+                                    contract_name.clone(),
+                                    parsed_identifier,
+                                )]
                             } else {
-                                vec![Call::Write(format!(
-                                    "f_{contract_name}_{parsed_identifier}"
-                                ))]
+                                vec![Call::Write(
+                                    CallType::CallingFunction,
+                                    contract_name.clone(),
+                                    parsed_identifier,
+                                )]
                             }
                         }
                     }

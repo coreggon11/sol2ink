@@ -125,9 +125,24 @@ fn run(path: &[String]) -> Result<(), ParserError> {
                     // else we can add its functions to the contract
                     if let Some(ParserOutput::Contract(_, contract)) = outputs.get(&base) {
                         new_contract.fields.append(&mut contract.fields.clone());
-                        new_contract
+
+                        let mut new_functions = contract
                             .functions
-                            .append(&mut contract.functions.clone());
+                            .iter()
+                            .map(|function| {
+                                let mut new_function = function.clone();
+
+                                new_function.calls = function
+                                    .calls
+                                    .iter()
+                                    .map(|call| call.change_contract(new_contract.name.clone()))
+                                    .collect();
+
+                                new_function
+                            })
+                            .collect();
+
+                        new_contract.functions.append(&mut new_functions);
                         new_contract
                             .modifiers
                             .append(&mut contract.modifiers.clone());
@@ -136,9 +151,7 @@ fn run(path: &[String]) -> Result<(), ParserError> {
                 if !processed {
                     continue
                 }
-                if !contract.is_abstract {
-                    processed_vec.push(new_contract.clone());
-                }
+                processed_vec.push(new_contract.clone());
                 processed_map.insert(name.clone(), contract.clone());
                 to_proccess_vec.remove(index);
                 to_proccess_map.remove(&name.clone());
