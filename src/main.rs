@@ -154,11 +154,17 @@ fn run(path: &[String]) -> Result<(), ParserError> {
                 //@todo dont care for now
                 to_proccess_vec.remove(index);
                 to_proccess_map.remove(&name.clone());
+                if index == to_proccess_vec.len() {
+                    index = 0;
+                }
             }
             ParserOutput::Library(name, _library) => {
                 //@todo dont care for now
                 to_proccess_vec.remove(index);
                 to_proccess_map.remove(&name.clone());
+                if index == to_proccess_vec.len() {
+                    index = 0;
+                }
             }
             _ => (),
         }
