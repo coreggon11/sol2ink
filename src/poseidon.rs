@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::structures::Contract;
+use crate::structures::{
+    Call,
+    Contract,
+};
 
 // Lore: Triton was the father of little mermaid.
 // Since Triton resembles Poseidon, the mermaid generator should be Poseidon
@@ -10,12 +13,43 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
 
     out.push_str("graph TD\n");
 
+    let mut write_access = HashMap::new();
+
+    for contract in vec.clone() {
+        for function in contract.functions.clone() {
+            for call in function.calls {
+                if function.header.view {
+                    continue;
+                }
+                write_access.insert(
+                    format!("f_{}_{}", contract.name, function.header.name.clone(),),
+                    (),
+                );
+                match call {
+                    crate::structures::Call::Read(member)
+                    | crate::structures::Call::Write(member)
+                    | crate::structures::Call::ReadStorage(member) => {
+                        write_access.insert(member, ());
+                    }
+                }
+            }
+        }
+    }
+
     for contract in vec {
         out.push_str(format!("subgraph {}\n", contract.name.clone()).as_str());
 
         out.push_str("\n");
 
+        out.push_str("subgraph Storage\n");
+
         for storage_field in contract.fields {
+            if write_access
+                .get(format!("s_{}_{}", contract.name, storage_field.name.clone()).as_str())
+                .is_none()
+            {
+                continue
+            }
             out.push_str(
                 format!(
                     "s_{}_{}[({})]:::storage\n",
@@ -27,9 +61,42 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
             )
         }
 
+        out.push_str("end\n");
         out.push_str("\n");
 
         for function in contract.functions.clone() {
+            if write_access
+                .get(format!("f_{}_{}", contract.name, function.header.name.clone()).as_str())
+                .is_none()
+                || !function.header.external
+            {
+                continue
+            }
+            out.push_str(
+                format!(
+                    "f_{}_{}[{}]:::{}\n",
+                    contract.name,
+                    function.header.name.clone(),
+                    function.header.name.clone(),
+                    match (function.header.external, function.header.view) {
+                        (true, true) => "external_view",
+                        (true, false) => "external",
+                        (false, true) => "internal_view",
+                        (false, false) => "internal",
+                    }
+                )
+                .as_str(),
+            )
+        }
+
+        for function in contract.functions.clone() {
+            if write_access
+                .get(format!("f_{}_{}", contract.name, function.header.name.clone()).as_str())
+                .is_none()
+                || function.header.external
+            {
+                continue
+            }
             out.push_str(
                 format!(
                     "f_{}_{}[{}]:::{}\n",
@@ -51,7 +118,34 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
         out.push_str("end\n");
 
         for function in contract.functions.clone() {
-            for call in function.calls {
+            if write_access
+                .get(format!("f_{}_{}", contract.name, function.header.name.clone()).as_str())
+                .is_none()
+            {
+                continue
+            }
+            // one function may call a member multiple times, we do not care
+            let mut filtered_calls = function.calls.clone();
+            filtered_calls.sort();
+            filtered_calls.dedup();
+            filtered_calls = filtered_calls
+                .iter()
+                .filter(|call| {
+                    if let Call::ReadStorage(member) = call {
+                        if filtered_calls.contains(&Call::Write(member.clone())) {
+                            false
+                        } else {
+                            true
+                        }
+                    } else {
+                        true
+                    }
+                })
+                .cloned()
+                .collect();
+            // one function may also read and write to storage, we will favor write
+
+            for call in filtered_calls {
                 match call {
                     crate::structures::Call::Read(member)
                     | crate::structures::Call::Write(member) => {
@@ -95,32 +189,4 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
     );
 
     out
-}
-
-// if a function is view and no write function is using it we can omit it
-// same with storage fields
-pub fn filter_view_only(contract: Contract) -> Contract {
-    let mut out_contract = contract.clone();
-
-    let mut to_keep = HashMap::new();
-
-    for function in contract.functions.clone() {
-        if function.header.view {
-            continue
-        }
-
-        to_keep.insert(function.header.name, ());
-
-        for call in function.calls {
-            match call {
-                crate::structures::Call::Read(member)
-                | crate::structures::Call::Write(member)
-                | crate::structures::Call::ReadStorage(member) => {
-                    to_keep.insert(member, ());
-                }
-            }
-        }
-    }
-
-    out_contract
 }

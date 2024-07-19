@@ -1,5 +1,6 @@
 use std::{
     fs::{
+        self,
         metadata,
         File,
     },
@@ -51,6 +52,8 @@ pub fn get_solidity_files_from_directory(dir: &str) -> std::io::Result<Vec<Strin
 /// `file_home` the home directory of the file we are parsing, or the directory we are parsing
 /// `trait_name` the name of the trait we are writing
 pub fn write_mermaid(mermaid_string: String) -> std::io::Result<()> {
+    fs::create_dir_all("./output")?;
+
     let mut mermaid = File::create(format!("./output/output.txt"))?;
     mermaid.write_all(mermaid_string.as_bytes())?;
 

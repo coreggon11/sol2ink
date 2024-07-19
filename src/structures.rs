@@ -93,7 +93,7 @@ pub struct FunctionParam {
     pub param_type: Type,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Call {
     Read(String),
     ReadStorage(String),
