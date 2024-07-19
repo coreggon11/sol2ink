@@ -22,10 +22,7 @@ use crate::{
         ParserOutput,
     },
 };
-use std::collections::{
-    HashMap,
-    HashSet,
-};
+use std::collections::HashMap;
 
 /// main function
 fn main() {

@@ -19,10 +19,7 @@ use solang_parser::{
         Visibility,
     },
 };
-use std::collections::{
-    HashMap,
-    HashSet,
-};
+use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
 pub enum ParserOutput {
@@ -55,26 +52,22 @@ impl From<std::io::Error> for ParserError {
 pub struct Parser<'a> {
     members_map: &'a mut HashMap<String, MemberType>,
     modifiers_map: &'a mut HashMap<String, FunctionDefinition>,
-    imports: &'a mut HashSet<Import>,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(
         members_map: &'a mut HashMap<String, MemberType>,
         modifiers_map: &'a mut HashMap<String, FunctionDefinition>,
-        imports: &'a mut HashSet<Import>,
     ) -> Self {
         Parser {
             members_map,
             modifiers_map,
-            imports,
         }
     }
 
     pub fn clear(&mut self) {
         self.members_map.clear();
         self.modifiers_map.clear();
-        self.imports.clear();
     }
 
     /// Parses a fil and returns the vec of ParserOutput or a ParserError
@@ -255,7 +248,6 @@ impl<'a> Parser<'a> {
         Ok(Interface {
             name,
             function_headers,
-            imports: self.imports.clone(),
         })
     }
 
@@ -303,11 +295,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Ok(Library {
-            name,
-            functions,
-            imports: self.imports.clone(),
-        })
+        Ok(Library { name, functions })
     }
 
     /// Parses a Solang storage variable definition to Sol2Ink contract field definition
@@ -765,12 +753,7 @@ macro_rules! initialize_parser {
     ($parser: ident) => {
         let mut fields_map = HashMap::new();
         let mut modifier_map = HashMap::new();
-        let mut imports = HashSet::new();
 
-        let mut $parser = Parser::new(
-            &mut fields_map,
-            &mut modifier_map,
-            &mut imports,
-        );
+        let mut $parser = Parser::new(&mut fields_map, &mut modifier_map);
     };
 }
