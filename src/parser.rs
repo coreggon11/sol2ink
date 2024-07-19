@@ -544,15 +544,27 @@ impl<'a> Parser<'a> {
         match expression {
             SolangExpression::PostIncrement(_, expression)
             | SolangExpression::PostDecrement(_, expression)
-            | SolangExpression::New(_, expression)
+            | SolangExpression::PreIncrement(_, expression)
+            | SolangExpression::PreDecrement(_, expression)
+            | SolangExpression::Delete(_, expression) => {
+                boxed_expression!(parsed_expression, expression)
+                    .iter()
+                    .map(|call| {
+                        match call.clone() {
+                            Call::Read(read) => Call::Read(read.to_string()),
+                            Call::ReadStorage(member) | Call::Write(member) => {
+                                Call::Write(member.to_string())
+                            }
+                        }
+                    })
+                    .collect()
+            }
+            SolangExpression::New(_, expression)
             | SolangExpression::Parenthesis(_, expression)
             | SolangExpression::Not(_, expression)
             | SolangExpression::BitwiseNot(_, expression)
-            | SolangExpression::PreIncrement(_, expression)
-            | SolangExpression::PreDecrement(_, expression)
             | SolangExpression::UnaryPlus(_, expression)
-            | SolangExpression::Negate(_, expression)
-            | SolangExpression::Delete(_, expression) => {
+            | SolangExpression::Negate(_, expression) => {
                 boxed_expression!(parsed_expression, expression)
             }
 
@@ -678,6 +690,19 @@ impl<'a> Parser<'a> {
             | SolangExpression::AssignModulo(_, left, right) => {
                 let mut uno = boxed_expression!(parsed_condition, left);
                 let dos = boxed_expression!(parsed_if_true, right);
+
+                // if left is a storage field we are updating storage
+                uno = uno
+                    .iter()
+                    .map(|call| {
+                        match call.clone() {
+                            Call::Read(read) => Call::Read(read.to_string()),
+                            Call::ReadStorage(member) | Call::Write(member) => {
+                                Call::Write(member.to_string())
+                            }
+                        }
+                    })
+                    .collect();
 
                 uno.extend(dos);
 

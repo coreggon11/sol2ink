@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::structures::Contract;
 
 // Lore: Triton was the father of little mermaid.
@@ -77,7 +79,7 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
                 }
             }
         }
-        
+
         out.push_str("\n");
     }
 
@@ -93,4 +95,32 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
     );
 
     out
+}
+
+// if a function is view and no write function is using it we can omit it
+// same with storage fields
+pub fn filter_view_only(contract: Contract) -> Contract {
+    let mut out_contract = contract.clone();
+
+    let mut to_keep = HashMap::new();
+
+    for function in contract.functions.clone() {
+        if function.header.view {
+            continue
+        }
+
+        to_keep.insert(function.header.name, ());
+
+        for call in function.calls {
+            match call {
+                crate::structures::Call::Read(member)
+                | crate::structures::Call::Write(member)
+                | crate::structures::Call::ReadStorage(member) => {
+                    to_keep.insert(member, ());
+                }
+            }
+        }
+    }
+
+    out_contract
 }

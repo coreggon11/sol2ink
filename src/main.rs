@@ -159,15 +159,15 @@ fn run(path: &[String]) -> Result<(), ParserError> {
                     index = 0;
                 }
             }
-            ParserOutput::Interface(_, _interface) => {
-                (
+            ParserOutput::Interface(name, _interface) => {
                 //@todo dont care for now
-                )
+                to_proccess_vec.remove(index);
+                to_proccess_map.remove(&name.clone());
             }
-            ParserOutput::Library(_, _library) => {
-                (
+            ParserOutput::Library(name, _library) => {
                 //@todo dont care for now
-            )
+                to_proccess_vec.remove(index);
+                to_proccess_map.remove(&name.clone());
             }
             _ => (),
         }
