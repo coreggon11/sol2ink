@@ -94,11 +94,8 @@ impl<'a> Parser<'a> {
         let source_unit = token_tree.0;
 
         for source_unit_part in source_unit.0.iter() {
-            match &source_unit_part {
-                SourceUnitPart::ContractDefinition(contract) => {
-                    output.push(self.handle_contract_definition(contract)?);
-                }
-                _ => (),
+            if let SourceUnitPart::ContractDefinition(contract) = source_unit_part {
+                output.push(self.handle_contract_definition(contract)?);
             }
         }
 
@@ -233,10 +230,7 @@ impl<'a> Parser<'a> {
             constructor,
             modifiers,
             base,
-            is_abstract: match contract_definition.ty {
-                ContractTy::Abstract(_) => true,
-                _ => false,
-            },
+            is_abstract: matches!(contract_definition.ty, ContractTy::Abstract(_)),
         })
     }
 
@@ -255,14 +249,11 @@ impl<'a> Parser<'a> {
         let mut function_headers: Vec<FunctionHeader> = Default::default();
 
         for part in contract_definition.parts.iter() {
-            match part {
-                ContractPart::FunctionDefinition(function_definition) => {
-                    if function_definition.ty == FunctionTy::Function {
-                        let header = self.parse_function_header(function_definition);
-                        function_headers.push(header);
-                    }
+            if let ContractPart::FunctionDefinition(function_definition) = part {
+                if function_definition.ty == FunctionTy::Function {
+                    let header = self.parse_function_header(function_definition);
+                    function_headers.push(header);
                 }
-                _ => {}
             }
         }
 
@@ -309,14 +300,11 @@ impl<'a> Parser<'a> {
         }
 
         for part in contract_definition.parts.iter() {
-            match part {
-                ContractPart::FunctionDefinition(function_definition) => {
-                    if function_definition.ty == FunctionTy::Function {
-                        let parsed_function = self.parse_function(function_definition)?;
-                        functions.push(parsed_function)
-                    }
+            if let ContractPart::FunctionDefinition(function_definition) = part {
+                if function_definition.ty == FunctionTy::Function {
+                    let parsed_function = self.parse_function(function_definition)?;
+                    functions.push(parsed_function)
                 }
-                _ => {}
             }
         }
 

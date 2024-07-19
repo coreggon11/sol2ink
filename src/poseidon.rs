@@ -39,15 +39,14 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
     for contract in vec {
         out.push_str(format!("subgraph {}\n", contract.name.clone()).as_str());
 
-        out.push_str("\n");
+        out.push('\n');
 
         out.push_str("subgraph Storage\n");
 
         for storage_field in contract.fields {
-            if write_access
-                .get(format!("s_{}_{}", contract.name, storage_field.name.clone()).as_str())
-                .is_none()
-            {
+            if !write_access.contains_key(
+                format!("s_{}_{}", contract.name, storage_field.name.clone()).as_str(),
+            ) {
                 continue
             }
             out.push_str(
@@ -62,13 +61,12 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
         }
 
         out.push_str("end\n");
-        out.push_str("\n");
+        out.push('\n');
 
         for function in contract.functions.clone() {
-            if write_access
-                .get(format!("f_{}_{}", contract.name, function.header.name.clone()).as_str())
-                .is_none()
-                || !function.header.external
+            if !write_access.contains_key(
+                format!("f_{}_{}", contract.name, function.header.name.clone()).as_str(),
+            ) || !function.header.external
             {
                 continue
             }
@@ -90,10 +88,9 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
         }
 
         for function in contract.functions.clone() {
-            if write_access
-                .get(format!("f_{}_{}", contract.name, function.header.name.clone()).as_str())
-                .is_none()
-                || function.header.external
+            if !write_access.contains_key(
+                format!("f_{}_{}", contract.name, function.header.name.clone()).as_str(),
+            ) || function.header.external
             {
                 continue
             }
@@ -114,14 +111,13 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
             )
         }
 
-        out.push_str("\n");
+        out.push('\n');
         out.push_str("end\n");
 
         for function in contract.functions.clone() {
-            if write_access
-                .get(format!("f_{}_{}", contract.name, function.header.name.clone()).as_str())
-                .is_none()
-            {
+            if !write_access.contains_key(
+                format!("f_{}_{}", contract.name, function.header.name.clone()).as_str(),
+            ) {
                 continue
             }
             // one function may call a member multiple times, we do not care
@@ -132,11 +128,7 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
                 .iter()
                 .filter(|call| {
                     if let Call::ReadStorage(member) = call {
-                        if filtered_calls.contains(&Call::Write(member.clone())) {
-                            false
-                        } else {
-                            true
-                        }
+                        !filtered_calls.contains(&Call::Write(member.clone()))
                     } else {
                         true
                     }
@@ -174,7 +166,7 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
             }
         }
 
-        out.push_str("\n");
+        out.push('\n');
     }
 
     out.push_str("classDef storage fill:#ff00ff,stroke:#333,stroke-width:2px;\n");

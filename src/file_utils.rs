@@ -54,7 +54,7 @@ pub fn get_solidity_files_from_directory(dir: &str) -> std::io::Result<Vec<Strin
 pub fn write_mermaid(mermaid_string: String) -> std::io::Result<()> {
     fs::create_dir_all("./output")?;
 
-    let mut mermaid = File::create(format!("./output/output.txt"))?;
+    let mut mermaid = File::create("./output/output.txt")?;
     mermaid.write_all(mermaid_string.as_bytes())?;
 
     Ok(())

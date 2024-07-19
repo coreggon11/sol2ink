@@ -105,7 +105,7 @@ fn run(path: &[String]) -> Result<(), ParserError> {
     }
 
     let mut index = 0;
-    while to_proccess_vec.len() > 0 {
+    while !to_proccess_vec.is_empty() {
         let to_proccess = to_proccess_vec.get(index).unwrap();
         let parser_output = outputs.get(to_proccess).unwrap();
 
@@ -118,7 +118,7 @@ fn run(path: &[String]) -> Result<(), ParserError> {
 
                 for base in contract.base.clone() {
                     // if the base needs to be processed process it
-                    if to_proccess_map.get(&base).is_some() {
+                    if to_proccess_map.contains_key(&base) {
                         index += 1;
                         if index == to_proccess_vec.len() {
                             index = 0
@@ -127,19 +127,14 @@ fn run(path: &[String]) -> Result<(), ParserError> {
                         break;
                     }
                     // else we can add its functions to the contract
-                    if let Some(base_parsed) = outputs.get(&base) {
-                        match base_parsed {
-                            ParserOutput::Contract(_, contract) => {
-                                new_contract.fields.append(&mut contract.fields.clone());
-                                new_contract
-                                    .functions
-                                    .append(&mut contract.functions.clone());
-                                new_contract
-                                    .modifiers
-                                    .append(&mut contract.modifiers.clone());
-                            }
-                            _ => (),
-                        }
+                    if let Some(ParserOutput::Contract(_, contract)) = outputs.get(&base) {
+                        new_contract.fields.append(&mut contract.fields.clone());
+                        new_contract
+                            .functions
+                            .append(&mut contract.functions.clone());
+                        new_contract
+                            .modifiers
+                            .append(&mut contract.modifiers.clone());
                     }
                 }
                 if !processed {
