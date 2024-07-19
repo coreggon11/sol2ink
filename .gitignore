@@ -18,4 +18,4 @@ package-lock.json
 
 yarn.lock
 .cargo/config.toml
-examples/generated/*
+output/*
