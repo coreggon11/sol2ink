@@ -41,32 +41,36 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
 
         out.push('\n');
 
-        out.push_str("subgraph Storage\n");
+        if !contract.fields.is_empty() {
+            out.push_str("subgraph Storage\n");
 
-        for storage_field in contract.fields {
-            if !write_access.contains_key(
-                format!("s_{}_{}", contract.name, storage_field.name.clone()).as_str(),
-            ) {
-                continue
-            }
-            out.push_str(
-                format!(
-                    "s_{}_{}[({})]:::storage\n",
-                    contract.name,
-                    storage_field.name.clone(),
-                    storage_field.name.clone()
+            for storage_field in contract.fields {
+                if !write_access.contains_key(
+                    format!("s_{}_{}", contract.name, storage_field.name.clone()).as_str(),
+                ) {
+                    continue
+                }
+                out.push_str(
+                    format!(
+                        "s_{}_{}[({})]:::storage\n",
+                        contract.name,
+                        storage_field.name.clone(),
+                        storage_field.name.clone()
+                    )
+                    .as_str(),
                 )
-                .as_str(),
-            )
+            }
+
+            out.push_str("end\n");
+            out.push('\n');
         }
 
-        out.push_str("end\n");
-        out.push('\n');
-
         for function in contract.functions.clone() {
-            if !write_access.contains_key(
-                format!("f_{}_{}", contract.name, function.header.name.clone()).as_str(),
-            ) || !function.header.external
+            if (function.header.view
+                && !write_access.contains_key(
+                    format!("f_{}_{}", contract.name, function.header.name.clone()).as_str(),
+                ))
+                || !function.header.external
             {
                 continue
             }
