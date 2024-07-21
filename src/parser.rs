@@ -14,9 +14,12 @@ use solang_parser::{
         Mutability,
         SourceUnitPart,
         Statement as SolangStatement,
+        StorageLocation,
         VariableAttribute,
         VariableDefinition,
         Visibility,
+        YulExpression,
+        YulStatement,
     },
 };
 use std::collections::HashMap;
@@ -164,8 +167,8 @@ impl<'a> Parser<'a> {
                     );
                 }
                 ContractPart::FunctionDefinition(function_definition) => {
-                    // @todo function might take storage as input param
                     // @todo function might return storage (also self.slot = ... -> remember slot?)
+                    // @todo function might take storage as input param
                     let fn_name = self.parse_identifier(&function_definition.name);
                     match function_definition.ty {
                         FunctionTy::Function => {
@@ -415,10 +418,13 @@ impl<'a> Parser<'a> {
                 loc: _,
                 dialect: _,
                 flags: _,
-                block: _,
+                block,
             } => {
-                println!("Assembly not done yet!");
-                Vec::default()
+                block
+                    .statements
+                    .iter()
+                    .flat_map(|statement| self.parse_yul_statement(statement.clone()))
+                    .collect()
             }
             SolangStatement::If(_, expression, if_true, if_false) => {
                 let mut parsed_expression = self.parse_expression(expression);
@@ -491,6 +497,207 @@ impl<'a> Parser<'a> {
             SolangStatement::Try(_, expression, _, _) => self.parse_expression(expression),
             _ => Vec::default(),
         })
+    }
+
+    fn parse_yul_statement(&self, yul_statement: YulStatement) -> Vec<Call> {
+        match yul_statement {
+            YulStatement::Assign(_, yul_expressions, yul_expression) => {
+                let mut expressions = yul_expressions
+                    .iter()
+                    .flat_map(|yul_expression| self.parse_yul_expression(yul_expression.clone()))
+                    .collect::<Vec<_>>();
+                let expression = self.parse_yul_expression(yul_expression.clone());
+
+                expressions.extend(expression);
+
+                expressions
+            }
+            YulStatement::If(_, yul_expression, yul_block) => {
+                let mut yul_expression = self.parse_yul_expression(yul_expression.clone());
+                let yul_block = yul_block
+                    .statements
+                    .iter()
+                    .flat_map(|statement| self.parse_yul_statement(statement.clone()))
+                    .collect::<Vec<_>>();
+
+                yul_expression.extend(yul_block);
+
+                yul_expression
+            }
+            YulStatement::For(yul_for) => {
+                let mut init_block = yul_for
+                    .init_block
+                    .statements
+                    .iter()
+                    .flat_map(|statement| self.parse_yul_statement(statement.clone()))
+                    .collect::<Vec<_>>();
+
+                let expression = self.parse_yul_expression(yul_for.condition.clone());
+
+                let post_block = yul_for
+                    .post_block
+                    .statements
+                    .iter()
+                    .flat_map(|statement| self.parse_yul_statement(statement.clone()))
+                    .collect::<Vec<_>>();
+
+                let execution_block = yul_for
+                    .execution_block
+                    .statements
+                    .iter()
+                    .flat_map(|statement| self.parse_yul_statement(statement.clone()))
+                    .collect::<Vec<_>>();
+
+                init_block.extend(expression);
+                init_block.extend(post_block);
+                init_block.extend(execution_block);
+
+                init_block
+            }
+            YulStatement::Switch(yul_switch) => {
+                let mut condition = self.parse_yul_expression(yul_switch.condition.clone());
+                let cases = yul_switch
+                    .cases
+                    .iter()
+                    .flat_map(|case| {
+                        match case {
+                            solang_parser::pt::YulSwitchOptions::Case(
+                                _,
+                                yul_expression,
+                                yul_block,
+                            ) => {
+                                let mut yul_expression =
+                                    self.parse_yul_expression(yul_expression.clone());
+
+                                let yul_block = yul_block
+                                    .statements
+                                    .iter()
+                                    .flat_map(|statement| {
+                                        self.parse_yul_statement(statement.clone())
+                                    })
+                                    .collect::<Vec<_>>();
+
+                                yul_expression.extend(yul_block);
+
+                                yul_expression
+                            }
+                            solang_parser::pt::YulSwitchOptions::Default(_, yul_block) => {
+                                yul_block
+                                    .statements
+                                    .iter()
+                                    .flat_map(|statement| {
+                                        self.parse_yul_statement(statement.clone())
+                                    })
+                                    .collect::<Vec<_>>()
+                            }
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                let default = yul_switch
+                    .default
+                    .map(|case| {
+                        match case {
+                            solang_parser::pt::YulSwitchOptions::Case(
+                                _,
+                                yul_expression,
+                                yul_block,
+                            ) => {
+                                let mut yul_expression =
+                                    self.parse_yul_expression(yul_expression.clone());
+
+                                let yul_block = yul_block
+                                    .statements
+                                    .iter()
+                                    .flat_map(|statement| {
+                                        self.parse_yul_statement(statement.clone())
+                                    })
+                                    .collect::<Vec<_>>();
+
+                                yul_expression.extend(yul_block);
+
+                                yul_expression
+                            }
+                            solang_parser::pt::YulSwitchOptions::Default(_, yul_block) => {
+                                yul_block
+                                    .statements
+                                    .iter()
+                                    .flat_map(|statement| {
+                                        self.parse_yul_statement(statement.clone())
+                                    })
+                                    .collect::<Vec<_>>()
+                            }
+                        }
+                    })
+                    .unwrap_or_default();
+
+                condition.extend(cases);
+                condition.extend(default);
+
+                condition
+            }
+            YulStatement::Block(yul_block) => {
+                yul_block
+                    .statements
+                    .iter()
+                    .flat_map(|statement| self.parse_yul_statement(statement.clone()))
+                    .collect()
+            }
+            _ => Vec::default(),
+        }
+    }
+
+    fn parse_yul_expression(&self, yul_expression: YulExpression) -> Vec<Call> {
+        match yul_expression {
+            YulExpression::BoolLiteral(..)
+            | YulExpression::NumberLiteral(..)
+            | YulExpression::HexNumberLiteral(..)
+            | YulExpression::HexStringLiteral(..)
+            | YulExpression::StringLiteral(..) => Vec::default(),
+            YulExpression::Variable(identifier) => {
+                let parsed_identifier = self.parse_identifier(&Some(identifier));
+                if let Some(member) = self.members_map.get(&parsed_identifier) {
+                    match member {
+                        MemberType::StorageField(contract_name) => {
+                            vec![Call::ReadStorage(
+                                CallType::CallingStorage,
+                                contract_name.clone(),
+                                parsed_identifier,
+                            )]
+                        }
+                        MemberType::Function(function_header, contract_name) => {
+                            let call_type = CallType::CallingFunction;
+
+                            if function_header.view {
+                                vec![Call::Read(
+                                    call_type,
+                                    contract_name.clone(),
+                                    parsed_identifier,
+                                )]
+                            } else {
+                                vec![Call::Write(
+                                    call_type,
+                                    contract_name.clone(),
+                                    parsed_identifier,
+                                )]
+                            }
+                        }
+                        _ => Vec::default(),
+                    }
+                } else {
+                    Vec::default()
+                }
+            }
+            YulExpression::FunctionCall(yul_function_call) => {
+                yul_function_call
+                    .arguments
+                    .iter()
+                    .flat_map(|arg| self.parse_yul_expression(arg.clone()))
+                    .collect()
+            }
+            YulExpression::SuffixAccess(_, expression, _) => {
+                self.parse_yul_expression(expression.as_ref().clone())
+            }
+        }
     }
 
     /// Parses a Solang expression enum variant to Sol2Ink expression enum variant
@@ -619,6 +826,7 @@ impl<'a> Parser<'a> {
                                 )])
                             }
                         }
+                        _ => todo!(),
                     }
                 }
 
@@ -722,6 +930,7 @@ impl<'a> Parser<'a> {
                                 )]
                             }
                         }
+                        _ => todo!(),
                     }
                 } else {
                     Vec::default()

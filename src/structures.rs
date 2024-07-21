@@ -2,6 +2,7 @@
 pub enum MemberType {
     StorageField(String),
     Function(FunctionHeader, String),
+    StoragePointer(String) // Slot
 }
 
 #[derive(Clone, Default, Debug)]
@@ -55,6 +56,7 @@ pub enum Call {
 }
 
 impl Call {
+    #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
         match self {
             Call::Read(call_type, contract, calling)

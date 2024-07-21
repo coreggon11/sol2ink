@@ -27,13 +27,11 @@ cargo run path_to_dir
 - The multifile support is currently not an optimal experience, so a single file usage is recommended.
 - Interfaces and Libraries are currently not fully supported.
 - Inheritance not fully supported
-- Assembly is not parsed
 - Support for patterns like Diamond is limited since it works with storage in a different way
 
 ## TODO
 
 - [ ] Full Interface and Library support
 - [ ] Better inheritance support
-- [ ] Better assembly handling
 - [ ] Better Diamond-like pattern support
 - [ ] Better multifile support
