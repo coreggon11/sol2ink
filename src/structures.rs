@@ -76,10 +76,10 @@ impl Call {
             | Call::Write(call_type, contract, calling) => {
                 format!(
                     "{}_{contract}_{calling}",
-                    if call_type == &CallType::CallingStorage {
-                        "s"
-                    } else {
+                    if call_type == &CallType::CallingFunction {
                         "f"
+                    } else {
+                        "s"
                     },
                 )
             }
@@ -104,6 +104,7 @@ impl Call {
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum CallType {
     CallingStorage,
+    CallingStoragePointer,
     CallingFunction,
 }
 

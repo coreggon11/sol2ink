@@ -969,7 +969,7 @@ impl<'a> Parser<'a> {
 
                         if self.structs.get(storage_pointer).is_some() {
                             expressions.extend(vec![Call::ReadStorage(
-                                CallType::CallingStorage,
+                                CallType::CallingStoragePointer,
                                 storage_pointer.clone(),
                                 parsed_right.clone(),
                             )]);

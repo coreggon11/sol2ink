@@ -12,6 +12,7 @@ pub mod structures;
 use cli::SwitchFlag;
 use file_utils::get_solidity_files_from_directory;
 use parser::Parser;
+use structures::CallType;
 
 use crate::{
     cli::{
@@ -202,9 +203,20 @@ fn run(
                                 new_function.calls = function
                                     .calls
                                     .iter()
-                                    .map(|call| call.change_contract(&new_contract.name.clone()))
+                                    .map(|call| {
+                                        match call {
+                                            structures::Call::Read(call_type, _, _)
+                                            | structures::Call::ReadStorage(call_type, _, _)
+                                            | structures::Call::Write(call_type, _, _) => {
+                                                if let CallType::CallingStoragePointer = call_type {
+                                                    call.clone()
+                                                } else {
+                                                    call.change_contract(&new_contract.name.clone())
+                                                }
+                                            }
+                                        }
+                                    })
                                     .collect();
-
                                 new_function
                             })
                             .collect();
