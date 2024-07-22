@@ -8,6 +8,7 @@ use std::path::Path;
 pub enum CliInput {
     SolidityFile(String),
     Directory(String),
+    SpecificContract(String),
 }
 
 /// Sol2Ink - tool to convert Solidity smart contracts to Ink! smart contracts
@@ -19,19 +20,24 @@ pub struct Args {
     pub(crate) files: Option<Vec<CliInput>>,
 }
 
+fn check_path(s: &str) -> Result<(), String> {
+    if !Path::new(&s).exists() {
+        return Err(format!("{s} does not exist"))
+    }
+    Ok(())
+}
+
 fn sol_file_parser(s: &str) -> Result<CliInput, String> {
     let result = s.to_string();
 
-    if !Path::new(&result).exists() {
-        return Err(format!("{result} does not exist"))
-    }
-
     if result.ends_with(".sol") {
+        check_path(s)?;
         Ok(CliInput::SolidityFile(result))
     } else if Path::new(&result).is_dir() {
+        check_path(s)?;
         Ok(CliInput::Directory(result))
     } else {
-        Err(format!("{result} is not a solidity file or directory"))
+        Ok(CliInput::SpecificContract(result))
     }
 }
 

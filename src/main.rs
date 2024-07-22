@@ -38,10 +38,22 @@ fn main() {
         std::process::exit(1);
     }
 
+    let contracts = files
+        .iter()
+        .filter(|input| matches!(input, CliInput::SpecificContract(_)))
+        .map(|input| {
+            if let CliInput::SpecificContract(contract_name) = input {
+                contract_name.clone()
+            } else {
+                unreachable!("Filtered")
+            }
+        })
+        .collect::<Vec<_>>();
+
     for file in files {
         match file {
             CliInput::SolidityFile(file) => {
-                match run(&[file.clone()]) {
+                match run(&[file.clone()], &contracts.clone()) {
                     Ok(_) => {
                         println!("Successfully parsed {file}");
                     }
@@ -55,7 +67,7 @@ fn main() {
                 let paths = get_solidity_files_from_directory(&dir)
                     .unwrap_or_else(|err| panic!("error: {err:?}"));
 
-                match run(&paths) {
+                match run(&paths, &contracts.clone()) {
                     Ok(_) => {}
                     Err(err) => {
                         eprintln!("error: {err:?}");
@@ -63,6 +75,7 @@ fn main() {
                     }
                 }
             }
+            _ => (),
         }
     }
 }
@@ -71,7 +84,7 @@ fn main() {
 ///
 /// `home` the home directory of a single file, or the directory we are parsing
 /// `path` the paths to the files we want to parse
-fn run(path: &[String]) -> Result<(), ParserError> {
+fn run(path: &[String], contracts: &Vec<String>) -> Result<(), ParserError> {
     initialize_parser!(parser);
 
     for file in path {
@@ -163,7 +176,10 @@ fn run(path: &[String]) -> Result<(), ParserError> {
                 if !processed {
                     continue
                 }
-                processed_vec.push(new_contract.clone());
+                if contracts.is_empty() || contracts.contains(&new_contract.name) {
+                    processed_vec.push(new_contract.clone());
+                }
+
                 processed_map.insert(name.clone(), contract.clone());
                 to_proccess_vec.remove(index);
                 to_proccess_map.remove(&name.clone());

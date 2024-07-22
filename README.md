@@ -22,6 +22,12 @@ or
 cargo run path_to_dir
 ```
 
+You can also explictly name the contracts you want to chart. In this case, everything is analyzed but only the contract you chose will be charted:
+
+```bash
+cargo run path_to_dir ContractA ContractB
+```
+
 ## Limitations
 
 - The multifile support is currently not an optimal experience, so a single file usage is recommended.
