@@ -8,7 +8,7 @@ use crate::structures::{
 // Lore: Triton was the father of little mermaid.
 // Since Triton resembles Poseidon, the mermaid generator should be Poseidon
 
-pub fn generate_mermaid(vec: Vec<Contract>) -> String {
+pub fn generate_mermaid(vec: &Vec<Contract>) -> String {
     let mut out = String::new();
 
     out.push_str("graph TD\n");
@@ -35,10 +35,10 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
 
         out.push('\n');
 
-        if !contract.fields.is_empty() {
+        if !contract.fields.is_empty() || !contract.slots.is_empty() {
             out.push_str("subgraph Storage\n");
 
-            for storage_field in contract.fields {
+            for storage_field in contract.fields.clone() {
                 if !write_access.contains_key(
                     format!("s_{}_{}", contract.name, storage_field.name.clone()).as_str(),
                 ) {
@@ -53,6 +53,22 @@ pub fn generate_mermaid(vec: Vec<Contract>) -> String {
                     )
                     .as_str(),
                 )
+            }
+
+            for slot in contract.slots.clone() {
+                for field in slot.fields {
+                    if !write_access.contains_key(format!("s_{}_{}", contract.name, field).as_str())
+                    {
+                        continue
+                    }
+                    out.push_str(
+                        format!(
+                            "s_{}_{field}[({}::{field})]:::storage\n",
+                            contract.name, slot.name
+                        )
+                        .as_str(),
+                    )
+                }
             }
 
             out.push_str("end\n");

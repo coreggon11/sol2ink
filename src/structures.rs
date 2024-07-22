@@ -2,18 +2,30 @@
 pub enum MemberType {
     StorageField(String),
     Function(FunctionHeader, String),
-    StoragePointer(String) // Slot
 }
 
 #[derive(Clone, Default, Debug)]
 pub struct Contract {
     pub name: String,
     pub fields: Vec<ContractField>,
+    pub slots: Vec<StorageSlot>,
     pub constructor: Function,
     pub functions: Vec<Function>,
     pub modifiers: Vec<Function>,
     pub base: Vec<String>,
     pub is_abstract: bool,
+}
+
+#[derive(Clone, Default, Debug)]
+pub struct StorageSlot {
+    pub name: String,
+    pub fields: Vec<String>,
+}
+
+impl StorageSlot {
+    pub fn new(name: String, fields: Vec<String>) -> Self {
+        Self { name, fields }
+    }
 }
 
 #[derive(Clone, Default, Debug)]
@@ -74,14 +86,16 @@ impl Call {
         }
     }
 
-    pub fn change_contract(&self, new_contract: String) -> Self {
+    pub fn change_contract(&self, new_contract: &str) -> Self {
         match self.clone() {
-            Call::Read(call_type, _, calling) => Call::Read(call_type, new_contract, calling),
+            Call::Read(call_type, _, calling) => {
+                Call::Read(call_type, new_contract.to_string(), calling)
+            }
             Call::ReadStorage(call_type, _, calling) => {
-                Call::Read(call_type, new_contract, calling)
+                Call::Read(call_type, new_contract.to_string(), calling)
             }
             Call::Write(call_type, _, calling) => {
-                Call::Read(call_type, new_contract, calling)
+                Call::Read(call_type, new_contract.to_string(), calling)
             }
         }
     }

@@ -15,6 +15,7 @@ use solang_parser::{
         SourceUnitPart,
         Statement as SolangStatement,
         StorageLocation,
+        StructDefinition,
         VariableAttribute,
         VariableDefinition,
         Visibility,
@@ -55,16 +56,40 @@ impl From<std::io::Error> for ParserError {
 pub struct Parser<'a> {
     members_map: &'a mut HashMap<String, MemberType>,
     modifiers_map: &'a mut HashMap<String, FunctionDefinition>,
+    // mapping function => struct return
+    storage_pointers: &'a mut HashMap<String, String>,
+    // Contract.Struct => Struct
+    structs: &'a mut HashMap<String, StructDefinition>,
+    // declaration => Contract.Struct
+    local_storage_pointers: &'a mut HashMap<String, String>,
+    // depth => [declaration_0, declaration_1 ...]
+    local_storage_pointers_declared: &'a mut HashMap<u8, Vec<String>>,
+    // Contract.Struct => [field_0, field_1 ...]
+    storage_access: &'a mut HashMap<String, Vec<String>>,
+    current_depth: u8,
+    current_contract: String,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(
         members_map: &'a mut HashMap<String, MemberType>,
         modifiers_map: &'a mut HashMap<String, FunctionDefinition>,
+        storage_pointers: &'a mut HashMap<String, String>,
+        structs: &'a mut HashMap<String, StructDefinition>,
+        local_variables: &'a mut HashMap<String, String>,
+        local_variables_declared: &'a mut HashMap<u8, Vec<String>>,
+        storage_access: &'a mut HashMap<String, Vec<String>>,
     ) -> Self {
         Parser {
             members_map,
             modifiers_map,
+            storage_pointers,
+            structs,
+            local_storage_pointers: local_variables,
+            local_storage_pointers_declared: local_variables_declared,
+            storage_access,
+            current_depth: 0,
+            current_contract: String::new(),
         }
     }
 
@@ -124,6 +149,78 @@ impl<'a> Parser<'a> {
         }
     }
 
+    pub fn extract_storage_pointers(&mut self, content: &str) -> Result<(), ParserError> {
+        let token_tree = parse(content, 0).map_err(|errors| {
+            ParserError::FileCorrupted(errors.iter().map(|error| error.message.clone()).collect())
+        })?;
+
+        let source_unit = token_tree.0;
+
+        for source_unit_part in source_unit.0.iter() {
+            if let SourceUnitPart::ContractDefinition(contract_definition) = source_unit_part {
+                let contract_name = self.parse_identifier(&contract_definition.name.clone());
+
+                for part in contract_definition.parts.iter() {
+                    if let ContractPart::FunctionDefinition(function_definition) = part {
+                        // if function returns a storage pointer
+                        let return_param = function_definition
+                            .returns
+                            .iter()
+                            .filter_map(|tuple| tuple.1.clone())
+                            .filter(|param| param.storage.is_some())
+                            .find(|param| {
+                                matches!(
+                                    param.storage.clone().unwrap(),
+                                    StorageLocation::Storage(_)
+                                )
+                            });
+                        if let Some(return_param) = return_param {
+                            let function_header = self.parse_function_header(function_definition);
+
+                            if let SolangExpression::Variable(ident) = return_param.ty {
+                                let parsed_ident = self.parse_identifier(&Some(ident));
+                                self.storage_pointers.insert(
+                                    format!("{contract_name}_{}", function_header.name),
+                                    format!("{contract_name}_{parsed_ident}"),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn extract_all_structs(&mut self, content: &str) -> Result<(), ParserError> {
+        let token_tree = parse(content, 0).map_err(|errors| {
+            ParserError::FileCorrupted(errors.iter().map(|error| error.message.clone()).collect())
+        })?;
+
+        let source_unit = token_tree.0;
+
+        for source_unit_part in source_unit.0.iter() {
+            if let SourceUnitPart::ContractDefinition(contract_definition) = source_unit_part {
+                let contract_name = self.parse_identifier(&contract_definition.name);
+
+                // first we need to know functions that exist
+                for part in contract_definition.parts.iter() {
+                    if let ContractPart::StructDefinition(struct_definition) = part {
+                        // we will save struct definitions as structs might be used as storage containers
+                        let name = self.parse_identifier(&struct_definition.name);
+                        // panic if unnamed struct
+                        self.structs.insert(
+                            format!("{}_{}", contract_name, name.clone()),
+                            *struct_definition.clone(),
+                        );
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Parses a contract
     ///
     /// `contract_definition` the Solang contract definition
@@ -135,6 +232,9 @@ impl<'a> Parser<'a> {
         contract_definition: &ContractDefinition,
     ) -> Result<Contract, ParserError> {
         let contract_name = self.parse_identifier(&contract_definition.name);
+
+        self.current_contract = contract_name.clone();
+
         let base = contract_definition
             .base
             .iter()
@@ -167,7 +267,6 @@ impl<'a> Parser<'a> {
                     );
                 }
                 ContractPart::FunctionDefinition(function_definition) => {
-                    // @todo function might return storage (also self.slot = ... -> remember slot?)
                     // @todo function might take storage as input param
                     let fn_name = self.parse_identifier(&function_definition.name);
                     match function_definition.ty {
@@ -216,9 +315,16 @@ impl<'a> Parser<'a> {
             }
         }
 
+        let slots = self
+            .storage_access
+            .iter()
+            .map(|entry| StorageSlot::new(entry.0.clone(), entry.1.clone()))
+            .collect();
+
         Ok(Contract {
             name: contract_name,
             fields,
+            slots,
             functions,
             constructor,
             modifiers,
@@ -409,10 +515,24 @@ impl<'a> Parser<'a> {
                 unchecked: _,
                 statements,
             } => {
-                statements
+                self.current_depth += 1;
+                let out = statements
                     .iter()
                     .flat_map(|statement| self.parse_statement(statement).unwrap_or_default())
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>();
+                if let Some(local_storage_pointers_declared) = self
+                    .local_storage_pointers_declared
+                    .get(&self.current_depth)
+                {
+                    for local_storage_pointer_declared in local_storage_pointers_declared {
+                        self.local_storage_pointers
+                            .remove(local_storage_pointer_declared);
+                    }
+                    self.local_storage_pointers_declared
+                        .remove(&self.current_depth);
+                }
+                self.current_depth -= 1;
+                out
             }
             SolangStatement::Assembly {
                 loc: _,
@@ -423,7 +543,7 @@ impl<'a> Parser<'a> {
                 block
                     .statements
                     .iter()
-                    .flat_map(|statement| self.parse_yul_statement(statement.clone()))
+                    .flat_map(|statement| self.parse_yul_statement(&statement.clone()))
                     .collect()
             }
             SolangStatement::If(_, expression, if_true, if_false) => {
@@ -448,7 +568,47 @@ impl<'a> Parser<'a> {
                 parsed_expression
             }
             SolangStatement::Expression(_, expression) => self.parse_expression(expression),
-            SolangStatement::VariableDefinition(_, _, initial_value_maybe) => {
+            SolangStatement::VariableDefinition(_, definition, initial_value_maybe) => {
+                if definition
+                    .storage
+                    .clone()
+                    .filter(|storage| matches!(storage, StorageLocation::Storage(_)))
+                    .is_some()
+                {
+                    let mut local_storage_pointers_declared = self
+                        .local_storage_pointers_declared
+                        .get(&self.current_depth)
+                        .unwrap_or(&vec![])
+                        .clone();
+                    match definition.ty.clone() {
+                        // @todo handle cases where we store mpping, structs etc.
+                        SolangExpression::Variable(variable_type) => {
+                            let parsed_variable_type = self.parse_identifier(&Some(variable_type));
+                            let full_variable_type =
+                                format!("{}_{}", self.current_contract, parsed_variable_type);
+                            let variable_name = self.parse_identifier(&definition.name.clone());
+                            self.local_storage_pointers
+                                .insert(variable_name.clone(), full_variable_type);
+                            local_storage_pointers_declared.push(variable_name);
+                        }
+                        SolangExpression::MemberAccess(_, left, right) => {
+                            if let SolangExpression::Variable(left_ident) = *left.clone() {
+                                let parsed_left = self.parse_identifier(&Some(left_ident));
+                                let parsed_right = self.parse_identifier(&Some(right));
+                                let variable_name = self.parse_identifier(&definition.name.clone());
+                                self.local_storage_pointers.insert(
+                                    variable_name.clone(),
+                                    format!("{parsed_left}_{parsed_right}"),
+                                );
+                                local_storage_pointers_declared.push(variable_name);
+                            }
+                        }
+                        _ => (),
+                    };
+                    self.local_storage_pointers_declared
+                        .insert(self.current_depth, local_storage_pointers_declared);
+                }
+
                 initial_value_maybe
                     .as_ref()
                     .map(|expression| self.parse_expression(expression))
@@ -499,25 +659,25 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_yul_statement(&self, yul_statement: YulStatement) -> Vec<Call> {
+    fn parse_yul_statement(&self, yul_statement: &YulStatement) -> Vec<Call> {
         match yul_statement {
             YulStatement::Assign(_, yul_expressions, yul_expression) => {
                 let mut expressions = yul_expressions
                     .iter()
-                    .flat_map(|yul_expression| self.parse_yul_expression(yul_expression.clone()))
+                    .flat_map(|yul_expression| self.parse_yul_expression(&yul_expression.clone()))
                     .collect::<Vec<_>>();
-                let expression = self.parse_yul_expression(yul_expression.clone());
+                let expression = self.parse_yul_expression(&yul_expression.clone());
 
                 expressions.extend(expression);
 
                 expressions
             }
             YulStatement::If(_, yul_expression, yul_block) => {
-                let mut yul_expression = self.parse_yul_expression(yul_expression.clone());
+                let mut yul_expression = self.parse_yul_expression(&yul_expression.clone());
                 let yul_block = yul_block
                     .statements
                     .iter()
-                    .flat_map(|statement| self.parse_yul_statement(statement.clone()))
+                    .flat_map(|statement| self.parse_yul_statement(&statement.clone()))
                     .collect::<Vec<_>>();
 
                 yul_expression.extend(yul_block);
@@ -529,23 +689,23 @@ impl<'a> Parser<'a> {
                     .init_block
                     .statements
                     .iter()
-                    .flat_map(|statement| self.parse_yul_statement(statement.clone()))
+                    .flat_map(|statement| self.parse_yul_statement(&statement.clone()))
                     .collect::<Vec<_>>();
 
-                let expression = self.parse_yul_expression(yul_for.condition.clone());
+                let expression = self.parse_yul_expression(&yul_for.condition.clone());
 
                 let post_block = yul_for
                     .post_block
                     .statements
                     .iter()
-                    .flat_map(|statement| self.parse_yul_statement(statement.clone()))
+                    .flat_map(|statement| self.parse_yul_statement(&statement.clone()))
                     .collect::<Vec<_>>();
 
                 let execution_block = yul_for
                     .execution_block
                     .statements
                     .iter()
-                    .flat_map(|statement| self.parse_yul_statement(statement.clone()))
+                    .flat_map(|statement| self.parse_yul_statement(&statement.clone()))
                     .collect::<Vec<_>>();
 
                 init_block.extend(expression);
@@ -555,7 +715,7 @@ impl<'a> Parser<'a> {
                 init_block
             }
             YulStatement::Switch(yul_switch) => {
-                let mut condition = self.parse_yul_expression(yul_switch.condition.clone());
+                let mut condition = self.parse_yul_expression(&yul_switch.condition.clone());
                 let cases = yul_switch
                     .cases
                     .iter()
@@ -567,13 +727,13 @@ impl<'a> Parser<'a> {
                                 yul_block,
                             ) => {
                                 let mut yul_expression =
-                                    self.parse_yul_expression(yul_expression.clone());
+                                    self.parse_yul_expression(&yul_expression.clone());
 
                                 let yul_block = yul_block
                                     .statements
                                     .iter()
                                     .flat_map(|statement| {
-                                        self.parse_yul_statement(statement.clone())
+                                        self.parse_yul_statement(&statement.clone())
                                     })
                                     .collect::<Vec<_>>();
 
@@ -586,7 +746,7 @@ impl<'a> Parser<'a> {
                                     .statements
                                     .iter()
                                     .flat_map(|statement| {
-                                        self.parse_yul_statement(statement.clone())
+                                        self.parse_yul_statement(&statement.clone())
                                     })
                                     .collect::<Vec<_>>()
                             }
@@ -595,6 +755,7 @@ impl<'a> Parser<'a> {
                     .collect::<Vec<_>>();
                 let default = yul_switch
                     .default
+                    .clone()
                     .map(|case| {
                         match case {
                             solang_parser::pt::YulSwitchOptions::Case(
@@ -603,13 +764,13 @@ impl<'a> Parser<'a> {
                                 yul_block,
                             ) => {
                                 let mut yul_expression =
-                                    self.parse_yul_expression(yul_expression.clone());
+                                    self.parse_yul_expression(&yul_expression.clone());
 
                                 let yul_block = yul_block
                                     .statements
                                     .iter()
                                     .flat_map(|statement| {
-                                        self.parse_yul_statement(statement.clone())
+                                        self.parse_yul_statement(&statement.clone())
                                     })
                                     .collect::<Vec<_>>();
 
@@ -622,7 +783,7 @@ impl<'a> Parser<'a> {
                                     .statements
                                     .iter()
                                     .flat_map(|statement| {
-                                        self.parse_yul_statement(statement.clone())
+                                        self.parse_yul_statement(&statement.clone())
                                     })
                                     .collect::<Vec<_>>()
                             }
@@ -639,14 +800,14 @@ impl<'a> Parser<'a> {
                 yul_block
                     .statements
                     .iter()
-                    .flat_map(|statement| self.parse_yul_statement(statement.clone()))
+                    .flat_map(|statement| self.parse_yul_statement(&statement.clone()))
                     .collect()
             }
             _ => Vec::default(),
         }
     }
 
-    fn parse_yul_expression(&self, yul_expression: YulExpression) -> Vec<Call> {
+    fn parse_yul_expression(&self, yul_expression: &YulExpression) -> Vec<Call> {
         match yul_expression {
             YulExpression::BoolLiteral(..)
             | YulExpression::NumberLiteral(..)
@@ -654,7 +815,7 @@ impl<'a> Parser<'a> {
             | YulExpression::HexStringLiteral(..)
             | YulExpression::StringLiteral(..) => Vec::default(),
             YulExpression::Variable(identifier) => {
-                let parsed_identifier = self.parse_identifier(&Some(identifier));
+                let parsed_identifier = self.parse_identifier(&Some(identifier.clone()));
                 if let Some(member) = self.members_map.get(&parsed_identifier) {
                     match member {
                         MemberType::StorageField(contract_name) => {
@@ -681,7 +842,6 @@ impl<'a> Parser<'a> {
                                 )]
                             }
                         }
-                        _ => Vec::default(),
                     }
                 } else {
                     Vec::default()
@@ -691,11 +851,11 @@ impl<'a> Parser<'a> {
                 yul_function_call
                     .arguments
                     .iter()
-                    .flat_map(|arg| self.parse_yul_expression(arg.clone()))
+                    .flat_map(|arg| self.parse_yul_expression(&arg.clone()))
                     .collect()
             }
             YulExpression::SuffixAccess(_, expression, _) => {
-                self.parse_yul_expression(expression.as_ref().clone())
+                self.parse_yul_expression(&expression.as_ref().clone())
             }
         }
     }
@@ -796,41 +956,72 @@ impl<'a> Parser<'a> {
 
                 exp
             }
-            SolangExpression::MemberAccess(_, expression, identifier) => {
-                let mut expression = boxed_expression!(parsed_expression, expression);
-                let parsed_identifier = self.parse_identifier(&Some(identifier.clone()));
+            SolangExpression::MemberAccess(_, left, right) => {
+                let mut expressions = boxed_expression!(parsed_expression, left);
+                let parsed_right = self.parse_identifier(&Some(right.clone()));
+                let mut success = false;
 
-                if let Some(member_type) = self.members_map.get(&parsed_identifier) {
-                    match member_type {
-                        MemberType::StorageField(contract_name) => {
-                            expression.extend(vec![Call::ReadStorage(
+                if let SolangExpression::Variable(left_ident) = *left.clone() {
+                    let parsed_left = self.parse_identifier(&Some(left_ident.clone()));
+
+                    if let Some(storage_pointer) = self.local_storage_pointers.get(&parsed_left) {
+                        // @todo right can be lib function of this struct
+
+                        if self.structs.get(storage_pointer).is_some() {
+                            expressions.extend(vec![Call::ReadStorage(
                                 CallType::CallingStorage,
-                                contract_name.clone(),
-                                parsed_identifier,
-                            )])
-                        }
-                        MemberType::Function(function_header, contract_name) => {
-                            let call_type = CallType::CallingFunction;
+                                storage_pointer.clone(),
+                                parsed_right.clone(),
+                            )]);
+                            success = true;
 
-                            if function_header.view {
-                                expression.extend(vec![Call::Read(
-                                    call_type,
-                                    contract_name.clone(),
-                                    parsed_identifier,
-                                )])
+                            let current_storage_maybe =
+                                self.storage_access.get(&storage_pointer.clone());
+
+                            if let Some(current_storage) = current_storage_maybe {
+                                let mut new_storage_access = vec![parsed_right.clone()];
+                                new_storage_access.extend(current_storage.clone());
+                                self.storage_access
+                                    .insert(storage_pointer.clone(), new_storage_access);
                             } else {
-                                expression.extend(vec![Call::Write(
-                                    call_type,
-                                    contract_name.clone(),
-                                    parsed_identifier,
-                                )])
+                                self.storage_access
+                                    .insert(storage_pointer.clone(), vec![parsed_right.clone()]);
                             }
                         }
-                        _ => todo!(),
+                    }
+                }
+                if !success {
+                    if let Some(member_type) = self.members_map.get(&parsed_right) {
+                        match member_type {
+                            MemberType::StorageField(contract_name) => {
+                                expressions.extend(vec![Call::ReadStorage(
+                                    CallType::CallingStorage,
+                                    contract_name.clone(),
+                                    parsed_right,
+                                )])
+                            }
+                            MemberType::Function(function_header, contract_name) => {
+                                let call_type = CallType::CallingFunction;
+
+                                if function_header.view {
+                                    expressions.extend(vec![Call::Read(
+                                        call_type,
+                                        contract_name.clone(),
+                                        parsed_right,
+                                    )])
+                                } else {
+                                    expressions.extend(vec![Call::Write(
+                                        call_type,
+                                        contract_name.clone(),
+                                        parsed_right,
+                                    )])
+                                }
+                            }
+                        }
                     }
                 }
 
-                expression
+                expressions
             }
             SolangExpression::FunctionCall(_, function, args) => {
                 let mut parsed_args = self.parse_expression_vec(args);
@@ -930,7 +1121,6 @@ impl<'a> Parser<'a> {
                                 )]
                             }
                         }
-                        _ => todo!(),
                     }
                 } else {
                     Vec::default()
@@ -986,7 +1176,20 @@ macro_rules! initialize_parser {
     ($parser: ident) => {
         let mut fields_map = HashMap::new();
         let mut modifier_map = HashMap::new();
+        let mut storage_pointers = HashMap::new();
+        let mut structs = HashMap::new();
+        let mut local_variables = HashMap::new();
+        let mut local_variables_declared = HashMap::new();
+        let mut storage_access = HashMap::new();
 
-        let mut $parser = Parser::new(&mut fields_map, &mut modifier_map);
+        let mut $parser = Parser::new(
+            &mut fields_map,
+            &mut modifier_map,
+            &mut storage_pointers,
+            &mut structs,
+            &mut local_variables,
+            &mut local_variables_declared,
+            &mut storage_access,
+        );
     };
 }

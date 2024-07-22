@@ -74,6 +74,18 @@ fn main() {
 fn run(path: &[String]) -> Result<(), ParserError> {
     initialize_parser!(parser);
 
+    for file in path {
+        let content = file_utils::read_file(file)?;
+
+        parser.extract_all_structs(&content)?;
+    }
+
+    for file in path {
+        let content = file_utils::read_file(file)?;
+
+        parser.extract_storage_pointers(&content)?;
+    }
+
     let mut to_proccess_vec = Vec::default();
     let mut to_proccess_map = HashMap::new();
     let mut outputs = HashMap::new();
@@ -135,7 +147,7 @@ fn run(path: &[String]) -> Result<(), ParserError> {
                                 new_function.calls = function
                                     .calls
                                     .iter()
-                                    .map(|call| call.change_contract(new_contract.name.clone()))
+                                    .map(|call| call.change_contract(&new_contract.name.clone()))
                                     .collect();
 
                                 new_function
@@ -185,8 +197,8 @@ fn run(path: &[String]) -> Result<(), ParserError> {
 
     // now we pass processed vec to assembler
 
-    let output = poseidon::generate_mermaid(processed_vec);
-    file_utils::write_mermaid(output)?;
+    let output = poseidon::generate_mermaid(&processed_vec);
+    file_utils::write_mermaid(&output)?;
 
     Ok(())
 }
