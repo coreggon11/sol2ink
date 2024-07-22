@@ -16,7 +16,7 @@ pub struct Contract {
     pub is_abstract: bool,
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct StorageSlot {
     pub name: String,
     pub fields: Vec<String>,

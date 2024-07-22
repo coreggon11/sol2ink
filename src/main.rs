@@ -9,6 +9,7 @@ pub mod parser;
 pub mod poseidon;
 pub mod structures;
 
+use cli::SwitchFlag;
 use file_utils::get_solidity_files_from_directory;
 use parser::Parser;
 
@@ -28,32 +29,40 @@ use std::collections::HashMap;
 fn main() {
     let args = cli();
 
-    let files = args.files.unwrap_or_else(|| {
+    let inputs = args.inputs.unwrap_or_else(|| {
         eprintln!("No files provided");
         std::process::exit(1);
     });
 
-    if files.is_empty() {
+    if inputs.is_empty() {
         eprintln!("No files provided");
         std::process::exit(1);
     }
 
-    let contracts = files
-        .iter()
-        .filter(|input| matches!(input, CliInput::SpecificContract(_)))
-        .map(|input| {
-            if let CliInput::SpecificContract(contract_name) = input {
-                contract_name.clone()
-            } else {
-                unreachable!("Filtered")
-            }
-        })
-        .collect::<Vec<_>>();
+    let mut filtered = Vec::default();
+    let mut omitted = Vec::default();
+    let mut current_flag = SwitchFlag::None;
 
-    for file in files {
-        match file {
+    for input in inputs.clone() {
+        match input {
+            CliInput::SwitchFlag(switch_flag) => {
+                current_flag = switch_flag;
+            }
+            CliInput::SpecificContract(contract) => {
+                match current_flag {
+                    SwitchFlag::SpecifyContract => filtered.push(contract),
+                    SwitchFlag::OmitContract => omitted.push(contract),
+                    SwitchFlag::None => (),
+                }
+            }
+            _ => (),
+        }
+    }
+
+    for input in inputs {
+        match input {
             CliInput::SolidityFile(file) => {
-                match run(&[file.clone()], &contracts.clone()) {
+                match run(&[file.clone()], &filtered.clone(), &omitted.clone()) {
                     Ok(_) => {
                         println!("Successfully parsed {file}");
                     }
@@ -67,7 +76,7 @@ fn main() {
                 let paths = get_solidity_files_from_directory(&dir)
                     .unwrap_or_else(|err| panic!("error: {err:?}"));
 
-                match run(&paths, &contracts.clone()) {
+                match run(&paths, &filtered.clone(), &omitted.clone()) {
                     Ok(_) => {}
                     Err(err) => {
                         eprintln!("error: {err:?}");
@@ -84,7 +93,7 @@ fn main() {
 ///
 /// `home` the home directory of a single file, or the directory we are parsing
 /// `path` the paths to the files we want to parse
-fn run(path: &[String], contracts: &Vec<String>) -> Result<(), ParserError> {
+fn run(path: &[String], contracts: &[String], omitted: &[String]) -> Result<(), ParserError> {
     initialize_parser!(parser);
 
     for file in path {
@@ -104,6 +113,7 @@ fn run(path: &[String], contracts: &Vec<String>) -> Result<(), ParserError> {
     let mut outputs = HashMap::new();
     let mut processed_map = HashMap::new();
     let mut processed_vec = Vec::default();
+    let mut slots_map: HashMap<String, Vec<String>> = HashMap::new();
 
     for file in path {
         let content = file_utils::read_file(file)?;
@@ -151,6 +161,19 @@ fn run(path: &[String], contracts: &Vec<String>) -> Result<(), ParserError> {
                     if let Some(ParserOutput::Contract(_, contract)) = outputs.get(&base) {
                         new_contract.fields.append(&mut contract.fields.clone());
 
+                        for new_slot in new_contract.slots.clone() {
+                            if let Some(fields) = slots_map.get(&new_slot.name) {
+                                let mut current_fields = new_slot.fields.clone();
+                                current_fields.extend(fields.clone());
+                                current_fields.sort();
+                                current_fields.dedup();
+
+                                slots_map.insert(new_slot.name.clone(), current_fields);
+                            } else {
+                                slots_map.insert(new_slot.name.clone(), new_slot.fields);
+                            }
+                        }
+
                         let mut new_functions = contract
                             .functions
                             .iter()
@@ -176,7 +199,9 @@ fn run(path: &[String], contracts: &Vec<String>) -> Result<(), ParserError> {
                 if !processed {
                     continue
                 }
-                if contracts.is_empty() || contracts.contains(&new_contract.name) {
+                if !omitted.contains(&new_contract.name)
+                    && (contracts.is_empty() || contracts.contains(&new_contract.name))
+                {
                     processed_vec.push(new_contract.clone());
                 }
 
@@ -213,7 +238,7 @@ fn run(path: &[String], contracts: &Vec<String>) -> Result<(), ParserError> {
 
     // now we pass processed vec to assembler
 
-    let output = poseidon::generate_mermaid(&processed_vec);
+    let output = poseidon::generate_mermaid(&processed_vec, &slots_map);
     file_utils::write_mermaid(&output)?;
 
     Ok(())

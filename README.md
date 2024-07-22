@@ -10,7 +10,7 @@ The mermaid diagrams created by this tool are inspired by [gpersoon](https://git
 
 ## Usage
 
-S2M needs a path to a file or directory that contains the solidity files you want to create diagrams of. 
+S2M needs a path to a file or directory that contains the solidity files you want to create diagrams of.
 
 ```bash
 cargo run path_to_file.sol
@@ -22,11 +22,19 @@ or
 cargo run path_to_dir
 ```
 
-You can also explictly name the contracts you want to chart. In this case, everything is analyzed but only the contract you chose will be charted:
+You can also explictly name the contracts you want to chart by saying contracts ... . In this case, everything is analyzed but only the contracts you chose will be charted:
 
 ```bash
-cargo run path_to_dir ContractA ContractB
+cargo run path_to_dir contracts ContractA ContractB
 ```
+
+You can also omit contracts by saying omit ... . Again, everything will be analyzed but the omitted contracts won't be charted:
+
+```bash
+cargo run path_to_dir omit ContractA ContractB
+```
+
+You can use both the options (although it will not have a meaningful effect, you will simply omit everything except the ones you explictly mentioned to chart:P )
 
 ## Limitations
 

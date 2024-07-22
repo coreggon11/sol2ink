@@ -1024,6 +1024,23 @@ impl<'a> Parser<'a> {
                 expressions
             }
             SolangExpression::FunctionCall(_, function, args) => {
+                // First we will handle case when we call a Library function of a storage pointer struct
+
+                if let SolangExpression::MemberAccess(_, left, _right) = *function.clone() {
+                    // if on the left we have a variable definition
+                    if let SolangExpression::Variable(left_ident) = *left.clone() {
+                        let parsed_left = self.parse_identifier(&Some(left_ident.clone()));
+                        // if on the left we have a storage pointer
+                        if let Some(_storage_pointer) =
+                            self.local_storage_pointers.get(&parsed_left)
+                        {
+                            // @todo handle the logic of that function, it can write to storage
+                            // - the function will take a storage param as an argument
+                            return self.parse_expression_vec(args)
+                        }
+                    }
+                }
+
                 let mut parsed_args = self.parse_expression_vec(args);
                 let parsed_function = self.parse_expression(function.as_ref());
 

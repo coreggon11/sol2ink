@@ -8,7 +8,15 @@ use std::path::Path;
 pub enum CliInput {
     SolidityFile(String),
     Directory(String),
+    SwitchFlag(SwitchFlag),
     SpecificContract(String),
+}
+
+#[derive(Debug, Clone)]
+pub enum SwitchFlag {
+    None,
+    SpecifyContract,
+    OmitContract,
 }
 
 /// Sol2Ink - tool to convert Solidity smart contracts to Ink! smart contracts
@@ -17,7 +25,7 @@ pub enum CliInput {
 pub struct Args {
     /// Path to files or directories
     #[arg(value_parser = sol_file_parser)]
-    pub(crate) files: Option<Vec<CliInput>>,
+    pub(crate) inputs: Option<Vec<CliInput>>,
 }
 
 fn check_path(s: &str) -> Result<(), String> {
@@ -36,6 +44,10 @@ fn sol_file_parser(s: &str) -> Result<CliInput, String> {
     } else if Path::new(&result).is_dir() {
         check_path(s)?;
         Ok(CliInput::Directory(result))
+    } else if result == *"contracts" {
+        Ok(CliInput::SwitchFlag(SwitchFlag::SpecifyContract))
+    } else if result == *"omit" {
+        Ok(CliInput::SwitchFlag(SwitchFlag::OmitContract))
     } else {
         Ok(CliInput::SpecificContract(result))
     }

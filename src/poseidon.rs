@@ -8,10 +8,10 @@ use crate::structures::{
 // Lore: Triton was the father of little mermaid.
 // Since Triton resembles Poseidon, the mermaid generator should be Poseidon
 
-pub fn generate_mermaid(vec: &Vec<Contract>) -> String {
+pub fn generate_mermaid(vec: &Vec<Contract>, slots_map: &HashMap<String, Vec<String>>) -> String {
     let mut out = String::new();
 
-    out.push_str("graph TD\n");
+    out.push_str("graph LR\n");
 
     let mut write_access = HashMap::new();
 
@@ -35,7 +35,9 @@ pub fn generate_mermaid(vec: &Vec<Contract>) -> String {
 
         out.push('\n');
 
-        if !contract.fields.is_empty() || !contract.slots.is_empty() {
+        if !contract.fields.is_empty()
+        // || !contract.slots.is_empty()
+        {
             out.push_str("subgraph Storage\n");
 
             for storage_field in contract.fields.clone() {
@@ -53,22 +55,6 @@ pub fn generate_mermaid(vec: &Vec<Contract>) -> String {
                     )
                     .as_str(),
                 )
-            }
-
-            for slot in contract.slots.clone() {
-                for field in slot.fields {
-                    if !write_access.contains_key(format!("s_{}_{}", contract.name, field).as_str())
-                    {
-                        continue
-                    }
-                    out.push_str(
-                        format!(
-                            "s_{}_{field}[({}::{field})]:::storage\n",
-                            contract.name, slot.name
-                        )
-                        .as_str(),
-                    )
-                }
             }
 
             out.push_str("end\n");
@@ -185,6 +171,21 @@ pub fn generate_mermaid(vec: &Vec<Contract>) -> String {
 
         out.push('\n');
     }
+
+    out.push_str("subgraph Storage\n");
+    for slot in slots_map {
+        out.push_str(format!("subgraph {}\n", slot.0).as_str());
+
+        for field in slot.1 {
+            if !write_access.contains_key(format!("s_{}_{}", slot.0, field).as_str()) {
+                continue
+            }
+            out.push_str(format!("s_{}_{field}[({field})]:::storage\n", slot.0).as_str());
+        }
+
+        out.push_str("end\n");
+    }
+    out.push_str("end\n");
 
     out.push_str("classDef storage fill:#ff00ff,stroke:#333,stroke-width:2px;\n");
     out.push_str("classDef external fill:#ff0000,stroke:#333,stroke-width:2px;\n");
