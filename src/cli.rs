@@ -17,6 +17,7 @@ pub enum SwitchFlag {
     None,
     SpecifyContract,
     OmitContract,
+    OmitReadStorage,
 }
 
 /// Sol2Ink - tool to convert Solidity smart contracts to Ink! smart contracts
@@ -48,6 +49,8 @@ fn sol_file_parser(s: &str) -> Result<CliInput, String> {
         Ok(CliInput::SwitchFlag(SwitchFlag::SpecifyContract))
     } else if result == *"omit" {
         Ok(CliInput::SwitchFlag(SwitchFlag::OmitContract))
+    } else if result == *"omit_read_storage" {
+        Ok(CliInput::SwitchFlag(SwitchFlag::OmitReadStorage))
     } else {
         Ok(CliInput::SpecificContract(result))
     }

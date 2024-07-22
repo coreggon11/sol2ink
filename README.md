@@ -34,14 +34,20 @@ You can also omit contracts by saying omit ... . Again, everything will be analy
 cargo run path_to_dir omit ContractA ContractB
 ```
 
-You can use both the options (although it will not have a meaningful effect, you will simply omit everything except the ones you explictly mentioned to chart:P )
+You can omit drawing of storage reads by specifying `omit_read_storage`
+
+```bash
+cargo run path_to_dir omit_read_storage
+```
+
+You can use any of the options combined (although using `omit` and `contracts` together will not have a meaningful effect, you will simply omit everything except the ones you explictly mentioned to chart:P )
 
 ## Limitations
 
-- The multifile support is currently not an optimal experience, so a single file usage is recommended.
+- The multifile support is still being optimized
+- Support for patterns like Diamond is still being optimized
 - Interfaces and Libraries are currently not fully supported.
 - Inheritance not fully supported
-- Support for patterns like Diamond is limited since it works with storage in a different way
 
 ## TODO
 
