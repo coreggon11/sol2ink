@@ -202,11 +202,21 @@ pub fn generate_mermaid(
     }
 
     for slot in slots_map {
+        let mut slot_out = String::new();
+        let mut has_stuff = false;
+
         for field in slot.1 {
             if !write_access.contains_key(format!("s_{}_{}", slot.0, field).as_str()) {
                 continue
             }
-            out.push_str(format!("s_{}_{field}[({field})]:::storage\n", slot.0).as_str());
+            has_stuff = true;
+            slot_out.push_str(format!("s_{}_{field}[({field})]:::storage\n", slot.0).as_str());
+        }
+
+        if has_stuff {
+            out.push_str(format!("subgraph {}Storage\n", slot.0).as_str());
+            out.push_str(&slot_out);
+            out.push_str("end\n")
         }
     }
 

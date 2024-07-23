@@ -1057,24 +1057,45 @@ impl<'a> Parser<'a> {
 
                 parsed_args
             }
-            SolangExpression::FunctionCallBlock(_, expression, statement) => {
+            SolangExpression::NamedFunctionCall(_, expression, args) => {
+                // First we will handle case when we call a Library function of a storage pointer struct
+
+                if let SolangExpression::MemberAccess(_, left, right) = *expression.clone() {
+                    // if on the left we have a variable definition
+
+                    if let SolangExpression::Variable(left_ident) = *left.clone() {
+                        let parsed_left = self.parse_identifier(&Some(left_ident.clone()));
+
+                        // if on the left we have a storage pointer
+                        if let Some(storage_pointer) =
+                            self.local_storage_pointers.get(&parsed_left).cloned()
+                        {
+                            // on the right side we have the function name
+                            let parsed_right = self.parse_identifier(&Some(right.clone()));
+
+                            // we have the Library function
+                            let mut parsed_args = args
+                                .iter()
+                                .map(|arg| arg.expr.clone())
+                                .flat_map(|expression| self.parse_expression(&expression))
+                                .collect::<Vec<_>>();
+                            parsed_args.push(Call::Library(storage_pointer.clone(), parsed_right));
+
+                            return parsed_args
+                        }
+                    }
+                }
+
                 let mut parsed_args = self.parse_expression(expression);
-                let parsed_function = self.parse_statement(statement).unwrap_or_default();
+                let parsed_function = args
+                    .iter()
+                    .map(|arg| arg.expr.clone())
+                    .flat_map(|expression| self.parse_expression(&expression))
+                    .collect::<Vec<_>>();
 
                 parsed_args.extend(parsed_function);
 
                 parsed_args
-            }
-            SolangExpression::NamedFunctionCall(_, expression, arguments) => {
-                let mut expression = boxed_expression!(parsed_expression, expression);
-                let args = arguments
-                    .iter()
-                    .flat_map(|arg| self.parse_expression(&arg.expr))
-                    .collect::<Vec<_>>();
-
-                expression.extend(args);
-
-                expression
             }
             SolangExpression::ConditionalOperator(_, condition, if_true, if_false) => {
                 let mut uno = boxed_expression!(parsed_condition, condition);
