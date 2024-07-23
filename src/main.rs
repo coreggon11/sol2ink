@@ -438,6 +438,19 @@ fn run(
                     continue
                 }
 
+                for new_slot in library.slots.clone() {
+                    if let Some(fields) = slots_map.get(&new_slot.name) {
+                        let mut current_fields = new_slot.fields.clone();
+                        current_fields.extend(fields.clone());
+                        current_fields.sort();
+                        current_fields.dedup();
+
+                        slots_map.insert(new_slot.name.clone(), current_fields);
+                    } else {
+                        slots_map.insert(new_slot.name.clone(), new_slot.fields);
+                    }
+                }
+
                 let mut new_library = library.clone();
                 new_library.functions = filtered_functions;
 

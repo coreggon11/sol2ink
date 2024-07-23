@@ -26,7 +26,7 @@ pub fn generate_mermaid(
                     // @todo this must be processed before
                     continue
                 }
-                if function.header.view {
+                if function.header.view && omit_read_storage {
                     continue;
                 }
                 write_access.insert(
