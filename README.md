@@ -44,8 +44,7 @@ You can use any of the options combined (although using `omit` and `contracts` t
 
 ## Limitations
 
-- The multifile support is still being optimized
-- Support for patterns like Diamond is still being optimized
+- Multifile support and inheritance pattern support like Diamond is the Holy Grail of S2M. It works kinda nice, but stuff can still be optimized
 - Interfaces and Libraries are currently not fully supported.
 - Inheritance not fully supported
 
@@ -53,5 +52,3 @@ You can use any of the options combined (although using `omit` and `contracts` t
 
 - [ ] Full Interface and Library support
 - [ ] Better inheritance support
-- [ ] Better Diamond-like pattern support
-- [ ] Better multifile support
