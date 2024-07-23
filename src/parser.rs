@@ -29,7 +29,7 @@ use std::collections::HashMap;
 pub enum ParserOutput {
     Contract(String, Contract),
     Interface(String, Interface),
-    Library(String, Library),
+    Library(String, Contract),
     None,
 }
 
@@ -137,7 +137,7 @@ impl<'a> Parser<'a> {
                 Ok(contract)
             }
             ContractTy::Library(_) => {
-                let parsed_library = self.parse_library(contract_definition)?;
+                let parsed_library = self.parse_contract(contract_definition)?;
                 let library = ParserOutput::Library(parsed_library.name.clone(), parsed_library);
                 Ok(library)
             }
@@ -362,53 +362,6 @@ impl<'a> Parser<'a> {
         })
     }
 
-    /// Parses a library
-    ///
-    /// `contract_definition` the Solang library definition
-    /// `comments` the documentation of the library
-    ///
-    /// Returns the parsed library as a plain rust file
-    fn parse_library(
-        &mut self,
-        contract_definition: &ContractDefinition,
-    ) -> Result<Library, ParserError> {
-        let name = self.parse_identifier(&contract_definition.name);
-
-        let mut functions: Vec<Function> = Default::default();
-
-        // first we register all members of the contract
-        for part in contract_definition.parts.iter() {
-            if let ContractPart::FunctionDefinition(function_definition) = part {
-                let fn_name = self.parse_identifier(&function_definition.name);
-                match function_definition.ty {
-                    FunctionTy::Function => {
-                        let function_header = self.parse_function_header(function_definition);
-                        self.members_map.insert(
-                            fn_name.clone(),
-                            MemberType::Function(function_header, name.clone()),
-                        );
-                    }
-                    FunctionTy::Modifier => {
-                        self.modifiers_map
-                            .insert(fn_name.clone(), *function_definition.clone());
-                    }
-                    _ => (),
-                }
-            }
-        }
-
-        for part in contract_definition.parts.iter() {
-            if let ContractPart::FunctionDefinition(function_definition) = part {
-                if function_definition.ty == FunctionTy::Function {
-                    let parsed_function = self.parse_function(function_definition)?;
-                    functions.push(parsed_function)
-                }
-            }
-        }
-
-        Ok(Library { name, functions })
-    }
-
     /// Parses a Solang storage variable definition to Sol2Ink contract field definition
     ///
     /// `variable_definition` the Solang variable definition
@@ -434,11 +387,60 @@ impl<'a> Parser<'a> {
         function_definition: &FunctionDefinition,
     ) -> Result<Function, ParserError> {
         let header = self.parse_function_header(function_definition);
+
+        // function can have storage parameters, we will save them to stack
+        let storage_params_declared = function_definition
+            .params
+            .iter()
+            .filter_map(|tuple| tuple.1.clone())
+            .filter(|param| param.storage.is_some() && param.name.is_some())
+            .filter(|param| matches!(param.storage.clone().unwrap(), StorageLocation::Storage(_)))
+            .filter_map(|param| {
+                // map to Option<(param_name, param_type)>
+                let raw_expression = param.ty;
+                let param_type = match raw_expression {
+                    SolangExpression::MemberAccess(_, left, right) => {
+                        // left should be a variable
+                        // @todo handle cases when it is member access etc...
+                        let parsed_right = self.parse_identifier(&Some(right));
+                        if let SolangExpression::Variable(identifier) = *left.clone() {
+                            let parsed_identifier = self.parse_identifier(&Some(identifier));
+                            format!("{parsed_identifier}_{parsed_right}")
+                        } else {
+                            return None
+                        }
+                    }
+                    SolangExpression::Variable(identifier) => {
+                        let parsed_identifier = self.parse_identifier(&Some(identifier));
+                        format!("{}_{parsed_identifier}", self.current_contract)
+                    }
+                    _ => return None,
+                };
+                let parsed_param_name = self.parse_identifier(&param.name);
+
+                Some((parsed_param_name, param_type))
+            })
+            .collect::<Vec<_>>();
+
+        let local_storage_pointers_declared = storage_params_declared
+            .iter()
+            .map(|(param_name, _)| param_name.clone())
+            .collect();
+
+        for (param_name, param_type) in storage_params_declared {
+            self.local_storage_pointers.insert(param_name, param_type);
+        }
+        self.local_storage_pointers_declared
+            .insert(0, local_storage_pointers_declared);
+
         let calls = if let Some(statement) = &function_definition.body {
             self.parse_statement(statement)?
         } else {
             Vec::default()
         };
+
+        self.local_storage_pointers.clear();
+        self.local_storage_pointers_declared.clear();
 
         Ok(Function { header, calls })
     }
@@ -898,6 +900,7 @@ impl<'a> Parser<'a> {
                             | Call::Write(call_type, contract, read) => {
                                 Call::Write(call_type, contract, read)
                             }
+                            _ => unreachable!("This should be unreachable"),
                         }
                     })
                     .collect()
@@ -990,6 +993,7 @@ impl<'a> Parser<'a> {
                         }
                     }
                 }
+
                 if !success {
                     if let Some(member_type) = self.members_map.get(&parsed_right) {
                         match member_type {
@@ -1026,17 +1030,22 @@ impl<'a> Parser<'a> {
             SolangExpression::FunctionCall(_, function, args) => {
                 // First we will handle case when we call a Library function of a storage pointer struct
 
-                if let SolangExpression::MemberAccess(_, left, _right) = *function.clone() {
+                if let SolangExpression::MemberAccess(_, left, right) = *function.clone() {
                     // if on the left we have a variable definition
                     if let SolangExpression::Variable(left_ident) = *left.clone() {
                         let parsed_left = self.parse_identifier(&Some(left_ident.clone()));
                         // if on the left we have a storage pointer
-                        if let Some(_storage_pointer) =
-                            self.local_storage_pointers.get(&parsed_left)
+                        if let Some(storage_pointer) =
+                            self.local_storage_pointers.get(&parsed_left).cloned()
                         {
-                            // @todo handle the logic of that function, it can write to storage
-                            // - the function will take a storage param as an argument
-                            return self.parse_expression_vec(args)
+                            // on the right side we have the function name
+                            let parsed_right = self.parse_identifier(&Some(right.clone()));
+
+                            // we have the Library function
+                            let mut parsed_args = self.parse_expression_vec(args);
+                            parsed_args.push(Call::Library(storage_pointer.clone(), parsed_right));
+
+                            return parsed_args
                         }
                     }
                 }
@@ -1103,6 +1112,7 @@ impl<'a> Parser<'a> {
                             | Call::Write(call_type, contract, read) => {
                                 Call::Write(call_type, contract, read)
                             }
+                            _ => unreachable!("Should be unreachable"),
                         }
                     })
                     .collect();

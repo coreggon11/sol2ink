@@ -12,7 +12,10 @@ pub mod structures;
 use cli::SwitchFlag;
 use file_utils::get_solidity_files_from_directory;
 use parser::Parser;
-use structures::CallType;
+use structures::{
+    Call,
+    CallType,
+};
 
 use crate::{
     cli::{
@@ -205,15 +208,16 @@ fn run(
                                     .iter()
                                     .map(|call| {
                                         match call {
-                                            structures::Call::Read(call_type, _, _)
-                                            | structures::Call::ReadStorage(call_type, _, _)
-                                            | structures::Call::Write(call_type, _, _) => {
+                                            Call::Read(call_type, _, _)
+                                            | Call::ReadStorage(call_type, _, _)
+                                            | Call::Write(call_type, _, _) => {
                                                 if let CallType::CallingStoragePointer = call_type {
                                                     call.clone()
                                                 } else {
                                                     call.change_contract(&new_contract.name.clone())
                                                 }
                                             }
+                                            Call::Library(_, _) => call.clone(),
                                         }
                                     })
                                     .collect();
@@ -227,9 +231,57 @@ fn run(
                             .append(&mut contract.modifiers.clone());
                     }
                 }
+
                 if !processed {
                     continue
                 }
+
+                // go through Library calls of each of the functions and remap it
+                let mut new_functions = Vec::default();
+
+                for function in new_contract.functions.clone() {
+                    let mut new_calls = Vec::default();
+                    for call in function.calls.clone() {
+                        if let Call::Library(library_struct_name, library_function) = call.clone() {
+                            // @todo we are optimistic here
+                            let library_name =
+                                library_struct_name.split('_').next().unwrap_or_default();
+                            if processed_map.contains_key(library_name) {
+                                println!("Must wait for {library_name} to be processed!");
+                                processed = false;
+                                break
+                            }
+                            if let Some(ParserOutput::Library(_, contract)) =
+                                outputs.get(library_name)
+                            {
+                                // find the function we are looking for
+                                let calls = contract
+                                    .functions
+                                    .iter()
+                                    .filter(|function| function.header.name == library_function)
+                                    .flat_map(|function| function.calls.clone())
+                                    .collect::<Vec<_>>();
+                                new_calls.extend(calls);
+                            }
+                        } else {
+                            new_calls.push(call);
+                        }
+                    }
+
+                    if !processed {
+                        break
+                    }
+                    let mut new_function = function.clone();
+                    new_function.calls = new_calls;
+                    new_functions.push(new_function);
+                }
+
+                if !processed {
+                    continue
+                }
+
+                new_contract.functions = new_functions;
+
                 if !omitted.contains(&new_contract.name)
                     && (contracts.is_empty() || contracts.contains(&new_contract.name))
                 {
@@ -255,10 +307,70 @@ fn run(
                     index = 0;
                 }
             }
-            ParserOutput::Library(name, _library) => {
-                //@todo dont care for now
+            ParserOutput::Library(name, library) => {
+                // @todo for now we are only using library functions which manipulate with storage
+                // e.g. they take a storage arg and then modify it (write to storage)
+                // we handle this in the contract definition, so no action needed here for now
+                // maybe later on we will be interetested in library calls
+
+                // in library we want to get rid of `Library` calls then we will consider it processed
+                let mut processed = true;
+                let mut new_functions = Vec::new();
+
+                for function in library.functions.clone() {
+                    let mut new_calls = Vec::new();
+
+                    for call in function.calls.clone() {
+                        if let Call::Library(library_struct_name, library_function) = call {
+                            // @todo we are optimistic here
+                            let library_name =
+                                library_struct_name.split('_').next().unwrap_or_default();
+                            if to_proccess_map.contains_key(library_name) {
+                                processed = false;
+                                break
+                            }
+
+                            if let Some(ParserOutput::Library(_, contract)) =
+                                outputs.get(library_name)
+                            {
+                                // find the function we are looking for
+                                let calls = contract
+                                    .functions
+                                    .iter()
+                                    .filter(|function| {
+                                        function.header.name.clone() == library_function
+                                    })
+                                    .flat_map(|function| function.calls.clone())
+                                    .collect::<Vec<_>>();
+
+                                new_calls.extend(calls);
+                            }
+                        } else {
+                            new_calls.push(call);
+                        }
+                    }
+                    if !processed {
+                        break
+                    }
+
+                    let mut new_function = function.clone();
+                    new_function.calls = new_calls;
+                    new_functions.push(new_function);
+                }
+
+                if !processed {
+                    continue;
+                }
+
+                let mut new_library = library.clone();
+                new_library.functions = new_functions;
+
                 to_proccess_vec.remove(index);
                 to_proccess_map.remove(&name.clone());
+                outputs.insert(
+                    name.clone(),
+                    ParserOutput::Library(name.clone(), new_library),
+                );
                 if index == to_proccess_vec.len() {
                     index = 0;
                 }

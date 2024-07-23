@@ -65,6 +65,7 @@ pub enum Call {
     Read(CallType, String, String), // call type, contract name, call name
     ReadStorage(CallType, String, String), // call type, contract name, call name
     Write(CallType, String, String), // call type, contract name, call name
+    Library(String, String),        // Library, function
 }
 
 impl Call {
@@ -83,6 +84,7 @@ impl Call {
                     },
                 )
             }
+            _ => unreachable!("Must be remapped"),
         }
     }
 
@@ -97,7 +99,12 @@ impl Call {
             Call::Write(call_type, _, calling) => {
                 Call::Read(call_type, new_contract.to_string(), calling)
             }
+            _ => unreachable!("Must be remapped"),
         }
+    }
+
+    pub fn is_read_storage(&self) -> bool {
+        matches!(self, Call::ReadStorage(_, _, _))
     }
 }
 

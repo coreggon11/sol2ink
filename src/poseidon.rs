@@ -22,6 +22,10 @@ pub fn generate_mermaid(
     for contract in vec.clone() {
         for function in contract.functions.clone() {
             for call in function.calls {
+                if let Call::Library(..) = call {
+                    // @todo this must be processed before
+                    continue
+                }
                 if function.header.view {
                     continue;
                 }
@@ -29,6 +33,9 @@ pub fn generate_mermaid(
                     format!("f_{}_{}", contract.name, function.header.name.clone(),),
                     (),
                 );
+                if omit_read_storage && call.is_read_storage() {
+                    continue
+                }
                 write_access.insert(call.to_string(), ());
             }
         }
@@ -176,6 +183,7 @@ pub fn generate_mermaid(
                             );
                         }
                     }
+                    _ => (),
                 }
             }
         }
@@ -188,16 +196,12 @@ pub fn generate_mermaid(
     }
 
     for slot in slots_map {
-        out.push_str(format!("subgraph {}\n", slot.0).as_str());
-
         for field in slot.1 {
             if !write_access.contains_key(format!("s_{}_{}", slot.0, field).as_str()) {
                 continue
             }
             out.push_str(format!("s_{}_{field}[({field})]:::storage\n", slot.0).as_str());
         }
-
-        out.push_str("end\n");
     }
 
     out.push_str("classDef storage fill:#ff00ff,stroke:#333,stroke-width:2px;\n");
