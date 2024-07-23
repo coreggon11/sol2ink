@@ -148,7 +148,7 @@ pub fn generate_mermaid(
                             call_type.clone(),
                             contract.clone(),
                             member.clone(),
-                        )) && filtered_calls.contains(&Call::WriteStorage(
+                        )) && !filtered_calls.contains(&Call::WriteStorage(
                             call_type.clone(),
                             contract.clone(),
                             member.clone(),

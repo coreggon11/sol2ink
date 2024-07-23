@@ -248,7 +248,6 @@ fn run(
                             let library_name =
                                 library_struct_name.split('_').next().unwrap_or_default();
                             if processed_map.contains_key(library_name) {
-                                println!("Must wait for {library_name} to be processed!");
                                 processed = false;
                                 break
                             }
@@ -262,6 +261,9 @@ fn run(
                                     .filter(|function| function.header.name == library_function)
                                     .flat_map(|function| function.calls.clone())
                                     .collect::<Vec<_>>();
+
+                                // calls might work some storage slots that are not saved yet
+
                                 new_calls.extend(calls);
                             }
                         } else {
@@ -272,12 +274,6 @@ fn run(
                     if !processed {
                         break
                     }
-
-                    // println!("----------------------------------------");
-                    // println!("Old calls of {}", function.header.name);
-                    // println!("{:?}", function.calls);
-                    // println!("New calls of {}", function.header.name);
-                    // println!("{:?}", new_calls);
 
                     let mut new_function = function.clone();
                     new_function.calls = new_calls;
@@ -362,14 +358,6 @@ fn run(
                     if !processed {
                         break
                     }
-
-                    // if function.header.name == "upgrade" {
-                    //     println!("----------------------------------------");
-                    //     println!("Old calls of {}", function.header.name);
-                    //     println!("{:?}", function.calls);
-                    //     println!("New calls of {}", function.header.name);
-                    //     println!("{:?}", new_calls);
-                    // }
 
                     let mut new_function = function.clone();
                     new_function.calls = new_calls;
