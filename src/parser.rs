@@ -896,10 +896,10 @@ impl<'a> Parser<'a> {
                             Call::Read(call_type, contract, read) => {
                                 Call::Read(call_type, contract, read)
                             }
-                            Call::ReadStorage(call_type, contract, read)
-                            | Call::Write(call_type, contract, read) => {
-                                Call::Write(call_type, contract, read)
+                            Call::ReadStorage(call_type, contract, read) => {
+                                Call::WriteStorage(call_type, contract, read)
                             }
+                            Call::Write(..) | Call::WriteStorage(..) => call.clone(),
                             _ => unreachable!("This should be unreachable"),
                         }
                     })
@@ -1108,10 +1108,10 @@ impl<'a> Parser<'a> {
                             Call::Read(call_type, contract, read) => {
                                 Call::Read(call_type, contract, read)
                             }
-                            Call::ReadStorage(call_type, contract, read)
-                            | Call::Write(call_type, contract, read) => {
-                                Call::Write(call_type, contract, read)
+                            Call::ReadStorage(call_type, contract, read) => {
+                                Call::WriteStorage(call_type, contract, read)
                             }
+                            Call::Write(..) | Call::WriteStorage(..) => call.clone(),
                             _ => unreachable!("Should be unreachable"),
                         }
                     })

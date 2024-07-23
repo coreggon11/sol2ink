@@ -148,6 +148,10 @@ pub fn generate_mermaid(
                             call_type.clone(),
                             contract.clone(),
                             member.clone(),
+                        )) && filtered_calls.contains(&Call::WriteStorage(
+                            call_type.clone(),
+                            contract.clone(),
+                            member.clone(),
                         ))
                     } else {
                         true
@@ -159,7 +163,9 @@ pub fn generate_mermaid(
 
             for call in filtered_calls {
                 match call {
-                    crate::structures::Call::Read(..) | crate::structures::Call::Write(..) => {
+                    crate::structures::Call::Read(..)
+                    | crate::structures::Call::Write(..)
+                    | crate::structures::Call::WriteStorage(..) => {
                         sub_graph.push_str(
                             format!(
                                 "f_{}_{} --> {}\n",

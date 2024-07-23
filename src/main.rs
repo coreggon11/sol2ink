@@ -210,6 +210,7 @@ fn run(
                                         match call {
                                             Call::Read(call_type, _, _)
                                             | Call::ReadStorage(call_type, _, _)
+                                            | Call::WriteStorage(call_type, _, _)
                                             | Call::Write(call_type, _, _) => {
                                                 if let CallType::CallingStoragePointer = call_type {
                                                     call.clone()
@@ -271,6 +272,13 @@ fn run(
                     if !processed {
                         break
                     }
+
+                    // println!("----------------------------------------");
+                    // println!("Old calls of {}", function.header.name);
+                    // println!("{:?}", function.calls);
+                    // println!("New calls of {}", function.header.name);
+                    // println!("{:?}", new_calls);
+
                     let mut new_function = function.clone();
                     new_function.calls = new_calls;
                     new_functions.push(new_function);
@@ -320,6 +328,7 @@ fn run(
                 for function in library.functions.clone() {
                     let mut new_calls = Vec::new();
 
+                    // first we will expand all the `Library` calls
                     for call in function.calls.clone() {
                         if let Call::Library(library_struct_name, library_function) = call {
                             // @todo we are optimistic here
@@ -349,9 +358,18 @@ fn run(
                             new_calls.push(call);
                         }
                     }
+
                     if !processed {
                         break
                     }
+
+                    // if function.header.name == "upgrade" {
+                    //     println!("----------------------------------------");
+                    //     println!("Old calls of {}", function.header.name);
+                    //     println!("{:?}", function.calls);
+                    //     println!("New calls of {}", function.header.name);
+                    //     println!("{:?}", new_calls);
+                    // }
 
                     let mut new_function = function.clone();
                     new_function.calls = new_calls;
@@ -362,8 +380,78 @@ fn run(
                     continue;
                 }
 
+                let mut filtered_functions = Vec::default();
+                for function in new_functions.clone() {
+                    let mut filtered_function = function.clone();
+
+                    // in case of library we are only interested in `ReadStorage` and `WriteStorage`
+                    // so we will filter now
+                    while filtered_function.calls.iter().any(|call| {
+                        matches!(call, Call::Read(..)) || matches!(call, Call::Write(..))
+                    }) {
+                        let mut filtered_calls = Vec::new();
+
+                        for call in filtered_calls.clone() {
+                            match call {
+                                Call::ReadStorage(..) | Call::WriteStorage(..) => {
+                                    filtered_calls.push(call)
+                                }
+                                Call::Read(_, contract, function_name)
+                                | Call::Write(_, contract, function_name) => {
+                                    if contract == library.name {
+                                        // if its the same contract we will look at already processed functions as
+                                        // it may contain `Library` calls
+                                        let calls = new_functions
+                                            .clone()
+                                            .iter()
+                                            .filter(|function| {
+                                                function.header.name.clone() == function_name
+                                            })
+                                            .flat_map(|function| function.calls.clone())
+                                            .collect::<Vec<_>>();
+
+                                        filtered_calls.extend(calls);
+                                    } else if to_proccess_map.contains_key(&contract) {
+                                        processed = false;
+                                        break
+                                    } else if let Some(ParserOutput::Library(_, contract)) =
+                                        outputs.get(&contract)
+                                    {
+                                        // find the function we are looking for
+                                        let calls = contract
+                                            .functions
+                                            .iter()
+                                            .filter(|function| {
+                                                function.header.name.clone() == function_name
+                                            })
+                                            .flat_map(|function| function.calls.clone())
+                                            .collect::<Vec<_>>();
+
+                                        filtered_calls.extend(calls);
+                                    }
+                                }
+                                Call::Library(..) => unreachable!("Should be processed by now"),
+                            }
+                        }
+                        if !processed {
+                            break
+                        }
+
+                        filtered_function.calls = filtered_calls;
+                    }
+                    if !processed {
+                        break
+                    }
+
+                    filtered_functions.push(filtered_function);
+                }
+
+                if !processed {
+                    continue
+                }
+
                 let mut new_library = library.clone();
-                new_library.functions = new_functions;
+                new_library.functions = filtered_functions;
 
                 to_proccess_vec.remove(index);
                 to_proccess_map.remove(&name.clone());
