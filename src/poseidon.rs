@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::structures::{
     Call,
     Contract,
+    PoseidonOptions,
 };
 
 // Lore: Triton was the father of little mermaid.
@@ -11,7 +12,7 @@ use crate::structures::{
 pub fn generate_mermaid(
     vec: &Vec<Contract>,
     slots_map: &HashMap<String, Vec<String>>,
-    omit_read_storage: bool,
+    options: &PoseidonOptions,
 ) -> String {
     let mut out = String::new();
 
@@ -26,14 +27,14 @@ pub fn generate_mermaid(
                     // @todo this must be processed before
                     continue
                 }
-                if function.header.view && omit_read_storage {
+                if function.header.view && options.omit_read_storage {
                     continue;
                 }
                 write_access.insert(
                     format!("f_{}_{}", contract.name, function.header.name.clone(),),
                     (),
                 );
-                if omit_read_storage && call.is_read_storage() {
+                if options.omit_read_storage && call.is_read_storage() {
                     continue
                 }
                 write_access.insert(call.to_string(), ());
@@ -163,9 +164,7 @@ pub fn generate_mermaid(
 
             for call in filtered_calls {
                 match call {
-                    crate::structures::Call::Read(..)
-                    | crate::structures::Call::Write(..)
-                    | crate::structures::Call::WriteStorage(..) => {
+                    Call::Read(..) | Call::Write(..) | Call::WriteStorage(..) => {
                         sub_graph.push_str(
                             format!(
                                 "f_{}_{} --> {}\n",
@@ -176,8 +175,8 @@ pub fn generate_mermaid(
                             .as_str(),
                         );
                     }
-                    crate::structures::Call::ReadStorage(..) => {
-                        if !omit_read_storage {
+                    Call::ReadStorage(..) => {
+                        if !options.omit_read_storage {
                             sub_graph.push_str(
                                 format!(
                                     "f_{}_{} -.-> {}\n",
@@ -214,9 +213,13 @@ pub fn generate_mermaid(
         }
 
         if has_stuff {
-            out.push_str(format!("subgraph {}Storage\n", slot.0).as_str());
+            if options.group_floating_storage {
+                out.push_str(format!("subgraph {}Storage\n", slot.0).as_str());
+            }
             out.push_str(&slot_out);
-            out.push_str("end\n")
+            if options.group_floating_storage {
+                out.push_str("end\n")
+            }
         }
     }
 

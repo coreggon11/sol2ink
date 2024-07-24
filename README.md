@@ -40,6 +40,12 @@ You can omit drawing of storage reads by specifying `omit_read_storage`
 cargo run path_to_dir omit_read_storage
 ```
 
+Floating storage (storage accessed by library functions, slots, etc.) is not grouped. You can group it by the specific structs containing these variables with `group_floating_storage` option
+
+```bash
+cargo run path_to_dir group_floating_storage
+```
+
 You can use any of the options combined (although using `omit` and `contracts` together will not have a meaningful effect, you will simply omit everything except the ones you explictly mentioned to chart:P )
 
 ## Limitations

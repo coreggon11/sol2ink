@@ -18,6 +18,7 @@ pub enum SwitchFlag {
     SpecifyContract,
     OmitContract,
     OmitReadStorage,
+    GroupFloatingStorage,
 }
 
 /// Sol2Ink - tool to convert Solidity smart contracts to Ink! smart contracts

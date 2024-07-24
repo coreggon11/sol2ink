@@ -15,6 +15,7 @@ use parser::Parser;
 use structures::{
     Call,
     CallType,
+    PoseidonOptions,
 };
 
 use crate::{
@@ -47,12 +48,14 @@ fn main() {
     let mut omitted = Vec::default();
     let mut current_flag = SwitchFlag::None;
     let mut omit_read_storage = false;
+    let mut group_floating_storage = false;
 
     for input in inputs.clone() {
         match input {
             CliInput::SwitchFlag(switch_flag) => {
                 match switch_flag {
                     SwitchFlag::OmitReadStorage => omit_read_storage = true,
+                    SwitchFlag::GroupFloatingStorage => group_floating_storage = true,
                     _ => current_flag = switch_flag,
                 }
             }
@@ -67,15 +70,17 @@ fn main() {
         }
     }
 
+    let options = PoseidonOptions {
+        contracts: filtered,
+        omitted,
+        omit_read_storage,
+        group_floating_storage,
+    };
+
     for input in inputs {
         match input {
             CliInput::SolidityFile(file) => {
-                match run(
-                    &[file.clone()],
-                    &filtered.clone(),
-                    &omitted.clone(),
-                    omit_read_storage,
-                ) {
+                match run(&[file.clone()], &options) {
                     Ok(_) => {
                         println!("Successfully parsed {file}");
                     }
@@ -89,12 +94,7 @@ fn main() {
                 let paths = get_solidity_files_from_directory(&dir)
                     .unwrap_or_else(|err| panic!("error: {err:?}"));
 
-                match run(
-                    &paths,
-                    &filtered.clone(),
-                    &omitted.clone(),
-                    omit_read_storage,
-                ) {
+                match run(&paths, &options) {
                     Ok(_) => {}
                     Err(err) => {
                         eprintln!("error: {err:?}");
@@ -111,12 +111,7 @@ fn main() {
 ///
 /// `home` the home directory of a single file, or the directory we are parsing
 /// `path` the paths to the files we want to parse
-fn run(
-    path: &[String],
-    contracts: &[String],
-    omitted: &[String],
-    omit_read_storage: bool,
-) -> Result<(), ParserError> {
+fn run(path: &[String], options: &PoseidonOptions) -> Result<(), ParserError> {
     initialize_parser!(parser);
 
     for file in path {
@@ -286,8 +281,9 @@ fn run(
 
                 new_contract.functions = new_functions;
 
-                if !omitted.contains(&new_contract.name)
-                    && (contracts.is_empty() || contracts.contains(&new_contract.name))
+                if !options.omitted.contains(&new_contract.name)
+                    && (options.contracts.is_empty()
+                        || options.contracts.contains(&new_contract.name))
                 {
                     processed_vec.push(new_contract.clone());
                 }
@@ -470,7 +466,7 @@ fn run(
 
     // now we pass processed vec to assembler
 
-    let output = poseidon::generate_mermaid(&processed_vec, &slots_map, omit_read_storage);
+    let output = poseidon::generate_mermaid(&processed_vec, &slots_map, options);
     file_utils::write_mermaid(&output)?;
 
     Ok(())

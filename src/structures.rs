@@ -69,6 +69,14 @@ pub enum Call {
     Library(String, String),        // Library, function
 }
 
+#[derive(Clone, Default, Debug)]
+pub struct PoseidonOptions {
+    pub contracts: Vec<String>,
+    pub omitted: Vec<String>,
+    pub omit_read_storage: bool,
+    pub group_floating_storage: bool,
+}
+
 impl Call {
     #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
