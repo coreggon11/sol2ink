@@ -45,6 +45,7 @@ You can use any of the options combined (although using `omit` and `contracts` t
 ## Limitations
 
 - Multifile support and inheritance pattern support like Diamond is the Holy Grail of S2M. It works kinda nice, but stuff can still be optimized
+- Libraries are currently handled in a way that only cares about storage access, meaning if a function calls a library function, it won't be charted, unless the library function takes a storage paramater which the function later reads from/writes to. This would be charted as access to the storage param rather than a library function access.
 - Interfaces and Libraries are currently not fully supported.
 - Inheritance not fully supported
 
